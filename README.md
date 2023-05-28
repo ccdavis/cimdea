@@ -5,12 +5,12 @@ The library will support high-level  tabulation interfaces to IPUMS-like data an
 
 ## CIMDEA = Convenient IPUMS-like Microdata Extraction and Aggregation
 
-The main idea here is not to make a general data processing tool but instead take advantage of all the conventions in IPUMS datasets. These are demographic data at the individual level from surveys or censuses. 
+The main idea here is not to make a general data processing tool but instead take advantage of all the conventions in IPUMS datasets. These are demographic data at the individual level from surveys or censuses. By assuming IPUMS conventions and a bit of (optional) configuration we could provide a powerful, high-level, easy to use set of features.
 
 The tabulation interface should take a variables list, datasets list and some filtering criteria. The data extraction interface should take a similar input but deliver records rather than summaries. The processing interface should provide a hierarchical representation of individual level data in a way that's easy to work with programmatically.
 
 Possible uses: 
-*Create a high-speed tabulation tool on the command line or an API to serve up tabulations to a front-end user facing application.
+* Create a high-speed tabulation tool on the command line or an API to serve up tabulations to a front-end user facing application.
 *  Use the processing interface to make a rich, responsive  data browser and search tool.
 
 
@@ -22,6 +22,7 @@ Possible uses:
 * Support CSV
 * Multithreading support: In many cases processing IPUMS data is embarrassingly parallel so some effort should be given to threading in the library design. If it's hard, don't bother. Data Fusion is designed ground-up with concurrency in mind and Polars and DuckDB take advantage of multiple cores in places.
 
+Experimenting with data libraries: DuckDB can interoperate with Polars: You can make a Polars data frame from an Arrow data frame returned by a DuckDB query; and you can query a Polars data frame with DuckDB SQL. Also, Polars has a (maybe nascent ) SQL module. Data Fusion has good SQL support and a data frame interface as well. So there are going to be quite a few combinations to try, balancing performance and flexibility.
 
 ### IPUMS Conventions assumed by Cimdea
 
