@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 duckdb="*"
 datafusion="*"
-polars="*"
+polars="0.30"
+sql-builder="3.1"
+
