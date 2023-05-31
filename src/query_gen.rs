@@ -1,4 +1,4 @@
-use polars::prelude::DataFrameJoinOps;
+
 use sql_builder::{SqlBuilder, prelude::Bind};
 
 // Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
@@ -47,17 +47,15 @@ impl Condition {
 
     }
 
-
 }
 
 
-    
 
 pub fn frequency(table_name: &str, variable_name: &str, weight: Option<String>, divisor: Option<usize>) -> String {
     // frequency field will differ if we are weighting and if there's a divisor
     let freq_field: String = if let Some(w) = weight {
         if let Some(d) = divisor {
-            format!("sum({} / {})", &w, d)
+            format!("sum({} / :divisor:)", &w)
         } else {
             format!("sum({} )", &w)
         }
@@ -65,20 +63,61 @@ pub fn frequency(table_name: &str, variable_name: &str, weight: Option<String>, 
         "count(*)".to_string()
     } + " as frequency";
 
-    SqlBuilder::select_from(table_name)
-        .field(":var")
-        .field(":freq")
-        .group_by(":var")
-    .sql().unwrap()
-        .bind_name(&"var", &variable_name)
-        .bind_name(&"freq", &freq_field)
+    let sql = SqlBuilder::select_from(table_name)
+        .field(variable_name)
+        .field(freq_field)        
+        .group_by(variable_name)        
+    .sql().unwrap();
+    if let Some(d) = divisor {
+        sql.bind_name(&"divisor", &d)
+    } else {
+        sql
+    }
 }
 
 // A generalization of frequency()
-pub fn cross_tab(tables: &[&str], vars: &[&str], weight: Option<String>, divisor: Option<usize>) -> String {
-    "Not implemented".to_string()
+// tables: List of table name and alias, like ('us2015b_usa.H.parquet', h_recs), ('us2015b_usa.P.parquet', p_recs)]
+//  join_keys: Pairs of keys to use in a join either in where clause like "where h_recs.SERIAL = p_recs.SERIALP "
+pub fn cross_tab(tables: &[(&str,&str)], join_keys: &[(&str, &str)], vars: &[&str], weight: Option<String>, divisor: Option<usize>) -> String {
+    let freq_field: String = if let Some(w) = weight {
+        if let Some(d) = divisor {
+            format!("sum({} / :divisor:)", &w)
+        } else {
+            format!("sum({} )", &w)
+        }
+    } else {
+        "count(*)".to_string()
+    } + " as frequency";
+
+    "Not implemented".to_string()    
 }
 
 pub fn cross_tab_subpopulation(tables: &[&str], vars: &[&str], weight: Option<String>, divisor: Option<usize>, subpop: &[Condition]) -> String {
     "Not implemented".to_string()
+}
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_frequency_duckdb_parquet() {
+
+        // Determination of specific table names based on dataset happens outside the query generation
+
+        // These are in single quotes to match what Duck DB expects for parquet files
+        let us2015b_people = "'us2015b_usa.P.parquet'";
+        let us2015b_households = "'us2015b_usa.H.parquet'";
+
+        let q = frequency(us2015b_people, "AGE", None, None);
+        assert!(q.len() > 1);
+
+        let expected = "SELECT AGE, count(*) as frequency FROM 'us2015b_usa.P.parquet' GROUP BY AGE;";
+        assert_eq!(expected, q);
+
+        let hh_q = frequency(us2015b_households, "VEHICLES", Some("HHWT".to_string()), Some(100));
+        //assert_eq!("",hh_q);
+        
+
+
+
+    }
 }
