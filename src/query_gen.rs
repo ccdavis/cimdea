@@ -1,5 +1,6 @@
 
 use sql_builder::{SqlBuilder, prelude::Bind};
+use crate::ipums_metadata_model::IpumsDataType;
 
 // Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
 // TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
@@ -19,13 +20,6 @@ pub enum CompareOperation {
     In,
 }
 
-
-pub enum IpumsDataType {
-    Integer,
-    Float,
-    String,
-    Fixed(usize)
-}
 
 pub struct Condition {
     pub var: String,    
