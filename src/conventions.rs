@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ipums_data_model::*;
+
 use crate::ipums_metadata_model::*;
 
 // Key characteristics of collections like all USA Census data, all Time-Use Survey data etc.
@@ -11,7 +12,7 @@ pub struct MicroDataCollection {
 
     // Optional
     // The HashMap is for lookup by name, the values are indices into
-    // the _index vecs. Thos can be accessed directly with the 
+    // the _index vecs. Thos can be accessed directly with the
     // assigned ID of the variable or datasets.
     pub datasets: Option<HashMap<String, usize>>,
     pub variables: Option<HashMap<String, usize>>,
@@ -21,7 +22,4 @@ pub struct MicroDataCollection {
 
 use lazy_static::*;
 
-lazy_static! {
-
-}
-
+lazy_static! {}
