@@ -22,16 +22,6 @@ pub struct IpumsVariable {
     id: IpumsVariableId, // auto-assigned in load order
 }
 
-// There is a master Vec with Variables by IpumsVariableId this structure points into.
-pub struct VariablesForDataset {
-    ipums_variables_by_dataset_id: Vec<HashSet<IpumsVariableId>>,
-}
-
-// There's a master Vec of datasets this structures points into:
-pub struct DatasetsForVariable {
-    ipums_datasets_by_variable_id: Vec<HashSet<IpumsDatasetId>>,
-}
-
 pub enum IpumsDataType {
     Integer,
     Float,
