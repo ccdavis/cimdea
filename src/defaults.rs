@@ -2,6 +2,12 @@ use crate::conventions::*;
 use crate::ipums_data_model::*;
 use std::collections::HashMap;
 
+/// The Household - Person record structure is the default for much IPUMS data. Here we have some
+///  functions to support setting up such a structure without needing any external configuration.
+///  
+///  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
+///
+
 fn household() -> RecordType {
     RecordType {
         name: "Household".to_string(),
@@ -48,25 +54,30 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
         metadata: None,
     }
 }
-
-mod default_usa {
+/// There are default configurations for USA, IPUMSI and CPS currently.
+/// Get them like
+/// ```
+/// let current_settings = default_usa::settings();
+/// ```
+///
+pub mod default_usa {
     use super::*;
 
-    fn settings() -> MicroDataCollection {
+    pub fn settings() -> MicroDataCollection {
         default_settings_named("USA")
     }
 }
 
-mod default_cps {
+pub mod default_cps {
     use super::*;
-    fn settings() -> MicroDataCollection {
+    pub fn settings() -> MicroDataCollection {
         default_settings_named("CPS")
     }
 }
 
-mod default_ipumsi {
+pub mod default_ipumsi {
     use super::*;
-    fn settings() -> MicroDataCollection {
+    pub fn settings() -> MicroDataCollection {
         default_settings_named("IPUMSI")
     }
 }

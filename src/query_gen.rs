@@ -1,12 +1,15 @@
 use crate::ipums_metadata_model::IpumsDataType;
 use sql_builder::{prelude::Bind, SqlBuilder};
+// This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
+/// Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
+/// TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
+/// file, or if the parquet is multiple files it would look like ` table_name/*.parquet' `. /
+///
+/// The IPUMS conventions have been applied earlier; the table / filenames have been checked and determined and
+/// weight variables have been checked. We're assuming inputs here are valid.
 
-// Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
-// TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
-// file, or if the parquet is multiple files it would look like ` table_name/*.parquet' `. /
-//
-// The IPUMS conventions have been applied earlier; the table / filenames have been checked and determined and
-// weight variables have been checked. We're assuming inputs here are valid.
+/// The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
+/// SQL.
 
 // TODO not yet dealing with escaping string values
 pub enum CompareOperation {
@@ -97,6 +100,7 @@ pub fn cross_tab(
     "Not implemented".to_string()
 }
 
+// In theory this version can also generate the two simpler versions. I'm building up to it.
 pub fn cross_tab_subpopulation(
     tables: &[&str],
     vars: &[&str],
