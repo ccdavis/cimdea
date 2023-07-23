@@ -1,6 +1,6 @@
-use crate::ipums_metadata_model::IpumsDataType;
+use crate::ipums_metadata_model::{self, IpumsDataType};
 use sql_builder::{prelude::Bind, SqlBuilder};
-// This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
+/// This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
 /// Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
 /// TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
 /// file, or if the parquet is multiple files it would look like ` table_name/*.parquet' `. /
@@ -23,15 +23,14 @@ pub enum CompareOperation {
 }
 
 pub struct Condition {
-    pub var: String,
-    pub data_type: IpumsDataType,
+    pub var: ipums_metadata_model::IpumsVariable,
     pub comparison: CompareOperation,
     pub compare_to: Vec<String>, // one or more values depending on context
 }
 
 impl Condition {
     pub fn new(
-        var: &str,
+        var: &ipums_metadata_model::IpumsVariable,
         data_type: IpumsDataType,
         comparison: CompareOperation,
         compare_to: Vec<String>,
@@ -39,8 +38,7 @@ impl Condition {
         // TODO check with data type and compare_to for a  valid representation (parse  into i32 for example)
         // If values are string type add appropriate escaping and quotes (possibly)
         Self {
-            var: var.to_string(),
-            data_type,
+            var: var.clone(),
             comparison,
             compare_to,
         }

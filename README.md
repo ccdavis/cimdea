@@ -1,5 +1,5 @@
 # cimdea
-Rust Crate for working with IPUMS-like microdata both for aggregation and processing.
+Rust Crate for working with IPUMS-like microdata both for aggregation, extraction and processing.
 
 The library will support high-level  tabulation interfaces to IPUMS-like data and data processing and extraction.  The project is just beginning.
 
@@ -7,10 +7,13 @@ The library will support high-level  tabulation interfaces to IPUMS-like data an
 
 The main idea here is not to make a general data processing tool but instead take advantage of all the conventions in IPUMS datasets. These are demographic data at the individual level from surveys or censuses. By assuming IPUMS conventions and a bit of (optional) configuration we could provide a powerful, high-level, easy to use set of features.
 
+Metadata in varying amounts accompanies IPUMS datasets. A minimal metadata level ought to provide enough information to power most features in this library. With more metadata (from the IPUMS API or internal databases) the library should produce the same data outputs but more richly documented.
+
 The tabulation interface should take a variables list, datasets list and some filtering criteria. The data extraction interface should take a similar input but deliver records rather than summaries. The processing interface should provide a hierarchical representation of individual level data in a way that's easy to work with programmatically.
 
 Possible uses: 
 * Create a high-speed tabulation tool on the command line or an API to serve up tabulations to a front-end user facing application.
+* Build a fast, low-resource extract engine and server for user driven or automated IPUMS data testing 
 *  Use the processing interface to make a rich, responsive  data browser and search tool.
 
 

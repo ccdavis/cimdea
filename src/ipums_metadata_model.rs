@@ -6,7 +6,7 @@ use std::collections::HashSet;
 /// of info from the full IPUMS metadata; and (2) do not contain all metadata models -- only those essential for understanding
 /// the data files on a technical level. For instance there are no enumeration text or citations metadata modeled here.
 ///
-/// In addation, these models are intended to support working with data in a "low", "medium" or full metadata environment, hence
+/// In addition, these models are intended to support working with data in a "low", "medium" or full metadata environment, hence
 /// the numerous fields of Option type. Essential operations must mostly be possible with None values of these fields.
 ///
 /// ## Low metadata environment
@@ -58,6 +58,7 @@ pub struct IpumsDataset {
 }
 
 pub type IpumsVariableId = usize;
+#[derive(Clone, Debug)]
 pub struct IpumsVariable {
     pub name: String,
     pub data_type: IpumsDataType,
@@ -67,7 +68,7 @@ pub struct IpumsVariable {
     pub formatting: Option<(usize, usize)>,
     id: IpumsVariableId, // auto-assigned in load order
 }
-
+#[derive(Clone, Debug)]
 pub enum IpumsDataType {
     Integer,
     Float,
@@ -75,7 +76,7 @@ pub enum IpumsDataType {
     Fixed(usize),
 }
 
-// The Float is a chunk of 8-bit ASCII because it needs to represent a literal
+// The Float is a String because it needs to represent a literal
 //representation of a float that could be 64, 80 or 128 bits. We aren't expecting
 // to do math with it but we do need to precisely preserve the original format.
 // The String type is a u8 Vec, not UTF-8 because some old data files use
@@ -85,20 +86,22 @@ pub enum IpumsDataType {
 #[derive(Clone, Debug, PartialEq)]
 pub enum IpumsValue {
     Integer(i64),
-    Float(ascii::AsciiString),
+    Float(String),
     String { utf8: bool, value: Vec<u8> },
     Fixed { point: usize, base: usize },
 }
-
+#[derive(Clone, Debug)]
 pub enum UniversalCategoryType {
     NotInUniverse,
     Missing,
     NotApplicable,
     TopCode,
     BottomCode,
+    Value,
 }
 
 type IpumsCategoryId = usize;
+#[derive(Clone, Debug)]
 pub struct IpumsCategory {
     pub label: String,
     pub meaning: UniversalCategoryType,
