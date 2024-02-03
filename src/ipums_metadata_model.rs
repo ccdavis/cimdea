@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
+use bstr::*;
 
 /// The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
 ///  of their relationships to one another and their description of the data. However they don't include (1) all fields / pieces
