@@ -13,6 +13,18 @@ pub trait DataRequest {
     fn print_stata(&self) -> String;
 }
 
+
+
+pub enum RequestType {
+    Tabulation,
+    Extract,    
+}
+
+pub enum OutputFormat {
+    CSV,
+    FW,
+}
+
 /// In a ComplexRequest, Variables could have attached variables or monetary standardization adjustment factors,
 /// datasets could have sub-sample sizes or other attrributes. Here with a SimpleRequest we're requesting either a tabulation from
 /// the given sources or an extract of data of same.
@@ -29,13 +41,22 @@ pub struct SimpleRequest {
     pub output_format: OutputFormat,
     pub conditions: Option<Vec<Condition>>,
 }
+// The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
+impl SimpleRequest {
+    pub fn from_names(product: &str, datasets: &Vec<String>,variables: &Vec<String>)-> Self {
+        // Need the product to retrieve default settings and possibly load metadata
+        
+        
+        // Get variables from metadata
 
-pub enum RequestType {
-    Tabulation,
-    Extract,    
-}
+        // get datasets from metadata
+        Self {
+            datasets: Vec::new(),
+            variables: Vec::new(),
+            request_type: RequestType::Tabulation,
+            output_format: OutputFormat::CSV,
+            conditions: None,
+        }
+    }
 
-pub enum OutputFormat {
-    CSV,
-    FW,
 }

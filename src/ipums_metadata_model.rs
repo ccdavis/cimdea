@@ -1,6 +1,6 @@
+use bstr::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use bstr::*;
 
 /// The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
 ///  of their relationships to one another and their description of the data. However they don't include (1) all fields / pieces
@@ -28,10 +28,12 @@ use bstr::*;
 ///
 /// This is achieved either by some access to a metadata database, or extended metadata stored in the Parquet key-value metadata.
 ///
-/// Metadata can come from a database  for which the schema is known (there is a "raw export" schema, and a fully normalized and cleaned schema that drives the IPUMS websites at IPUMS.)
+/// Metadata can come from a database  for which the schema is known (there is a "raw export" schema, and a fully normalized and
+/// cleaned schema that drives the IPUMS websites at IPUMS.) Or metadata in the future may come from Parquet
+/// key-value file metadata.
 ///
 /// The extended key-value metadata is under development currently. At the least, there will be variable labels (short descriptions),
-/// metadata version and data versions (for archival / reproducability purposes). It's also possible variable category (value)
+/// metadata version and data versions (for archival / reproducibility purposes). It's also possible variable category (value)
 /// labels may be included. These would be used with the understanding that they represent the labels at the time of data creation
 /// and can't reflect the latest public revisions to IPUMS metadata. Additionally, relationships to "flag" (data quality) variables,
 /// extended weight variables may be included as well. While the metadata may not be suitable for a live documentation or extraction

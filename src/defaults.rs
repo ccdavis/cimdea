@@ -1,6 +1,7 @@
 use crate::conventions::*;
 use crate::ipums_data_model::*;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 /// The Household - Person record structure is the default for much IPUMS data. Here we have some
 ///  functions to support setting up such a structure without needing any external configuration.
@@ -54,11 +55,23 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
         metadata: None,
     }
 }
+
+pub fn defaults_for(product: &str) -> MicroDataCollection {
+    match product.to_lowercase().as_ref() {
+        "usa" => default_usa::settings(),
+        "cps" => default_cps::settings(),
+        "ipumsi" => default_ipumsi::settings(),
+        _ => panic!("Product not supported"),
+    }
+}
+
 /// There are default configurations for USA, IPUMSI and CPS currently.
 /// Get them like
 /// ```
 /// let current_settings = default_usa::settings();
 /// ```
+///
+///
 ///
 pub mod default_usa {
     use super::*;
@@ -81,7 +94,3 @@ pub mod default_ipumsi {
         default_settings_named("IPUMSI")
     }
 }
-
-use lazy_static::*;
-
-lazy_static! {}
