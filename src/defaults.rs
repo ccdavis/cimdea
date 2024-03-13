@@ -1,7 +1,6 @@
 use crate::conventions::*;
 use crate::ipums_data_model::*;
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 /// The Household - Person record structure is the default for much IPUMS data. Here we have some
 ///  functions to support setting up such a structure without needing any external configuration.
@@ -56,41 +55,24 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
     }
 }
 
-pub fn defaults_for(product: &str) -> MicroDataCollection {
-    match product.to_lowercase().as_ref() {
-        "usa" => default_usa::settings(),
-        "cps" => default_cps::settings(),
-        "ipumsi" => default_ipumsi::settings(),
-        _ => panic!("Product not supported"),
-    }
-}
-
 /// There are default configurations for USA, IPUMSI and CPS currently.
 /// Get them like
 /// ```
-/// let current_settings = default_usa::settings();
+/// use cimdea::defaults::defaults_for;
+/// let current_settings = defaults_for("usa");
 /// ```
 ///
 ///
 ///
-pub mod default_usa {
-    use super::*;
 
-    pub fn settings() -> MicroDataCollection {
-        default_settings_named("USA")
-    }
-}
-
-pub mod default_cps {
-    use super::*;
-    pub fn settings() -> MicroDataCollection {
-        default_settings_named("CPS")
-    }
-}
-
-pub mod default_ipumsi {
-    use super::*;
-    pub fn settings() -> MicroDataCollection {
-        default_settings_named("IPUMSI")
+pub fn defaults_for(product: &str) -> MicroDataCollection {
+    // Right now we only set defaults but in future this should set some additional
+    // properties particular to products or stuff loaded in from
+    // an external configuration.
+    match product.to_lowercase().as_ref() {
+        "usa" => default_settings_named("USA"),
+        "cps" => default_settings_named("cps"),
+        "ipumsi" => default_settings_named("ipumsi"),
+        _ => panic!("Product not supported"),
     }
 }

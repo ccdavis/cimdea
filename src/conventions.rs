@@ -1,4 +1,3 @@
-use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
 use std::collections::HashMap;
@@ -115,26 +114,41 @@ impl Context {
                 "{}/output_data/current",
                 product_root.to_str().unwrap()
             ))),
-            settings: defaults::defaults_for(name),
+            settings: crate::defaults::defaults_for(name),
             allow_full_metadata,
         }
     }
 
     /*
-    // Give the path like '/pkg/ipums/usa'
-    pub fn default_from_product_root(product_path: &str) -> Self {
+     // Give the path like '/pkg/ipums/usa'
+     pub fn default_from_product_root(product_path: &str) -> Self {
 
-    }
+     }
 
-    pub fn from_name_and_data_root(name: &str, data_root: &str) -> Self {
-    }
+     pub fn from_name_and_data_root(name: &str, data_root: &str) -> Self {
+     }
 
-    // If the context has the project root in addition to the data root it can
-    // attempt to access the metadata DB. Using full metadata requires the
-    // Some(product_root).
-    fn use_full_metadata(&mut self, setting: bool){
-        self.allow_full_metadata = setting;
-    }
+     // If the context has the project root in addition to the data root it can
+     // attempt to access the metadata DB. Using full metadata requires the
+     // Some(product_root).
+     fn use_full_metadata(&mut self, setting: bool){
+         self.allow_full_metadata = setting;
+     }
 
     */
+}
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_context() {
+        let mut usa_ctx = Context::default_from_name("usa");
+        assert!(
+            usa_ctx.allow_full_metadata,
+            "Default allow_full_metadata should be false"
+        );
+        assert!(usa_ctx.product_root.is_some());
+        assert!(usa_ctx.data_root.is_some());
+        assert_eq!("USA".to_string(), usa_ctx.settings.name);
+    }
 }

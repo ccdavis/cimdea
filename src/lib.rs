@@ -1,5 +1,5 @@
-mod conventions;
-mod defaults;
-mod ipums_data_model;
-mod ipums_metadata_model;
-mod query_gen;
+pub mod conventions;
+pub mod defaults;
+pub mod ipums_data_model;
+pub mod ipums_metadata_model;
+pub mod query_gen;
