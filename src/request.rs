@@ -1,5 +1,5 @@
 use crate::query_gen::Condition;
-use crate::ipums_metadata_models::*;
+use crate::ipums_metadata_model::*;
 
 
 

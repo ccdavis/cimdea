@@ -1,52 +1,55 @@
+//! The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
+//!  of their relationships to one another and their description of the data. However they don't include (1) all fields / pieces
+//! of info from the full IPUMS metadata; and (2) do not contain all metadata models -- only those essential for understanding
+//! the data files on a technical level. For instance there are no enumeration text or citations metadata modeled here.
+//!
+//! In addition, these models are intended to support working with data in a "low", "medium" or full metadata environment, hence
+//! the numerous fields of Option type. Essential operations must mostly be possible with None values of these fields.
+//!
+//! ## Low metadata environment
+//!
+//! We must have a path to an IPUMS data file. The file is conventionally named i.e. `us2019a_usa.data.gz`
+//! or `parquet/us2019a/*.parquet`. IPUMS data is stored in multiple parquet datasets, one per record type within a directory
+//! named after the IPUMS dataset. The project can be known from context or from the individual parquet files with the`_usa`
+//! (for instance) part of the name. For fixed-width compressed data all record types are in a single file; the dataset name is
+//! the first part of the file name and the project once again is from context or the `_usa`-like part of the name.
+//! Variable names and which variables belong to which dataset are either determined by the parquet schema or the fixed-width
+//! layout file which is always in a `layouts/` subdirectory under the directory with the fixed-width data. Layout files look
+//! like `layouts/us2019a.layout.txt`.
+//!  */
+//! This is enough information to know the data types of IPUMS variables, and what variables belong to what dataset and what
+//! their record types are.
+//!
+//! ## Medium Metadata
+//!
+//! This is achieved either by some access to a metadata database, or extended metadata stored in the Parquet key-value metadata.
+//!
+//! Metadata can come from a database  for which the schema is known (there is a "raw export" schema, and a fully normalized and
+//! cleaned schema that drives the IPUMS websites at IPUMS.) Or metadata in the future may come from Parquet
+//! key-value file metadata.
+//!
+//! The extended key-value metadata is under development currently. At the least, there will be variable labels (short descriptions),
+//! metadata version and data versions (for archival / reproducibility purposes). It's also possible variable category (value)
+//! labels may be included. These would be used with the understanding that they represent the labels at the time of data creation
+//! and can't reflect the latest public revisions to IPUMS metadata. Additionally, relationships to "flag" (data quality) variables,
+//! extended weight variables may be included as well. While the metadata may not be suitable for a live documentation or extraction
+//! service they can be extremely useful for building simplified tools that require this core metadata.
+//!
+//! ## Full Metadata
+//!
+//! Full metadata requires access to the IPUMS metadata and some modeling of all the entities. Full access would allow populating
+//! every field in these models and would allow mmodeling much more than this module currently does. Full metadata won't be required
+//! for any main operations in this library but would enable access to the most up-to-date versions of documentation-like
+//! information such as variable and value labels.
+//!
+//!
+
+
+
 use bstr::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-/// The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
-///  of their relationships to one another and their description of the data. However they don't include (1) all fields / pieces
-/// of info from the full IPUMS metadata; and (2) do not contain all metadata models -- only those essential for understanding
-/// the data files on a technical level. For instance there are no enumeration text or citations metadata modeled here.
-///
-/// In addition, these models are intended to support working with data in a "low", "medium" or full metadata environment, hence
-/// the numerous fields of Option type. Essential operations must mostly be possible with None values of these fields.
-///
-/// ## Low metadata environment
-///
-/// We must have a path to an IPUMS data file. The file is conventionally named i.e. `us2019a_usa.data.gz`
-/// or `parquet/us2019a/*.parquet`. IPUMS data is stored in multiple parquet datasets, one per record type within a directory
-/// named after the IPUMS dataset. The project can be known from context or from the individual parquet files with the`_usa`
-/// (for instance) part of the name. For fixed-width compressed data all record types are in a single file; the dataset name is
-/// the first part of the file name and the project once again is from context or the `_usa`-like part of the name.
-/// Variable names and which variables belong to which dataset are either determined by the parquet schema or the fixed-width
-/// layout file which is always in a `layouts/` subdirectory under the directory with the fixed-width data. Layout files look
-/// like `layouts/us2019a.layout.txt`.
-///  */
-/// This is enough information to know the data types of IPUMS variables, and what variables belong to what dataset and what
-/// their record types are.
-///
-/// ## Medium Metadata
-///
-/// This is achieved either by some access to a metadata database, or extended metadata stored in the Parquet key-value metadata.
-///
-/// Metadata can come from a database  for which the schema is known (there is a "raw export" schema, and a fully normalized and
-/// cleaned schema that drives the IPUMS websites at IPUMS.) Or metadata in the future may come from Parquet
-/// key-value file metadata.
-///
-/// The extended key-value metadata is under development currently. At the least, there will be variable labels (short descriptions),
-/// metadata version and data versions (for archival / reproducibility purposes). It's also possible variable category (value)
-/// labels may be included. These would be used with the understanding that they represent the labels at the time of data creation
-/// and can't reflect the latest public revisions to IPUMS metadata. Additionally, relationships to "flag" (data quality) variables,
-/// extended weight variables may be included as well. While the metadata may not be suitable for a live documentation or extraction
-/// service they can be extremely useful for building simplified tools that require this core metadata.
-///
-/// ## Full Metadata
-///
-/// Full metadata requires access to the IPUMS metadata and some modeling of all the entities. Full access would allow populating
-/// every field in these models and would allow mmodeling much more than this module currently does. Full metadata won't be required
-/// for any main operations in this library but would enable access to the most up-to-date versions of documentation-like
-/// information such as variable and value labels.
-///
-///
 
 pub type IpumsDatasetId = usize;
 pub struct IpumsDataset {
