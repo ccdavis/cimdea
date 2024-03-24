@@ -1,5 +1,3 @@
-use crate::ipums_metadata_model::{self, IpumsDataType};
-use sql_builder::{prelude::Bind, SqlBuilder};
 /// This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
 /// Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
 /// TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
@@ -10,6 +8,68 @@ use sql_builder::{prelude::Bind, SqlBuilder};
 
 /// The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 /// SQL.
+use crate::ipums_metadata_model::{self, IpumsDataType};
+use sql_builder::{prelude::Bind, SqlBuilder};
+use std::path::Path;
+use std::path::PathBuf;
+
+#[derive(Debug, Clone)]
+pub enum DataSource {
+    Parquet { name: String, full_path: PathBuf },
+    NativeTable { name: String },
+    Csv { name: String, full_path: PathBuf },
+}
+
+pub enum DataPlatform {
+    Duckdb,
+    DataFusion,
+}
+
+impl DataSource {
+    pub fn new(name: String, full_path: Option<PathBuf>) -> Self {
+        if let Some(p) = full_path {
+            if p.ends_with(".parquet") {
+                Self::Parquet { name, full_path: p }
+            } else if p.ends_with(".csv") {
+                Self::Csv { name, full_path: p }
+            } else {
+                panic!(
+                    "Can't construct DataSource '{}' from {}",
+                    &name,
+                    &p.display()
+                );
+            }
+        } else {
+            Self::NativeTable { name }
+        }
+    }
+
+    // The table in the 'from' clause needs to be represented differently
+    // depending on the platform and if it's an external table or part
+    // of a database.
+    pub fn for_platform(&self, platform: DataPlatform) -> String {
+        match platform {
+            DataPlatform::Duckdb => match self {
+                Self::Parquet { name, full_path } => {
+                    // Check if full path points to a directory
+
+                    format!("'{}'", &full_path.display())
+                }
+                Self::Csv { name, full_path } => format!("'{}'", &full_path.display()),
+                Self::NativeTable { name } => name.to_owned(),
+            },
+            // DataFusion expects the data tables to have been registered already
+            // using the full path.
+            DataPlatform::DataFusion => match self {
+                Self::Parquet { name, .. } => name.to_owned(),
+                Self::Csv { name, .. } => name.to_owned(),
+                Self::NativeTable { name } => {
+                    panic!("No native table type for '{}' in DataFusion.", &name)
+                }
+            },
+        }
+    }
+}
 
 // TODO not yet dealing with escaping string values
 pub enum CompareOperation {

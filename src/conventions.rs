@@ -1,6 +1,6 @@
+use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
-use crate::defaults;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -14,7 +14,6 @@ pub struct MicroDataCollection {
 }
 
 impl MicroDataCollection {
-
     /// Read one fixed-width layout file. These files contain some variable level metadata for
     /// every record type in the data product.
     fn load_metadata_from_layout(&mut self, layout_file: &Path) {}
@@ -31,12 +30,11 @@ impl MicroDataCollection {
     /// as reading the fixed-width layout file for the same dataset.
     fn load_metadata_from_parquet(&mut self, parquet_dataset_path: &Path) {}
 
-
     /// Using the data_root, scan the layouts and load metadata from them.
     pub fn load_metadata_for_datasets(&mut self, datasets: &Vec<String>) {}
 
     /// Uses default product_root to find metadata database and load all metadata for given datasets.
-    pub fn load_full_metadata_for_datasets(&mut self, datasets: &Vec<String>){}
+    pub fn load_full_metadata_for_datasets(&mut self, datasets: &Vec<String>) {}
 
     /// Takes a path like ../output_data/current/parquet/, which could be derived
     /// automatically from defaults based on data root or product root. Scans all
@@ -95,9 +93,7 @@ pub struct VariablesForDataset {
     ipums_variables_by_dataset_id: Vec<HashSet<IpumsVariableId>>,
 }
 
-
 impl VariablesForDataset {
-
     pub fn new() -> Self {
         Self {
             ipums_variables_by_dataset_id: Vec::new(),
@@ -105,7 +101,7 @@ impl VariablesForDataset {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self.ipums_variables_by_dataset_id.len() -1 < dataset_id {
+        if self.ipums_variables_by_dataset_id.len() - 1 < dataset_id {
             self.ipums_variables_by_dataset_id.push(HashSet::new());
         }
         self.ipums_variables_by_dataset_id[dataset_id].insert(variable_id);
@@ -129,20 +125,18 @@ impl DatasetsForVariable {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self.ipums_datasets_by_variable_id.len() -1 < variable_id {
+        if self.ipums_datasets_by_variable_id.len() - 1 < variable_id {
             self.ipums_datasets_by_variable_id.push(HashSet::new());
         }
         self.ipums_datasets_by_variable_id[dataset_id].insert(dataset_id);
     }
-
 
     pub fn for_variable(&self, var_id: IpumsVariableId) -> Option<&HashSet<IpumsDatasetId>> {
         self.ipums_datasets_by_variable_id.get(var_id)
     }
 }
 
-impl MetadataEntities{
-
+impl MetadataEntities {
     fn connect_names(&mut self, dataset_name: &str, variable_name: &str) {
         let dataset_id = self.datasets_by_name.get(dataset_name);
         let variable_id = self.variables_by_name.get(variable_name);
@@ -154,9 +148,9 @@ impl MetadataEntities{
             panic!("Internal method connect() should never be called with non-existent metadata names.");
         }
 
-        if let (Some(did), Some(vid)) =  (dataset_id, variable_id) {
-            self.connect(*did, *vid);    
-        };    
+        if let (Some(did), Some(vid)) = (dataset_id, variable_id) {
+            self.connect(*did, *vid);
+        };
     }
 
     fn connect(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
@@ -167,8 +161,10 @@ impl MetadataEntities{
         if dataset_id - 1 > self.datasets_index.len() {
             panic!("Datasets index has no dataset with ID.");
         }
-        self.available_variables.add_or_update(dataset_id, variable_id);
-        self.available_datasets.add_or_update(dataset_id, variable_id);
+        self.available_variables
+            .add_or_update(dataset_id, variable_id);
+        self.available_datasets
+            .add_or_update(dataset_id, variable_id);
     }
 
     pub fn add_dataset_variable(&mut self, dataset: IpumsDataset, variable: IpumsVariable) {
@@ -180,8 +176,8 @@ impl MetadataEntities{
         } else {
             self.datasets_index.push(dataset);
             let new_id: IpumsDatasetId = self.datasets_index.len();
-             self.datasets_by_name.insert(dataset_name.clone(), new_id);
-             new_id
+            self.datasets_by_name.insert(dataset_name.clone(), new_id);
+            new_id
         };
 
         let variable_id: IpumsVariableId = if self.variables_by_name.contains_key(variable_name) {
@@ -189,20 +185,18 @@ impl MetadataEntities{
         } else {
             self.variables_index.push(variable);
             let new_id: IpumsVariableId = self.variables_index.len();
-             self.variables_by_name.insert(variable_name.clone(), new_id);
-             new_id
+            self.variables_by_name.insert(variable_name.clone(), new_id);
+            new_id
         };
         self.connect(dataset_id, variable_id);
-        
     }
-
 }
 /// This is the mutable state  created and passed around holding the loaded metadata if any
 /// and the rest of the information needed to add paths to the data tables used in queries
 /// and data file paths, and where the metadata can be found.
 pub struct Context {
-	/// A product name like USA, IPUMSI, CPS etc
-    pub name: String, 
+    /// A product name like USA, IPUMSI, CPS etc
+    pub name: String,
     // A path name
     // Like /pkg/ipums/usa with ./metadata and ./output_data in it
     pub product_root: Option<PathBuf>,

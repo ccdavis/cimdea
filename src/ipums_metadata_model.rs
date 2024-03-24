@@ -44,12 +44,9 @@
 //!
 //!
 
-
-
 use bstr::*;
 use std::collections::HashMap;
 use std::collections::HashSet;
-
 
 pub type IpumsDatasetId = usize;
 pub struct IpumsDataset {
