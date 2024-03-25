@@ -1,6 +1,9 @@
 use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
+use crate::layout;
+use crate::request::InputType;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -21,9 +24,7 @@ impl MicroDataCollection {
     /// Read all layout files for the data root like `../output_data/current/layouts`
     /// The existence of a layout file implies existence of a dataset. The presence of
     /// a variable in a dataset's layout indicates availability in that dataset.
-    fn load_metadata_from_all_layouts(&mut self, layouts_dir: &Path) {
-        ()
-    }
+    fn load_metadata_from_all_layouts(&mut self, layouts_dir: &Path) {}
 
     /// The path like `../output_data/current/parquet/us2019a/`
     /// Reading the schema will give approximately the same metadata information
@@ -31,10 +32,27 @@ impl MicroDataCollection {
     fn load_metadata_from_parquet(&mut self, parquet_dataset_path: &Path) {}
 
     /// Using the data_root, scan the layouts and load metadata from them.
-    pub fn load_metadata_for_datasets(&mut self, datasets: &Vec<String>) {}
+    pub fn load_metadata_for_selected_datasets_from_layouts(
+        &mut self,
+        datasets: &[String],
+        data_root: &Path,
+    ) {
+        let mut md = MetadataEntities::new();
+        for (index, ds) in datasets.iter().enumerate() {
+            let ipums_dataset = IpumsDataset::from((ds.to_string(), index));
+            let layouts_path = data_root.to_path_buf().join("layouts");
+            let layout =
+                layout::DatasetLayout::from_layout_file(&layouts_path.join(format!("{}.txt", ds)));
+            for (index, var) in layout.all_variables().iter().enumerate() {
+                let ipums_var = IpumsVariable::from((var, index));
+                md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
+            }
+        }
+        self.metadata = Some(md);
+    }
 
     /// Uses default product_root to find metadata database and load all metadata for given datasets.
-    pub fn load_full_metadata_for_datasets(&mut self, datasets: &Vec<String>) {}
+    pub fn load_full_metadata_for_datasets(&mut self, datasets: &[String]) {}
 
     /// Takes a path like ../output_data/current/parquet/, which could be derived
     /// automatically from defaults based on data root or product root. Scans all
@@ -47,8 +65,8 @@ impl MicroDataCollection {
     /// a Some(metadata_location).
     pub fn load_full_metadata_for_selections(
         &mut self,
-        variables: &Vec<String>,
-        datasets: &Vec<String>,
+        variables: &[String],
+        datasets: &[String],
         metadata_location: Option<PathBuf>,
     ) {
     }
@@ -204,22 +222,99 @@ pub struct Context {
     pub data_root: Option<PathBuf>,
     pub settings: MicroDataCollection,
     pub allow_full_metadata: bool,
+    pub enable_full_metadata: bool,
 }
 
 impl Context {
+    /// Formats the exact paths needed to get data for this dataset, by record type.
+    pub fn path_from_dataset_name(
+        &self,
+        dataset_name: &str,
+        data_format: InputType,
+    ) -> HashMap<String, PathBuf> {
+        let base_filename = format!("{}_{}", dataset_name, &self.name);
+        let extension = match data_format {
+            InputType::Csv => ".csv",
+            InputType::Parquet => ".parquet",
+            InputType::Fw => ".dat.gz",
+        };
+
+        // TODO return errors properly
+        let data_path = if let Some(ref data_root) = self.data_root {
+            PathBuf::from(data_root)
+        } else {
+            panic!("No data root set.");
+        };
+
+        let mut all_paths = HashMap::new();
+        match data_format {
+            InputType::Csv | InputType::Parquet => {
+                for rt in self.settings.record_types.keys() {
+                    let full_filename = format!("{}.{}.{}", base_filename, rt, extension);
+                    let full_path = data_path.join(full_filename);
+                    all_paths.insert(rt.to_string(), full_path);
+                }
+            }
+            _ => {
+                let full_filename = format!("{}.{}", base_filename, extension);
+                let full_path = data_path.join(full_filename);
+                all_paths.insert("".to_string(), full_path);
+            }
+        }
+        all_paths
+    }
+
+    // The context should be already set to read from layouts or full metadata
+    pub fn load_metadata_for_datasets(&mut self, datasets: &Vec<String>) {
+        if !self.enable_full_metadata {
+            if let Some(ref data_root) = self.data_root {
+                self.settings
+                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root);
+            } else {
+                panic!("Cannot load any metadata without a data_root or full metadata available ad the product_root.");
+            }
+        } else {
+            panic!("Loading metadata from database not implemented.");
+        }
+    }
+
+    // The context should be set to read from layouts or full metadata
+    pub fn load_metadata_for_datasets_and_variables(
+        &mut self,
+        datasets: Vec<String>,
+        variables: Vec<String>,
+    ) {
+        if !self.enable_full_metadata {
+        } else {
+        }
+    }
+
     /// Based on name, use default data root and product root and initialize with defaults
-    pub fn default_from_name(name: &str) -> Self {
-        let product_root: PathBuf = PathBuf::from(format!("/pkg/ipums/{}", &name));
+    pub fn default_from_name(
+        name: &str,
+        other_product_root: Option<String>,
+        other_data_root: Option<String>,
+    ) -> Self {
+        let product_root = if let Some(prod_root) = other_product_root {
+            PathBuf::from(prod_root)
+        } else {
+            PathBuf::from(format!("/pkg/ipums/{}", &name))
+        };
         let allow_full_metadata = product_root.exists();
+        let data_root = if let Some(dat_root) = other_data_root {
+            PathBuf::from(dat_root)
+        } else {
+            PathBuf::from(format!("/pkg/ipums/{}", &name))
+                .join("output_data")
+                .join("current")
+        };
         Self {
             name: name.to_string(),
-            product_root: Some(product_root.clone()),
-            data_root: Some(PathBuf::from(format!(
-                "{}/output_data/current",
-                product_root.to_str().unwrap()
-            ))),
+            product_root: Some(product_root),
+            data_root: Some(data_root),
             settings: defaults::defaults_for(name),
             allow_full_metadata,
+            enable_full_metadata: false,
         }
     }
 
@@ -249,7 +344,7 @@ mod test {
 
     #[test]
     pub fn test_context() {
-        let mut usa_ctx = Context::default_from_name("usa");
+        let mut usa_ctx = Context::default_from_name("usa", None, None);
         assert!(
             usa_ctx.allow_full_metadata,
             "Default allow_full_metadata should be false"

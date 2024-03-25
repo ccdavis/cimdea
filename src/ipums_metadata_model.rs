@@ -43,12 +43,14 @@
 //! information such as variable and value labels.
 //!
 //!
-
+use crate::layout::LayoutVar;
 use bstr::*;
+use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub type IpumsDatasetId = usize;
+#[derive(Clone, Debug)]
 pub struct IpumsDataset {
     pub name: String,
     pub year: Option<usize>,
@@ -60,23 +62,64 @@ pub struct IpumsDataset {
     id: IpumsDatasetId, // auto-assigned in order loaded
 }
 
+impl From<(String, usize)> for IpumsDataset {
+    fn from(value: (String, usize)) -> Self {
+        Self {
+            name: value.0,
+            id: value.1,
+            year: None,
+            month: None,
+            label: None,
+            sample: None,
+        }
+    }
+}
+
 pub type IpumsVariableId = usize;
 #[derive(Clone, Debug)]
 pub struct IpumsVariable {
     pub name: String,
-    pub data_type: IpumsDataType,
+    pub data_type: Option<IpumsDataType>,
     pub label: Option<String>,
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
     id: IpumsVariableId, // auto-assigned in load order
 }
+
+impl From<(&LayoutVar, usize)> for IpumsVariable {
+    fn from(value: (&LayoutVar, usize)) -> Self {
+        Self {
+            name: value.0.name.clone(),
+            record_type: value.0.rectype.clone(),
+            id: value.1,
+            data_type: Some(value.0.data_type.clone()),
+            label: None,
+            categories: None,
+            formatting: Some((value.0.start, value.0.width)),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum IpumsDataType {
     Integer,
     Float,
     String,
     Fixed(usize),
+}
+
+impl From<&str> for IpumsDataType {
+    fn from(value: &str) -> Self {
+        match value.to_ascii_lowercase().as_str() {
+            "fixed" => Self::Fixed(0),
+            "string" => Self::String,
+            "double" => Self::Float,
+            "float" => Self::Float,
+            "integer" => Self::Integer,
+            _ => Self::Integer,
+        }
+    }
 }
 
 // The Float is a String because it needs to represent a literal
