@@ -1,7 +1,9 @@
 # cimdea
 Rust Crate for working with IPUMS-like microdata both for aggregation, extraction and processing.
 
-The library will support high-level  tabulation interfaces to IPUMS-like data and data processing and extraction.  The project is just beginning.
+The library will support high-level  tabulation interfaces to IPUMS-like data and data processing and extraction.  The project is just beginning. See the [docs](/doc/cimdea/index.html)
+
+
 
 ## CIMDEA = Convenient IPUMS-like Microdata Extraction and Aggregation
 

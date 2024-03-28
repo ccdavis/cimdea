@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InputType","OutputFormat","RequestType"],"struct":["SimpleRequest"],"trait":["DataRequest"]};

@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"cimdea":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.76.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"enum\" href=\"cimdea/ipums_metadata_model/enum.IpumsValue.html\" title=\"enum cimdea::ipums_metadata_model::IpumsValue\">IpumsValue</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

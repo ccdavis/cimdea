@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CompareOperation","DataPlatform","DataSource"],"fn":["cross_tab","cross_tab_subpopulation","frequency"],"struct":["Condition"]};
