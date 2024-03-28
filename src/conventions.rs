@@ -1,3 +1,30 @@
+//! This module provides structs and methods for loading metadata and storing information about a IPUMS data
+//! collection based on conventions and minimal configuration. Every collection has a set of data record types
+//! and a hierarchy those records belong to: For instance, person records belong to household records.
+//!
+//! The `MicroDataCollection` struct initialization  makes heavy use of IPUMS directory and naming conventions.
+//! This includes loading IPUMS metadata for the collection.
+//!
+//! The `Context` struct is the entry point for setting up a MicroDataCollection object. It will figure out a "data root"
+//! or use one provided to it to locate available data and metadata and load it if requested.
+//!
+//! Other operations in this library will require a context object to find data and use metadata.
+//!
+//! Metadata for IPUMS data follows naming and organizational conventions. Following these
+//! allows us to skip a lot of repetitive configuration. IPUMS data resides under "data root" directories in a "current"
+//! directory (compressed fixed-width data) and under "current" in a "parquet" directory for the
+//! Parquet version of the same data. A "layouts" directory under "current" contains two "layout" files per dataset: One
+//! describing the input layout and labels for those inputs, and one describing the IPUMS version of the data with variable
+//! names, record types, data types and designated width in printable characters for the variables. This layout information
+//! can serve as basic metadata for other uses besides parsing the fixed-width data. Currently the Parquet data doesn't have
+//! variable level metadata on its columns, so we rely on the layout metadata. Eventually we plan to put variable metadata like
+//! formatting directives, codes and labels in the Parquet.
+//!
+//! See the `.layout.txt` files in the test directory.
+//!
+//!
+//!
+
 use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
@@ -34,7 +61,7 @@ impl MicroDataCollection {
     /// Using the data_root, scan the layouts and load metadata from them.
     pub fn load_metadata_for_selected_datasets_from_layouts(
         &mut self,
-        datasets: &[String],
+        datasets: &[&str],
         data_root: &Path,
     ) {
         let mut md = MetadataEntities::new();
@@ -264,8 +291,8 @@ impl Context {
         all_paths
     }
 
-    // The context should be already set to read from layouts or full metadata
-    pub fn load_metadata_for_datasets(&mut self, datasets: &Vec<String>) {
+    /// When called, the context should be already set to read from layouts or full metadata
+    pub fn load_metadata_for_datasets(&mut self, datasets: &[&str]) {
         if !self.enable_full_metadata {
             if let Some(ref data_root) = self.data_root {
                 self.settings
@@ -278,7 +305,7 @@ impl Context {
         }
     }
 
-    // The context should be set to read from layouts or full metadata
+    /// The context should be set to read from layouts or full metadata
     pub fn load_metadata_for_datasets_and_variables(
         &mut self,
         datasets: Vec<String>,
@@ -290,7 +317,8 @@ impl Context {
     }
 
     /// Based on name, use default data root and product root and initialize with defaults
-    pub fn default_from_name(
+    /// Optional data root and product root will be used if provided.
+    pub fn from_ipums_collection_name(
         name: &str,
         other_product_root: Option<String>,
         other_data_root: Option<String>,
@@ -344,7 +372,7 @@ mod test {
 
     #[test]
     pub fn test_context() {
-        let mut usa_ctx = Context::default_from_name("usa", None, None);
+        let mut usa_ctx = Context::from_ipums_collection_name("usa", None, None);
         assert!(
             usa_ctx.allow_full_metadata,
             "Default allow_full_metadata should be false"

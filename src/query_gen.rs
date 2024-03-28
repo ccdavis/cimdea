@@ -72,6 +72,7 @@ impl DataSource {
 }
 
 // TODO not yet dealing with escaping string values
+#[derive(Clone, Debug)]
 pub enum CompareOperation {
     Equal,
     Less,
@@ -81,7 +82,7 @@ pub enum CompareOperation {
     Between,
     In,
 }
-
+#[derive(Clone, Debug)]
 pub struct Condition {
     pub var: ipums_metadata_model::IpumsVariable,
     pub comparison: CompareOperation,
