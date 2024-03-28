@@ -130,16 +130,34 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::query_gen::Condition;
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Requests describe requested IPUMS data either as an extract -- multiple records -- or an aggregation of
+//! data  from those records. We use names of IPUMS "variables" and "datasets" in the requests along with other details.
+//!
+//! The code associated with the Request structs will produce queries but not include code to perform the
+//! extracts. This work will be handled by "Extract" or "Tabulate" modules which will be responsible for reading
+//! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
+//! the request object to get handed off to "Extract" or "Tabulate" code.
+//! "
+
+</span><span class="kw">use </span><span class="kw">crate</span>::query_gen::Condition;
 <span class="kw">use crate</span>::{
     conventions,
     ipums_metadata_model::{IpumsDataset, IpumsVariable},
 };
 
-<span class="doccomment">/// Every data request should be  serialize and deserialize and produce SQL
+<span class="doccomment">/// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 </span><span class="kw">pub trait </span>DataRequest {
-    <span class="doccomment">/// A SQL query if this is an extraction request
+    <span class="doccomment">/// An SQL query if this is an extraction request
     </span><span class="kw">fn </span>extract_query(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
     <span class="doccomment">///  An SQL query to summarize the described data.
     </span><span class="kw">fn </span>aggregate_query(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;

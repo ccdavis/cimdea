@@ -1,13 +1,22 @@
+//! Requests describe requested IPUMS data either as an extract -- multiple records -- or an aggregation of
+//! data  from those records. We use names of IPUMS "variables" and "datasets" in the requests along with other details.
+//!
+//! The code associated with the Request structs will produce queries but not include code to perform the
+//! extracts. This work will be handled by "Extract" or "Tabulate" modules which will be responsible for reading
+//! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
+//! the request object to get handed off to "Extract" or "Tabulate" code.
+//! "
+
 use crate::query_gen::Condition;
 use crate::{
     conventions,
     ipums_metadata_model::{IpumsDataset, IpumsVariable},
 };
 
-/// Every data request should be  serialize and deserialize and produce SQL
+/// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
-    /// A SQL query if this is an extraction request
+    /// An SQL query if this is an extraction request
     fn extract_query(&self) -> String;
     ///  An SQL query to summarize the described data.
     fn aggregate_query(&self) -> String;
