@@ -65,13 +65,14 @@ impl MicroDataCollection {
         data_root: &Path,
     ) {
         let mut md = MetadataEntities::new();
-        for (index, ds) in datasets.iter().enumerate() {
-            let ipums_dataset = IpumsDataset::from((ds.to_string(), index));
+        for (index_ds, ds) in datasets.iter().enumerate() {
+            let ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
             let layouts_path = data_root.to_path_buf().join("layouts");
-            let layout =
-                layout::DatasetLayout::from_layout_file(&layouts_path.join(format!("{}.txt", ds)));
-            for (index, var) in layout.all_variables().iter().enumerate() {
-                let ipums_var = IpumsVariable::from((var, index));
+            let layout = layout::DatasetLayout::from_layout_file(
+                &layouts_path.join(format!("{}.layout.txt", ds)),
+            );
+            for (index_v, var) in layout.all_variables().iter().enumerate() {
+                let ipums_var = IpumsVariable::from((var, index_v));
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
             }
         }
@@ -121,6 +122,32 @@ pub struct MetadataEntities {
 }
 
 impl MetadataEntities {
+    fn next_dataset_id(&self) -> IpumsDatasetId {
+        self.datasets_index.len()
+    }
+
+    fn next_variable_id(&self) -> IpumsVariableId {
+        self.variables_index.len()
+    }
+
+    pub fn create_variable(&mut self, var: IpumsVariable) -> IpumsVariableId {
+        let id = self.next_variable_id();
+        let mut new_var = var;
+        new_var.id = id;
+        self.variables_by_name.insert(new_var.name.clone(), id);
+        self.variables_index.push(new_var);
+        id
+    }
+
+    pub fn create_dataset(&mut self, ds: IpumsDataset) -> IpumsDatasetId {
+        let id = self.next_dataset_id();
+        let mut new_ds = ds;
+        new_ds.id = id;
+        self.datasets_by_name.insert(new_ds.name.clone(), id);
+        self.datasets_index.push(new_ds);
+        id
+    }
+
     pub fn new() -> Self {
         Self {
             variables_by_name: HashMap::new(),
@@ -146,7 +173,7 @@ impl VariablesForDataset {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self.ipums_variables_by_dataset_id.len() - 1 < dataset_id {
+        if self.ipums_variables_by_dataset_id.get(dataset_id).is_none() {
             self.ipums_variables_by_dataset_id.push(HashSet::new());
         }
         self.ipums_variables_by_dataset_id[dataset_id].insert(variable_id);
@@ -157,7 +184,7 @@ impl VariablesForDataset {
     }
 }
 
-//// There's a master Vec of datasets this structures points into:
+//// There's a master Vec of datasets this structure points into:
 pub struct DatasetsForVariable {
     ipums_datasets_by_variable_id: Vec<HashSet<IpumsDatasetId>>,
 }
@@ -170,10 +197,15 @@ impl DatasetsForVariable {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self.ipums_datasets_by_variable_id.len() - 1 < variable_id {
+        if self
+            .ipums_datasets_by_variable_id
+            .get(variable_id)
+            .is_none()
+        {
             self.ipums_datasets_by_variable_id.push(HashSet::new());
         }
-        self.ipums_datasets_by_variable_id[dataset_id].insert(dataset_id);
+
+        self.ipums_datasets_by_variable_id[variable_id].insert(dataset_id);
     }
 
     pub fn for_variable(&self, var_id: IpumsVariableId) -> Option<&HashSet<IpumsDatasetId>> {
@@ -199,13 +231,6 @@ impl MetadataEntities {
     }
 
     fn connect(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if variable_id - 1 > self.variables_index.len() {
-            panic!("Variable index has no such index.");
-        }
-
-        if dataset_id - 1 > self.datasets_index.len() {
-            panic!("Datasets index has no dataset with ID.");
-        }
         self.available_variables
             .add_or_update(dataset_id, variable_id);
         self.available_datasets
@@ -219,19 +244,13 @@ impl MetadataEntities {
         let dataset_id: IpumsDatasetId = if self.datasets_by_name.contains_key(dataset_name) {
             *self.datasets_by_name.get(dataset_name).unwrap()
         } else {
-            self.datasets_index.push(dataset);
-            let new_id: IpumsDatasetId = self.datasets_index.len();
-            self.datasets_by_name.insert(dataset_name.clone(), new_id);
-            new_id
+            self.create_dataset(dataset)
         };
 
         let variable_id: IpumsVariableId = if self.variables_by_name.contains_key(variable_name) {
             *self.variables_by_name.get(variable_name).unwrap()
         } else {
-            self.variables_index.push(variable);
-            let new_id: IpumsVariableId = self.variables_index.len();
-            self.variables_by_name.insert(variable_name.clone(), new_id);
-            new_id
+            self.create_variable(variable)
         };
         self.connect(dataset_id, variable_id);
     }
@@ -372,7 +391,9 @@ mod test {
 
     #[test]
     pub fn test_context() {
-        let mut usa_ctx = Context::from_ipums_collection_name("usa", None, None);
+        // Look in test directory
+        let data_root = Some(String::from("test/data_root"));
+        let mut usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
         assert!(
             usa_ctx.allow_full_metadata,
             "Default allow_full_metadata should be false"

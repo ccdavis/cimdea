@@ -59,7 +59,7 @@ pub struct IpumsDataset {
     pub sample: Option<f64>,
     /// The 'id' fields in the models are generated when metadata structs get instantiated in order. They are
     /// used for indexing into the metadata storage.
-    id: IpumsDatasetId, // auto-assigned in order loaded
+    pub id: IpumsDatasetId, // auto-assigned in order loaded
 }
 
 impl From<(String, usize)> for IpumsDataset {
@@ -84,7 +84,7 @@ pub struct IpumsVariable {
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
-    id: IpumsVariableId, // auto-assigned in load order
+    pub id: IpumsVariableId, // auto-assigned in load order
 }
 
 impl From<(&LayoutVar, usize)> for IpumsVariable {
