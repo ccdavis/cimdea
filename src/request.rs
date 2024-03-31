@@ -18,16 +18,29 @@ use crate::{
 pub trait DataRequest {
     /// An SQL query if this is an extraction request
     fn extract_query(&self) -> String;
+
     ///  An SQL query to summarize the described data.
     fn aggregate_query(&self) -> String;
+
     /// To the Tractor / generic IPUMS representation
     fn serialize_to_IPUMS_JSON(&self) -> String;
+
     /// Convert from the Tractor / generic JSON representation.
-    fn deserialize_from_ipums_json(json_request: &str) -> Self;
-    // Build another request type from a basic set of variable and dataset names.
-    fn from_names(variable_names: &[&str], dataset_names: &[&str]);
-    // Print a human readable codebook
+    //    fn deserialize_from_ipums_json(json_request: &str) -> Self;
+
+    /// Build request from a basic set of variable and dataset names and data locations.
+    fn from_names(
+        product_name: &str,
+        requested_variables: &[&str],
+        requested_datasets: &[&str],
+        optional_product_root: Option<String>,
+        optional_data_root: Option<String>,
+    ) -> Self;
+
+    /// Print a human readable codebook
     fn print_codebook(&self) -> String;
+
+    /// Print a machine readable Stata codebook
     fn print_stata(&self) -> String;
 }
 
@@ -73,12 +86,14 @@ pub struct SimpleRequest {
 }
 
 // The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
-impl SimpleRequest {
+
+impl DataRequest for SimpleRequest {
     // A simple builder if we don't have serialized JSON, for tests and CLI use cases.
-    pub fn from_names_no_context(
+    fn from_names(
         product: &str,
-        requested_datasets: &[&str],
         requested_variables: &[&str],
+        requested_datasets: &[&str],
+        optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> Self {
         let mut ctx =
@@ -123,6 +138,30 @@ impl SimpleRequest {
             conditions: None,
         }
     }
+
+    fn aggregate_query(&self) -> String {
+        "".to_string()
+    }
+
+    fn extract_query(&self) -> String {
+        "".to_string()
+    }
+    /*
+        fn deserialize_from_ipums_json(json_request: &str) -> Self {
+
+        }
+    */
+    fn serialize_to_IPUMS_JSON(&self) -> String {
+        "".to_string()
+    }
+
+    fn print_stata(&self) -> String {
+        "".to_string()
+    }
+
+    fn print_codebook(&self) -> String {
+        "".to_string()
+    }
 }
 
 mod test {
@@ -130,10 +169,11 @@ mod test {
     #[test]
     pub fn test_from_names() {
         let data_root = String::from("test/data_root");
-        let rq = SimpleRequest::from_names_no_context(
+        let rq = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
+            None,
             Some(data_root),
         );
 
