@@ -6,12 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-duckdb="*"
-datafusion="*"
-polars="*"
+duckdb = { version = "0.10.1", features = ["bundled"]}
+parquet = "51.0.0"
 sql-builder="3.1"
 csv = "1.1"
-lazy_static="*"
 extended = "*"
 ascii = "*"
 bstr = "1.7.0"
