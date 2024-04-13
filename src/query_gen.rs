@@ -196,6 +196,5 @@ mod test {
             Some(100),
         );
         assert_eq!(hh_expected, hh_q);
-        
     }
 }

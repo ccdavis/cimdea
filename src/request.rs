@@ -92,7 +92,7 @@ impl DataRequest for SimpleRequest {
     fn from_names(
         product: &str,
         requested_datasets: &[&str],
-        requested_variables: &[&str],        
+        requested_variables: &[&str],
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> Self {
