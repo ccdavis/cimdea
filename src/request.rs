@@ -91,8 +91,8 @@ impl DataRequest for SimpleRequest {
     // A simple builder if we don't have serialized JSON, for tests and CLI use cases.
     fn from_names(
         product: &str,
-        requested_variables: &[&str],
         requested_datasets: &[&str],
+        requested_variables: &[&str],        
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> Self {

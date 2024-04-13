@@ -187,12 +187,15 @@ mod test {
             "SELECT AGE, count(*) as frequency FROM 'us2015b_usa.P.parquet' GROUP BY AGE;";
         assert_eq!(expected, q);
 
+        let hh_expected = "SELECT VEHICLES, sum(HHWT / 100) as frequency FROM 'us2015b_usa.H.parquet' GROUP BY VEHICLES;";
+
         let hh_q = frequency(
             us2015b_households,
             "VEHICLES",
             Some("HHWT".to_string()),
             Some(100),
         );
-        //assert_eq!("",hh_q);
+        assert_eq!(hh_expected, hh_q);
+        
     }
 }
