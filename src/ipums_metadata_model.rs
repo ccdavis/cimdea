@@ -49,6 +49,11 @@ use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use compressed_string::ComprString;
+use interner::global::{GlobalPool, GlobalString};
+
+static STRINGS: GlobalPool<String> = GlobalPool::new();
+
 pub type IpumsDatasetId = usize;
 #[derive(Clone, Debug)]
 pub struct IpumsDataset {
@@ -84,6 +89,7 @@ pub struct IpumsVariable {
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
+    pub description: Option<ComprString>,
     pub id: IpumsVariableId, // auto-assigned in load order
 }
 
@@ -97,6 +103,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             label: None,
             categories: None,
             formatting: Some((value.0.start, value.0.width)),
+            description: None,
         }
     }
 }
@@ -147,10 +154,64 @@ pub enum UniversalCategoryType {
 }
 
 type IpumsCategoryId = usize;
+
 #[derive(Clone, Debug)]
 pub struct IpumsCategory {
-    pub label: String,
+    label_intern: GlobalString,
     pub meaning: UniversalCategoryType,
     pub value: IpumsValue,
     id: IpumsCategoryId,
+}
+
+impl IpumsCategory {
+    pub fn label(&self) -> &str {
+        self.label_intern.as_ref()
+    }
+
+    pub fn new(label: &str, meaning: UniversalCategoryType, value: IpumsValue) -> Self {
+        let symbol: GlobalString = STRINGS.get(label);
+        Self {
+            label_intern: symbol,
+            meaning,
+            value,
+            id: 0,
+        }
+    }
+}
+
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_category_labels() {
+        let cat1 = IpumsCategory::new(
+            "first",
+            UniversalCategoryType::Value,
+            IpumsValue::Integer(1),
+        );
+
+        assert_eq!(
+            cat1.label(),
+            "first",
+            "label() method should return a &str with the label."
+        );
+        let cat2 = IpumsCategory::new(
+            "second",
+            UniversalCategoryType::Value,
+            IpumsValue::Integer(1),
+        );
+
+        let label1 = cat1.label();
+        let label2 = cat2.label();
+        assert_ne!(label1, label2);
+
+        let cat3 = IpumsCategory::new(
+            "second",
+            UniversalCategoryType::Value,
+            IpumsValue::Integer(1),
+        );
+
+        assert_eq!(cat2.label(), cat3.label());
+        assert_eq!("second", cat3.label());
+    }
 }

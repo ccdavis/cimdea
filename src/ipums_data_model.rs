@@ -5,7 +5,7 @@ use std::collections::HashSet;
 /// It will be a collection of record types and each record type has
 /// some information about it and its relationships to the other record types.
 /// Every collection has a single hierarchy of record types.
-
+#[derive(Clone, Debug)]
 pub struct RecordType {
     pub name: String,                        // Person, Household, Activity, etc
     pub value: String,                       // like 'H', 'P', 'A' etc
@@ -14,6 +14,7 @@ pub struct RecordType {
     pub weight: Option<RecordWeight>,
 }
 
+#[derive(Clone, Debug)]
 pub struct RecordWeight {
     pub name: String,
     pub divisor: usize,
@@ -27,7 +28,7 @@ impl RecordWeight {
         }
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct RecordHierarchyMember {
     pub name: String,
     pub children: Option<HashSet<String>>,
@@ -42,7 +43,7 @@ impl RecordHierarchyMember {
         self.children.as_mut().unwrap().insert(rectype.to_string());
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct RecordHierarchy {
     root: String,
     levels: HashMap<String, RecordHierarchyMember>,

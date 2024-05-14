@@ -36,6 +36,8 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Key characteristics of collections like all USA Census data, all Time-Use Survey data etc.
+///
+#[derive(Clone, Debug)]
 pub struct MicroDataCollection {
     pub name: String, // Like USA, IPUMSI, ATUS
     pub record_hierarchy: RecordHierarchy,
@@ -107,6 +109,7 @@ impl MicroDataCollection {
     pub fn clear_metadata(&mut self) {}
 }
 
+#[derive(Clone, Debug)]
 pub struct MetadataEntities {
     //// Name -> Id
     pub datasets_by_name: HashMap<String, usize>,
@@ -128,6 +131,30 @@ impl MetadataEntities {
 
     fn next_variable_id(&self) -> IpumsVariableId {
         self.variables_index.len()
+    }
+
+    pub fn cloned_variable_from_id(&self, var_id: IpumsVariableId) -> IpumsVariable {
+        self.variables_index[var_id].clone()
+    }
+
+    pub fn cloned_variable_from_name(&self, name: &str) -> Option<IpumsVariable> {
+        if let Some(var_id) = self.variables_by_name.get(name) {
+            Some(self.cloned_variable_from_id(*var_id))
+        } else {
+            None
+        }
+    }
+
+    pub fn cloned_dataset_from_id(&self, ds_id: IpumsDatasetId) -> IpumsDataset {
+        self.datasets_index[ds_id].clone()
+    }
+
+    pub fn cloned_dataset_from_name(&self, name: &str) -> Option<IpumsDataset> {
+        if let Some(ds_id) = self.datasets_by_name.get(name) {
+            Some(self.cloned_dataset_from_id(*ds_id))
+        } else {
+            None
+        }
     }
 
     pub fn create_variable(&mut self, var: IpumsVariable) -> IpumsVariableId {
@@ -161,6 +188,7 @@ impl MetadataEntities {
 }
 
 /// There is a master Vec with Variables by IpumsVariableId this structure points into.
+#[derive(Clone, Debug)]
 pub struct VariablesForDataset {
     ipums_variables_by_dataset_id: Vec<HashSet<IpumsVariableId>>,
 }
@@ -185,6 +213,7 @@ impl VariablesForDataset {
 }
 
 //// There's a master Vec of datasets this structure points into:
+#[derive(Clone, Debug)]
 pub struct DatasetsForVariable {
     ipums_datasets_by_variable_id: Vec<HashSet<IpumsDatasetId>>,
 }
@@ -258,6 +287,8 @@ impl MetadataEntities {
 /// This is the mutable state  created and passed around holding the loaded metadata if any
 /// and the rest of the information needed to add paths to the data tables used in queries
 /// and data file paths, and where the metadata can be found.
+///
+#[derive(Clone, Debug)]
 pub struct Context {
     /// A product name like USA, IPUMSI, CPS etc
     pub name: String,

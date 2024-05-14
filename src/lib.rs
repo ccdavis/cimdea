@@ -5,3 +5,7 @@ pub mod ipums_metadata_model;
 pub mod layout;
 pub mod query_gen;
 pub mod request;
+
+use interner::global::{GlobalPool, GlobalString};
+
+static STRINGS: GlobalPool<String> = GlobalPool::new();

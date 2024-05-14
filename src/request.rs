@@ -7,6 +7,8 @@
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //! "
 
+use serde_json::Error;
+
 use crate::query_gen::Condition;
 use crate::{
     conventions,
@@ -26,13 +28,17 @@ pub trait DataRequest {
     fn serialize_to_IPUMS_JSON(&self) -> String;
 
     /// Convert from the Tractor / generic JSON representation.
-    //    fn deserialize_from_ipums_json(json_request: &str) -> Self;
+    fn deserialize_from_ipums_json(
+        ctx: &conventions::Context,
+        request_type: RequestType,
+        json_request: &str,
+    ) -> Result<impl Sized, String>;
 
     /// Build request from a basic set of variable and dataset names and data locations.
     fn from_names(
         product_name: &str,
-        requested_variables: &[&str],
         requested_datasets: &[&str],
+        requested_variables: &[&str],
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> Self;
@@ -146,11 +152,65 @@ impl DataRequest for SimpleRequest {
     fn extract_query(&self) -> String {
         "".to_string()
     }
-    /*
-        fn deserialize_from_ipums_json(json_request: &str) -> Self {
 
-        }
-    */
+    fn deserialize_from_ipums_json(
+        ctx: &conventions::Context,
+        request_type: RequestType,
+        json_request: &str,
+    ) -> Result<Self, String> {
+        let parsed: serde_json::Value =
+            serde_json::from_str(json_request).expect("Error parsing request json");
+
+        let product = parsed["product"];
+        let details = parsed["details"];
+
+        let request_samples = details["request_samples"];
+        let request_variables = details["request_variables"];
+        let output_format = details["output_format"];
+        let case_select_logic = details["case_select_logic"];
+        let variables = if let Some(md) = ctx.settings.metadata {
+            let mut checked_vars = Vec::new();
+            for v in request_variables.as_array() {
+                if let Some(ipums_var) = md.cloned_variable_from_name(v) {
+                    checked_vars.push(ipums_var);
+                } else {
+                    let msg = format!("No variable '{}' in metadata.", v);
+                    return Err(msg);
+                }
+            }
+            checked_vars
+        } else {
+            panic!("Metadata for context not yet set up.");
+        };
+
+        let datasets = if let Some(md) = ctx.settings.metadata {
+            let mut checked_samples = Vec::new();
+            for d in request_samples.as_array() {
+                if let Some(ipums_ds) = md.cloned_dataset_from_name(d) {
+                    checked_samples.push(ipums_ds);
+                } else {
+                    let msg = format!("No dataset '{}' in metadata.", d);
+                    return Err(msg);
+                }
+            }
+            checked_samples
+        } else {
+            panic!("Metadata for context not yet set up.");
+        };
+
+        let mut conditions = Vec::new();
+        let output_format = OutputFormat::CSV;
+
+        Ok(Self {
+            product: product.to_string(),
+            variables,
+            datasets,
+            request_type,
+            output_format,
+            conditions: None,
+        })
+    }
+
     fn serialize_to_IPUMS_JSON(&self) -> String {
         "".to_string()
     }
