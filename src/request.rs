@@ -7,7 +7,9 @@
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //! "
 
-use serde_json::Error;
+use serde::de::IntoDeserializer;
+use serde::Deserializer;
+use serde_json::{to_string, Error};
 
 use crate::query_gen::Condition;
 use crate::{
@@ -32,7 +34,9 @@ pub trait DataRequest {
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<impl Sized, String>;
+    ) -> Result<Self, String>
+    where
+        Self: std::marker::Sized;
 
     /// Build request from a basic set of variable and dataset names and data locations.
     fn from_names(
@@ -68,6 +72,11 @@ pub enum InputType {
     Fw,
     Parquet,
     Csv,
+}
+
+// The key point is you can take an impl of a DataRequest and do something with it.
+pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
+    Ok(())
 }
 
 /// The `SimpleRequest` probably can describe 90% of IPUMS tabulation and extraction requests.
@@ -152,29 +161,39 @@ impl DataRequest for SimpleRequest {
     fn extract_query(&self) -> String {
         "".to_string()
     }
-
+    #[allow(refining_impl_trait)]
     fn deserialize_from_ipums_json(
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
     ) -> Result<Self, String> {
-        let parsed: serde_json::Value =
-            serde_json::from_str(json_request).expect("Error parsing request json");
+        let parsed: serde_json::Value = match serde_json::from_str(json_request) {
+            Ok(parsed) => parsed,
+            Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
+        };
 
-        let product = parsed["product"];
-        let details = parsed["details"];
+        let product = parsed["product"].to_string();
+        let details = parsed["details"]
+            .as_object()
+            .expect("No 'details' in request.");
 
-        let request_samples = details["request_samples"];
-        let request_variables = details["request_variables"];
-        let output_format = details["output_format"];
-        let case_select_logic = details["case_select_logic"];
-        let variables = if let Some(md) = ctx.settings.metadata {
+        let request_samples = details["request_samples"]
+            .as_array()
+            .expect("Expected request_samples array.");
+        let request_variables = details["request_variables"]
+            .as_array()
+            .expect("Expected a request_variables array.");
+        let output_format = details["output_format"].to_string();
+
+        let case_select_logic = details["case_select_logic"].to_string();
+        let variables = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_vars = Vec::new();
-            for v in request_variables.as_array() {
-                if let Some(ipums_var) = md.cloned_variable_from_name(v) {
+            for v in request_variables.iter() {
+                let variable_mnemonic = v["variable_mnemonic"].to_string();
+                if let Some(ipums_var) = md.cloned_variable_from_name(&variable_mnemonic) {
                     checked_vars.push(ipums_var);
                 } else {
-                    let msg = format!("No variable '{}' in metadata.", v);
+                    let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
                     return Err(msg);
                 }
             }
@@ -183,13 +202,14 @@ impl DataRequest for SimpleRequest {
             panic!("Metadata for context not yet set up.");
         };
 
-        let datasets = if let Some(md) = ctx.settings.metadata {
+        let datasets = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_samples = Vec::new();
-            for d in request_samples.as_array() {
-                if let Some(ipums_ds) = md.cloned_dataset_from_name(d) {
+            for d in request_samples.iter() {
+                let ds_name = d["name"].to_string();
+                if let Some(ipums_ds) = md.cloned_dataset_from_name(&ds_name) {
                     checked_samples.push(ipums_ds);
                 } else {
-                    let msg = format!("No dataset '{}' in metadata.", d);
+                    let msg = format!("No dataset '{}' in metadata.", ds_name);
                     return Err(msg);
                 }
             }
@@ -198,7 +218,6 @@ impl DataRequest for SimpleRequest {
             panic!("Metadata for context not yet set up.");
         };
 
-        let mut conditions = Vec::new();
         let output_format = OutputFormat::CSV;
 
         Ok(Self {
@@ -225,7 +244,31 @@ impl DataRequest for SimpleRequest {
 }
 
 mod test {
+    use std::fs;
+
     use super::*;
+
+    #[test]
+    pub fn test_deserialize_request() {
+        let data_root = String::from("test/data_root");
+        let mut ctx =
+            conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
+        // Load the mentioned datasets and all their associated variables into metadata
+        ctx.load_metadata_for_datasets(&["us2016c", "us2014d"]);
+
+        let json_request = fs::read_to_string("test/requests/usa_extract.json")
+            .expect("Error reading test fixture in test/requests");
+        let simple_request =
+            SimpleRequest::deserialize_from_ipums_json(&ctx, RequestType::Extract, &json_request);
+        if let Err(ref e) = simple_request {
+            eprintln!("Parsing error in test: '{}'", e);
+        }
+        assert!(simple_request.is_ok());
+        if let Ok(rq) = simple_request {
+            assert_eq!(rq.product, "usa");
+        }
+    }
+
     #[test]
     pub fn test_from_names() {
         let data_root = String::from("test/data_root");
