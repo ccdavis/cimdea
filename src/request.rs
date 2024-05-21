@@ -5,7 +5,7 @@
 //! extracts. This work will be handled by "Extract" or "Tabulate" modules which will be responsible for reading
 //! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
 //! the request object to get handed off to "Extract" or "Tabulate" code.
-//! "
+//! 
 
 use serde::de::IntoDeserializer;
 use serde::Deserializer;
