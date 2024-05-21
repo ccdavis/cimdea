@@ -1,10 +1,13 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-
 //! Every dataset in a collection will have these same characteristics:
 //! It will be a collection of record types and each record type has
 //! some information about it and its relationships to the other record types.
 //! Every collection has a single hierarchy of record types.
+//! A record type on a particular data product may have a default weight variable -- or it may not.
+//! 
+use std::collections::HashMap;
+use std::collections::HashSet;
+
+
 #[derive(Clone, Debug)]
 pub struct RecordType {
     pub name: String,                        // Person, Household, Activity, etc

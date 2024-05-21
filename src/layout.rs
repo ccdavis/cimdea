@@ -1,11 +1,14 @@
+//! Supports reading the "layout" files from IPUMS microdata. These files describe fixed-width
+//! formatted IPUMS datasets. While they were developed to act as minimal record layouts for fixed-width
+//! they can be useful for getting basic metadata for the dataset.
+
+
 use crate::ipums_metadata_model::IpumsDataType;
 use std::collections::HashMap;
 use std::path::Path;
 use std::str;
 
-//! Supports reading the "layout" files from IPUMS microdata. These files describe fixed-width
-//! formatted IPUMS datasets. While they were developed to act as minimal record layouts for fixed-width
-//! they can be useful for getting basic metadata for the dataset.
+/// An entry (a single line) from a layout file. There's one line per variable (column.)
 #[derive(Clone, Debug)]
 pub struct LayoutVar {
     pub name: String,
