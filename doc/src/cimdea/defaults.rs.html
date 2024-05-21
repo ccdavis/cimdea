@@ -77,17 +77,24 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::conventions::<span class="kw-2">*</span>;
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! The Household - Person record structure is the default for much IPUMS data. Here we have some
+//!  functions to support setting up such a default structure without needing any external configuration.
+//!  
+//!  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
+//!
+
+
+
+</span><span class="kw">use </span><span class="kw">crate</span>::conventions::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::<span class="kw-2">*</span>;
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="doccomment">/// The Household - Person record structure is the default for much IPUMS data. Here we have some
-///  functions to support setting up such a structure without needing any external configuration.
-///  
-///  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
-///
 
-</span><span class="kw">fn </span>household() -&gt; RecordType {
+<span class="kw">fn </span>household() -&gt; RecordType {
     RecordType {
         name: <span class="string">"Household"</span>.to_string(),
         value: <span class="string">"H"</span>.to_string(),
@@ -144,11 +151,12 @@
 ///
 ///
 
+</span><span class="comment">// Right now we only set defaults programmatically but in future this should set some additional
+// properties particular to products or stuff loaded in from
+// an external configuration.
 </span><span class="kw">pub fn </span>defaults_for(product: <span class="kw-2">&amp;</span>str) -&gt; MicroDataCollection {
-    <span class="comment">// Right now we only set defaults but in future this should set some additional
-    // properties particular to products or stuff loaded in from
-    // an external configuration.
-    </span><span class="kw">match </span>product.to_lowercase().as_ref() {
+
+    <span class="kw">match </span>product.to_lowercase().as_ref() {
         <span class="string">"usa" </span>=&gt; default_settings_named(<span class="string">"USA"</span>),
         <span class="string">"cps" </span>=&gt; default_settings_named(<span class="string">"cps"</span>),
         <span class="string">"ipumsi" </span>=&gt; default_settings_named(<span class="string">"ipumsi"</span>),
