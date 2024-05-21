@@ -197,6 +197,8 @@
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
 /// Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
 /// TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
@@ -386,13 +388,15 @@
             <span class="string">"SELECT AGE, count(*) as frequency FROM 'us2015b_usa.P.parquet' GROUP BY AGE;"</span>;
         <span class="macro">assert_eq!</span>(expected, q);
 
+        <span class="kw">let </span>hh_expected = <span class="string">"SELECT VEHICLES, sum(HHWT / 100) as frequency FROM 'us2015b_usa.H.parquet' GROUP BY VEHICLES;"</span>;
+
         <span class="kw">let </span>hh_q = frequency(
             us2015b_households,
             <span class="string">"VEHICLES"</span>,
             <span class="prelude-val">Some</span>(<span class="string">"HHWT"</span>.to_string()),
             <span class="prelude-val">Some</span>(<span class="number">100</span>),
         );
-        <span class="comment">//assert_eq!("",hh_q);
-    </span>}
+        <span class="macro">assert_eq!</span>(hh_expected, hh_q);
+    }
 }
 </code></pre></div></section></main></body></html>

@@ -78,6 +78,7 @@
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::HashSet;
 
@@ -85,7 +86,7 @@
 /// It will be a collection of record types and each record type has
 /// some information about it and its relationships to the other record types.
 /// Every collection has a single hierarchy of record types.
-
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>RecordType {
     <span class="kw">pub </span>name: String,                        <span class="comment">// Person, Household, Activity, etc
     </span><span class="kw">pub </span>value: String,                       <span class="comment">// like 'H', 'P', 'A' etc
@@ -94,7 +95,8 @@
     </span><span class="kw">pub </span>weight: <span class="prelude-ty">Option</span>&lt;RecordWeight&gt;,
 }
 
-<span class="kw">pub struct </span>RecordWeight {
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>RecordWeight {
     <span class="kw">pub </span>name: String,
     <span class="kw">pub </span>divisor: usize,
 }
@@ -107,8 +109,8 @@
         }
     }
 }
-
-<span class="kw">pub struct </span>RecordHierarchyMember {
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>RecordHierarchyMember {
     <span class="kw">pub </span>name: String,
     <span class="kw">pub </span>children: <span class="prelude-ty">Option</span>&lt;HashSet&lt;String&gt;&gt;,
     <span class="kw">pub </span>parent: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -122,8 +124,8 @@
         <span class="self">self</span>.children.as_mut().unwrap().insert(rectype.to_string());
     }
 }
-
-<span class="kw">pub struct </span>RecordHierarchy {
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>RecordHierarchy {
     root: String,
     levels: HashMap&lt;String, RecordHierarchyMember&gt;,
 }
