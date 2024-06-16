@@ -139,6 +139,7 @@ impl MetadataEntities {
 
     pub fn cloned_variable_from_name(&self, name: &str) -> Option<IpumsVariable> {
         if let Some(var_id) = self.variables_by_name.get(name) {
+            println!("Lookup and clone {:?}", var_id);
             Some(self.cloned_variable_from_id(*var_id))
         } else {
             None

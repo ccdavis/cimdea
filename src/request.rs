@@ -7,10 +7,13 @@
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //! 
 
+use std::fmt::Display;
+
 use serde::de::IntoDeserializer;
 use serde::Deserializer;
 use serde_json::{to_string, Error};
 
+use crate::ipums_metadata_model::IpumsVariableId;
 use crate::query_gen::Condition;
 use crate::{
     conventions,
@@ -187,15 +190,26 @@ impl DataRequest for SimpleRequest {
 
         let case_select_logic = details["case_select_logic"].to_string();
         let variables = if let Some(ref md) = ctx.settings.metadata {
+            println!("Applying metadata to request from {} variables",md.variables_index.len());
+            if let Some(v) = md.variables_by_name.get("YEAR"){
+                let var_id: IpumsVariableId = *v;
+                println!("{:?}",*v);
+                let var = md.cloned_variable_from_id(var_id);
+                println!("var: {:?}",&var);
+            }
+
             let mut checked_vars = Vec::new();
             for v in request_variables.iter() {
-                let variable_mnemonic = v["variable_mnemonic"].to_string();
-                if let Some(ipums_var) = md.cloned_variable_from_name(&variable_mnemonic) {
-                    checked_vars.push(ipums_var);
+                
+                let variable_mnemonic = v["variable_mnemonic"].as_str().to_owned().unwrap();
+                println!("Apply metadata for '{}'",variable_mnemonic);
+                if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic)  {
+                    checked_vars.push(var_value);
                 } else {
                     let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
                     return Err(msg);
                 }
+
             }
             checked_vars
         } else {
@@ -253,8 +267,17 @@ mod test {
         let data_root = String::from("test/data_root");
         let mut ctx =
             conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
+
         // Load the mentioned datasets and all their associated variables into metadata
         ctx.load_metadata_for_datasets(&["us2016c", "us2014d"]);
+        if let Some(ref md) = ctx.settings.metadata {
+            println!("loaded {} variables.",md.variables_index.len());
+            println!("{:?}", md.variables_by_name.get("YEAR"));
+            for v in &  md.variables_index {
+                //println!("{}",v.name);
+            }
+
+        }
 
         let json_request = fs::read_to_string("test/requests/usa_extract.json")
             .expect("Error reading test fixture in test/requests");
