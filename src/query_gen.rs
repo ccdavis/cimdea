@@ -5,7 +5,7 @@
 //!
 //! The IPUMS conventions have been applied earlier; the table / filenames have been checked and determined and
 //! weight variables have been checked. We're assuming inputs here are valid.
-//! 
+//!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
 use crate::ipums_metadata_model::{self, IpumsDataType};

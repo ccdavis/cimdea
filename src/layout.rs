@@ -2,7 +2,6 @@
 //! formatted IPUMS datasets. While they were developed to act as minimal record layouts for fixed-width
 //! they can be useful for getting basic metadata for the dataset.
 
-
 use crate::ipums_metadata_model::IpumsDataType;
 use std::collections::HashMap;
 use std::path::Path;

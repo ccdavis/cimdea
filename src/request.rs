@@ -5,7 +5,7 @@
 //! extracts. This work will be handled by "Extract" or "Tabulate" modules which will be responsible for reading
 //! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
 //! the request object to get handed off to "Extract" or "Tabulate" code.
-//! 
+//!
 
 use std::fmt::Display;
 
@@ -175,7 +175,7 @@ impl DataRequest for SimpleRequest {
             Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
         };
 
-        let product = parsed["product"].to_string();
+        let product = parsed["product"].as_str().expect("No 'product' in request");
         let details = parsed["details"]
             .as_object()
             .expect("No 'details' in request.");
@@ -186,30 +186,25 @@ impl DataRequest for SimpleRequest {
         let request_variables = details["request_variables"]
             .as_array()
             .expect("Expected a request_variables array.");
-        let output_format = details["output_format"].to_string();
+        let output_format = details["output_format"]
+            .as_str()
+            .expect("No 'output_format' in request.");
 
-        let case_select_logic = details["case_select_logic"].to_string();
+        let case_select_logic = details["case_select_logic"]
+            .as_str()
+            .expect("No case_select_logic in request.");
         let variables = if let Some(ref md) = ctx.settings.metadata {
-            println!("Applying metadata to request from {} variables",md.variables_index.len());
-            if let Some(v) = md.variables_by_name.get("YEAR"){
-                let var_id: IpumsVariableId = *v;
-                println!("{:?}",*v);
-                let var = md.cloned_variable_from_id(var_id);
-                println!("var: {:?}",&var);
-            }
-
             let mut checked_vars = Vec::new();
             for v in request_variables.iter() {
-                
-                let variable_mnemonic = v["variable_mnemonic"].as_str().to_owned().unwrap();
-                println!("Apply metadata for '{}'",variable_mnemonic);
-                if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic)  {
+                let variable_mnemonic = v["variable_mnemonic"]
+                    .as_str()
+                    .expect("No 'variable_mnemonic'");
+                if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic) {
                     checked_vars.push(var_value);
                 } else {
                     let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
                     return Err(msg);
                 }
-
             }
             checked_vars
         } else {
@@ -219,8 +214,8 @@ impl DataRequest for SimpleRequest {
         let datasets = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_samples = Vec::new();
             for d in request_samples.iter() {
-                let ds_name = d["name"].to_string();
-                if let Some(ipums_ds) = md.cloned_dataset_from_name(&ds_name) {
+                let ds_name = d["name"].as_str().expect("missing sample 'name'.");
+                if let Some(ipums_ds) = md.cloned_dataset_from_name(ds_name) {
                     checked_samples.push(ipums_ds);
                 } else {
                     let msg = format!("No dataset '{}' in metadata.", ds_name);
@@ -271,12 +266,11 @@ mod test {
         // Load the mentioned datasets and all their associated variables into metadata
         ctx.load_metadata_for_datasets(&["us2016c", "us2014d"]);
         if let Some(ref md) = ctx.settings.metadata {
-            println!("loaded {} variables.",md.variables_index.len());
+            println!("loaded {} variables.", md.variables_index.len());
             println!("{:?}", md.variables_by_name.get("YEAR"));
-            for v in &  md.variables_index {
+            for v in &md.variables_index {
                 //println!("{}",v.name);
             }
-
         }
 
         let json_request = fs::read_to_string("test/requests/usa_extract.json")

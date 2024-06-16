@@ -4,12 +4,9 @@
 //!  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
 //!
 
-
-
 use crate::conventions::*;
 use crate::ipums_data_model::*;
 use std::collections::HashMap;
-
 
 fn household() -> RecordType {
     RecordType {
@@ -72,7 +69,6 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
 // properties particular to products or stuff loaded in from
 // an external configuration.
 pub fn defaults_for(product: &str) -> MicroDataCollection {
-
     match product.to_lowercase().as_ref() {
         "usa" => default_settings_named("USA"),
         "cps" => default_settings_named("cps"),

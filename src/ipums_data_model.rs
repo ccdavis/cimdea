@@ -3,10 +3,9 @@
 //! some information about it and its relationships to the other record types.
 //! Every collection has a single hierarchy of record types.
 //! A record type on a particular data product may have a default weight variable -- or it may not.
-//! 
+//!
 use std::collections::HashMap;
 use std::collections::HashSet;
-
 
 #[derive(Clone, Debug)]
 pub struct RecordType {
