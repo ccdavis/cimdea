@@ -5,6 +5,7 @@ pub mod ipums_metadata_model;
 pub mod layout;
 pub mod query_gen;
 pub mod request;
+pub mod tabulate;
 
 use interner::global::{GlobalPool, GlobalString};
 

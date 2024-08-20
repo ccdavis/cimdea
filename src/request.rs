@@ -48,7 +48,7 @@ pub trait DataRequest {
         requested_variables: &[&str],
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
-    ) -> Self;
+    ) -> (conventions::Context, Self);
 
     /// Print a human readable codebook
     fn print_codebook(&self) -> String;
@@ -107,13 +107,14 @@ pub struct SimpleRequest {
 
 impl DataRequest for SimpleRequest {
     // A simple builder if we don't have serialized JSON, for tests and CLI use cases.
+    // Returns a new context.
     fn from_names(
         product: &str,
         requested_datasets: &[&str],
         requested_variables: &[&str],
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
-    ) -> Self {
+    ) -> (conventions::Context, Self) {
         let mut ctx =
             conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
         ctx.load_metadata_for_datasets(requested_datasets);
@@ -147,6 +148,7 @@ impl DataRequest for SimpleRequest {
             Vec::new()
         };
         // get datasets from selections
+        (ctx,
         Self {
             product: product.to_string(),
             datasets,
@@ -154,7 +156,8 @@ impl DataRequest for SimpleRequest {
             request_type: RequestType::Tabulation,
             output_format: OutputFormat::CSV,
             conditions: None,
-        }
+        })
+
     }
 
     fn aggregate_query(&self) -> String {
@@ -289,7 +292,7 @@ mod test {
     #[test]
     pub fn test_from_names() {
         let data_root = String::from("test/data_root");
-        let rq = SimpleRequest::from_names(
+        let (ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
@@ -300,5 +303,6 @@ mod test {
         assert_eq!(4, rq.variables.len());
         assert_eq!(rq.product, "usa");
         assert_eq!(1, rq.datasets.len());
+
     }
 }
