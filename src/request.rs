@@ -148,16 +148,17 @@ impl DataRequest for SimpleRequest {
             Vec::new()
         };
         // get datasets from selections
-        (ctx,
-        Self {
-            product: product.to_string(),
-            datasets,
-            variables,
-            request_type: RequestType::Tabulation,
-            output_format: OutputFormat::CSV,
-            conditions: None,
-        })
-
+        (
+            ctx,
+            Self {
+                product: product.to_string(),
+                datasets,
+                variables,
+                request_type: RequestType::Tabulation,
+                output_format: OutputFormat::CSV,
+                conditions: None,
+            },
+        )
     }
 
     fn aggregate_query(&self) -> String {
@@ -303,6 +304,5 @@ mod test {
         assert_eq!(4, rq.variables.len());
         assert_eq!(rq.product, "usa");
         assert_eq!(1, rq.datasets.len());
-
     }
 }
