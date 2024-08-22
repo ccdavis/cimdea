@@ -1,4 +1,5 @@
 use crate::conventions::Context;
+use crate::request::InputType;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
 use crate::request::SimpleRequest;
@@ -98,6 +99,14 @@ impl Table {
 }
 
 pub fn tabulate(ctx: &Context, rq: &SimpleRequest) -> Result<Table, String> {
+    if rq.datasets.len() > 1 {
+        eprintln!("WARNING: tabulate() currently only tabulates the first requested dataset.");
+    }
+    let dataset_name = rq.datasets[0].name.clone();
+    // Construct the conventional path given the InputType, one per record type in case of non-hierarchical formats.
+    let data_paths = ctx.path_from_dataset_name(&dataset_name, InputType::Parquet);
+
+
     let mut tb = Table::empty();
     Ok(tb)
 }
