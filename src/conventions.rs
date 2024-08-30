@@ -42,6 +42,7 @@ pub struct MicroDataCollection {
     pub name: String, // Like USA, IPUMSI, ATUS
     pub record_hierarchy: RecordHierarchy,
     pub record_types: HashMap<String, RecordType>, // key is value: 'H', 'P' etc
+    pub default_unit_of_analysis: RecordType,
     pub metadata: Option<MetadataEntities>,
 }
 

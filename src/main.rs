@@ -33,9 +33,14 @@ fn main() {
         &requested_variables,
         None,
         None,
+        None,
     );
     match tabulate::tabulate(&context, &rq) {
-        Ok(table) => println!("{}", table.output(TableFormat::TextTable)),
+        Ok(tables) => {
+            for table in tables {
+                println!("{}", table.output(TableFormat::TextTable));
+            }
+        }
         Err(e) => {
             eprintln!("Error trying to tabulate: {}", &e);
         }

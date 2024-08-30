@@ -7,12 +7,12 @@
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //!
 
-use std::fmt::Display;
-
 use serde::de::IntoDeserializer;
 use serde::Deserializer;
 use serde_json::{to_string, Error};
 
+use crate::conventions::Context;
+use crate::ipums_data_model::{self, RecordType};
 use crate::ipums_metadata_model::IpumsVariableId;
 use crate::query_gen::Condition;
 use crate::{
@@ -46,6 +46,7 @@ pub trait DataRequest {
         product_name: &str,
         requested_datasets: &[&str],
         requested_variables: &[&str],
+        unit_of_analysis: Option<String>,
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> (conventions::Context, Self);
@@ -82,6 +83,23 @@ pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
     Ok(())
 }
 
+fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -> RecordType {
+    let uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.name.clone());
+
+    // Check that uoa is present for the current context
+    let unit_rectype = match ctx.settings.record_types.get(&uoa) {
+        Some(urt) => urt.clone(),
+        None => {
+            let rectype_names = ctx.settings.record_types.keys().cloned();
+            let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'", 
+            &uoa, 
+            rectype_names);
+            panic!("{}", msg);
+        }
+    };
+    unit_rectype
+}
+
 /// The `SimpleRequest` probably can describe 90% of IPUMS tabulation and extraction requests.
 ///
 /// In a ComplexRequest, Variables could have attached variables or monetary standardization adjustment factors,
@@ -96,8 +114,9 @@ pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
 #[derive(Clone, Debug)]
 pub struct SimpleRequest {
     pub product: String, // name of data collection
-    pub variables: Vec<IpumsVariable>,
     pub datasets: Vec<IpumsDataset>,
+    pub variables: Vec<IpumsVariable>,
+    pub unit_rectype: ipums_data_model::RecordType,
     pub request_type: RequestType,
     pub output_format: OutputFormat,
     pub conditions: Option<Vec<Condition>>,
@@ -112,12 +131,14 @@ impl DataRequest for SimpleRequest {
         product: &str,
         requested_datasets: &[&str],
         requested_variables: &[&str],
+        unit_of_analysis: Option<String>,
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> (conventions::Context, Self) {
         let mut ctx =
             conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
         ctx.load_metadata_for_datasets(requested_datasets);
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
 
         // Get variables from selections
         let variables = if let Some(ref md) = ctx.settings.metadata {
@@ -154,6 +175,7 @@ impl DataRequest for SimpleRequest {
                 product: product.to_string(),
                 datasets,
                 variables,
+                unit_rectype,
                 request_type: RequestType::Tabulation,
                 output_format: OutputFormat::CSV,
                 conditions: None,
@@ -233,10 +255,14 @@ impl DataRequest for SimpleRequest {
 
         let output_format = OutputFormat::CSV;
 
+        let unit_of_analysis = None;
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+
         Ok(Self {
             product: product.to_string(),
-            variables,
             datasets,
+            variables,
+            unit_rectype,
             request_type,
             output_format,
             conditions: None,
@@ -297,6 +323,7 @@ mod test {
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
             None,
             Some(data_root),
         );

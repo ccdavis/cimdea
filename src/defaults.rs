@@ -51,6 +51,7 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
         name: name.to_string(),
         record_hierarchy: default_hierarchy(),
         record_types: default_record_types(),
+        default_unit_of_analysis: person(),
         metadata: None,
     }
 }
