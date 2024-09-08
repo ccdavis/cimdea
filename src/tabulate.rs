@@ -106,7 +106,7 @@ pub fn tabulate(ctx: &Context, rq: &SimpleRequest) -> Result<Vec<Table>, String>
         .map(|dataset| {
             let dataset_name = dataset.name.to_owned();
             // Construct the conventional path given the InputType, one per record type in case of non-hierarchical formats.
-            let data_paths = ctx.paths_from_dataset_name(&dataset_name, InputType::Parquet);
+            let data_paths = ctx.paths_from_dataset_name(&dataset_name, &InputType::Parquet);
 
             let tb = Table::empty();
             tb

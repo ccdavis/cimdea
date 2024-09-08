@@ -76,6 +76,7 @@ pub enum InputType {
     Fw,
     Parquet,
     Csv,
+    NativeDb,
 }
 
 impl InputType {
@@ -84,6 +85,7 @@ impl InputType {
             Self::Csv => Some("csv".to_string()),
             Self::Parquet => Some("parquet".to_string()),
             Self::Fw => None,
+            Self::NativeDb => None,
         }
     }
 }
@@ -289,6 +291,40 @@ impl DataRequest for SimpleRequest {
 
     fn print_codebook(&self) -> String {
         "".to_string()
+    }
+}
+
+pub struct RequestVariable {
+    pub variable: IpumsVariable,
+    pub is_detailed: bool,
+    pub general_divisor: usize, // for instance, 100 for RELATE vs RELATED
+    pub name: String,
+    pub case_selection: Option<Condition>,
+}
+
+impl RequestVariable {
+    pub fn from_ipums_variable(var: &IpumsVariable) -> Self {
+        Self {
+            variable: var.clone(),
+            is_detailed: true,
+            general_divisor: 1,
+            name: var.name.clone(),
+            case_selection: None,
+        }
+    }
+}
+
+pub struct RequestSample {
+    pub sample: IpumsDataset,
+    pub name: String,
+}
+
+impl RequestSample {
+    pub fn from_ipums_dataset(ds: &IpumsDataset) -> Self {
+        Self {
+            sample: ds.clone(),
+            name: ds.name.clone(),
+        }
     }
 }
 

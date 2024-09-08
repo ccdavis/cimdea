@@ -8,10 +8,119 @@
 //!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
+use crate::conventions::Context;
+use crate::ipums_data_model::RecordWeight;
 use crate::ipums_metadata_model::{self, IpumsDataType};
+use crate::request::InputType;
+use crate::request::RequestSample;
+use crate::request::RequestVariable;
 use sql_builder::{prelude::Bind, SqlBuilder};
-use std::path::Path;
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
+
+/// The TabBuilder is meant to assist with one or more tabulations from the same data product.
+struct TabBuilder {
+    platform: DataPlatform,
+    input_format: InputType,
+    dataset: String,
+    data_sources: HashMap<String, DataSource>,
+}
+
+impl TabBuilder {
+    pub fn new(
+        ctx: &Context,
+        dataset: &str,
+        platform: &DataPlatform,
+        input_format: &InputType,
+    ) -> Result<Self, String> {
+        let data_sources = DataSource::for_dataset(ctx, dataset, input_format)?;
+        Ok(Self {
+            data_sources,
+            dataset: dataset.to_string(),
+            platform: platform.clone(),
+            input_format: input_format.clone(),
+        })
+    }
+}
+
+impl TabBuilder {
+    fn build_from_clause(
+        &self,
+        ctx: &Context,
+        dataset: &str,
+        uoa: &str,
+        all_rectypes: &HashSet<String>,
+    ) -> Result<String, String> {
+        let lhs = &self.data_sources.get(uoa).unwrap();
+        let left_platform_specific_path = lhs.for_platform(&self.platform);
+        let left_alias = lhs.table_name();
+        let mut q = format!("from {} as {}", left_platform_specific_path, left_alias);
+
+        // Handle the remaining tables
+        for (rt, ds) in &self.data_sources {
+            if rt != uoa && all_rectypes.contains(rt) {
+                let platform_specific_path = ds.for_platform(&self.platform);
+                let table_alias = ds.table_name();
+                q = q + &format!(", {} as {}", platform_specific_path, table_alias);
+            }
+        }
+
+        Ok(q)
+    }
+
+    pub fn make_query(
+        &self,
+        ctx: &Context,
+        request_variables: &[RequestVariable],
+        request_sample: &RequestSample,
+    ) -> Result<String, String> {
+        if request_variables.len() == 0 {
+            return Err("Must supply at least one request variable.".to_string());
+        }
+        // Find all rectypes used by the requested variables
+        let rectypes_vec = request_variables
+            .iter()
+            .map(|v| v.variable.record_type.clone())
+            .collect::<Vec<String>>();
+
+        let rectypes: HashSet<String> = HashSet::from_iter(rectypes_vec.iter().cloned());
+
+        // TODO: Decide the unit of analysis based on variable selection?
+        let mut uoa = ctx.settings.default_unit_of_analysis.value.clone();
+
+        if !self.data_sources.contains_key(&uoa) {
+            let msg = format!("Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'", uoa, ctx.settings.name);
+            return Err(msg);
+        }
+
+        // What if the default unit of analysis isn't in the requested variables. This covers the common case
+        // where only household type variables are in the request. It doesn't handle all cases, such as
+        // a request with "activity" and "person" variables, where the uoa (could) be "activity". If we
+        // have more than one rectype therefore, we error out.
+        if !rectypes.contains(&uoa) {
+            if rectypes.len() == 1 {
+                uoa = rectypes_vec[0].clone();
+            }
+        }
+
+        let weight_name = ctx.settings.weight_for_rectype(&uoa);
+        let weight_divisor = ctx.settings.weight_divisor(&uoa);
+
+        let from_clause = &self.build_from_clause(ctx, &request_sample.name, &uoa, &rectypes)?;
+        let mut select_clause = "select count(*) as ct".to_string();
+
+        if let Some(ref wt) = weight_name {
+            select_clause += &format!(
+                ", sum({}/{} as weighted_ct",
+                wt,
+                weight_divisor.unwrap_or(1)
+            );
+        }
+
+        Ok(format!("{}\n{}", &select_clause, &from_clause))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum DataSource {
@@ -20,34 +129,53 @@ pub enum DataSource {
     Csv { name: String, full_path: PathBuf },
 }
 
+#[derive(Clone, Debug)]
 pub enum DataPlatform {
     Duckdb,
     DataFusion,
 }
 
 impl DataSource {
-    pub fn new(name: String, full_path: Option<PathBuf>) -> Self {
+    pub fn for_dataset(
+        ctx: &Context,
+        dataset: &str,
+        input_format: &InputType,
+    ) -> Result<HashMap<String, DataSource>, String> {
+        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
+        let mut data_sources = HashMap::new();
+        for rt in ctx.settings.record_types.keys() {
+            let table_alias = ctx.settings.default_table_name(dataset, rt);
+            let p = paths_by_rectypes.get(rt).cloned();
+            let ds = DataSource::new(table_alias, p)?;
+            data_sources.insert(rt.to_string(), ds);
+        }
+
+        Ok(data_sources)
+    }
+
+    pub fn new(name: String, full_path: Option<PathBuf>) -> Result<Self, String> {
         if let Some(p) = full_path {
             if p.ends_with(".parquet") {
-                Self::Parquet { name, full_path: p }
+                Ok(Self::Parquet { name, full_path: p })
             } else if p.ends_with(".csv") {
-                Self::Csv { name, full_path: p }
+                Ok(Self::Csv { name, full_path: p })
             } else {
-                panic!(
+                let msg = format!(
                     "Can't construct DataSource '{}' from {}",
                     &name,
                     &p.display()
                 );
+                Err(msg)
             }
         } else {
-            Self::NativeTable { name }
+            Ok(Self::NativeTable { name })
         }
     }
 
     // The table in the 'from' clause needs to be represented differently
     // depending on the platform and if it's an external table or part
     // of a database.
-    pub fn for_platform(&self, platform: DataPlatform) -> String {
+    pub fn for_platform(&self, platform: &DataPlatform) -> String {
         match platform {
             DataPlatform::Duckdb => match self {
                 Self::Parquet { name, full_path } => {
@@ -69,6 +197,14 @@ impl DataSource {
             },
         }
     }
+
+    pub fn table_name(&self) -> String {
+        match self {
+            Self::Parquet { name, .. } => name.clone(),
+            Self::Csv { name, .. } => name.clone(),
+            Self::NativeTable { name } => name.clone(),
+        }
+    }
 }
 
 // TODO not yet dealing with escaping string values
@@ -82,6 +218,7 @@ pub enum CompareOperation {
     Between,
     In,
 }
+
 #[derive(Clone, Debug)]
 pub struct Condition {
     pub var: ipums_metadata_model::IpumsVariable,

@@ -48,6 +48,18 @@ pub struct MicroDataCollection {
 }
 
 impl MicroDataCollection {
+    pub fn weight_for_rectype(&self, rt: &str) -> Option<String> {
+        let rectype = self.record_types.get(rt)?;
+        let weight = &rectype.weight.clone()?;
+        Some(weight.name.clone())
+    }
+
+    pub fn weight_divisor(&self, rt: &str) -> Option<usize> {
+        let rectype = self.record_types.get(rt)?;
+        let weight = &rectype.weight.clone()?;
+        Some(weight.divisor)
+    }
+
     pub fn base_filename_for_dataset(&self, dataset_name: &str) -> String {
         format!("{}_{}", dataset_name, &self.name.to_ascii_lowercase())
     }
@@ -345,12 +357,13 @@ impl Context {
     pub fn paths_from_dataset_name(
         &self,
         dataset_name: &str,
-        data_format: InputType,
+        data_format: &InputType,
     ) -> HashMap<String, PathBuf> {
         let extension = match data_format {
             InputType::Csv => "csv",
             InputType::Parquet => "parquet",
             InputType::Fw => "dat.gz",
+            InputType::NativeDb => "",
         };
 
         // TODO return errors properly
@@ -376,6 +389,12 @@ impl Context {
                     } else {
                         panic!("InputType of data should have a sub directory name.");
                     }
+                }
+            }
+            InputType::NativeDb => {
+                for rt in self.settings.record_types.keys() {
+                    let table: PathBuf = self.settings.default_table_name(dataset_name, rt).into();
+                    all_paths.insert(rt.to_string(), table);
                 }
             }
             InputType::Fw => {
@@ -485,7 +504,7 @@ mod test {
     pub fn test_paths_for_dataset_names() {
         let data_root = Some(String::from("test/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
-        let paths_by_rectype = usa_ctx.paths_from_dataset_name("us2015b", InputType::Parquet);
+        let paths_by_rectype = usa_ctx.paths_from_dataset_name("us2015b", &InputType::Parquet);
         let person_path = paths_by_rectype.get("P");
         let household_path = paths_by_rectype.get("H");
         assert!(person_path.is_some(), "should have a person type path");

@@ -47,8 +47,8 @@ impl RecordHierarchyMember {
 }
 #[derive(Clone, Debug)]
 pub struct RecordHierarchy {
-    root: String,
-    levels: HashMap<String, RecordHierarchyMember>,
+    pub root: String,
+    pub levels: HashMap<String, RecordHierarchyMember>,
 }
 
 impl RecordHierarchy {
