@@ -31,6 +31,7 @@ use crate::ipums_metadata_model::*;
 use crate::layout;
 use crate::request::InputType;
 
+use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -47,6 +48,41 @@ pub struct MicroDataCollection {
 }
 
 impl MicroDataCollection {
+    pub fn base_filename_for_dataset(&self, dataset_name: &str) -> String {
+        format!("{}_{}", dataset_name, &self.name.to_ascii_lowercase())
+    }
+
+    pub fn base_filename_for_dataset_and_rectype(
+        &self,
+        dataset_name: &str,
+        record_type_abbrev: &str,
+    ) -> String {
+        format!(
+            "{}.{}",
+            &self.base_filename_for_dataset(dataset_name),
+            record_type_abbrev.to_ascii_uppercase()
+        )
+    }
+
+    // This name is a legal SQL table name and we may use it as well for an alias in Duckdb or DataFusion
+    // where we can refer to data files as tables but need a alias to use in the rest of the query, like:
+    // select count(*) from '/data/us2015b/us2015b_usa.P.parquet' as us2015b_person, '/data/us2015b/us2015b_usa.H.parquet' as us2015b_household
+    //  where us2015b_household.SERIAL = us2015b_usa_person.SERIALP and us2015b_household.GQ = 3 and us2015b_person.AGE < 25;
+    pub fn default_table_name(&self, dataset_name: &str, record_type_abbrev: &str) -> String {
+        if let Some(ref rt) = self.record_types.get(record_type_abbrev) {
+            format!(
+                "{}_{}",
+                &self.base_filename_for_dataset(dataset_name),
+                &rt.name.to_ascii_lowercase()
+            )
+        } else {
+            panic!(
+                "Can't create table name since {} is not a valid record type abbrevation.",
+                record_type_abbrev
+            );
+        }
+    }
+
     /// Read one fixed-width layout file. These files contain some variable level metadata for
     /// every record type in the data product.
     fn load_metadata_from_layout(&mut self, layout_file: &Path) {}
@@ -119,9 +155,9 @@ pub struct MetadataEntities {
     pub available_variables: VariablesForDataset,
     pub available_datasets: DatasetsForVariable,
 
-    //// The owning structs
+    /// The owning structs
     pub variables_index: Vec<IpumsVariable>,
-    //// The owning structs
+    /// The owning structs
     pub datasets_index: Vec<IpumsDataset>,
 }
 
@@ -305,17 +341,16 @@ pub struct Context {
 }
 
 impl Context {
-    /// Formats the exact paths needed to get data for this dataset, by record type.
-    pub fn path_from_dataset_name(
+    /// Formats the exact paths needed to get data for this dataset, by record type.    
+    pub fn paths_from_dataset_name(
         &self,
         dataset_name: &str,
         data_format: InputType,
     ) -> HashMap<String, PathBuf> {
-        let base_filename = format!("{}_{}", dataset_name, &self.name);
         let extension = match data_format {
-            InputType::Csv => ".csv",
-            InputType::Parquet => ".parquet",
-            InputType::Fw => ".dat.gz",
+            InputType::Csv => "csv",
+            InputType::Parquet => "parquet",
+            InputType::Fw => "dat.gz",
         };
 
         // TODO return errors properly
@@ -326,20 +361,30 @@ impl Context {
         };
 
         let mut all_paths = HashMap::new();
+
         match data_format {
             InputType::Csv | InputType::Parquet => {
                 for rt in self.settings.record_types.keys() {
-                    let full_filename = format!("{}.{}.{}", base_filename, rt, extension);
-                    let full_path = data_path.join(full_filename);
-                    all_paths.insert(rt.to_string(), full_path);
+                    if let Some(ref sub_dir) = data_format.data_sub_directory() {
+                        let parent_dir = data_path.join(sub_dir).join(dataset_name);
+                        let base_filename = self
+                            .settings
+                            .base_filename_for_dataset_and_rectype(dataset_name, rt);
+                        let full_filename = format!("{}.{}", &base_filename, extension);
+                        let full_path = parent_dir.join(full_filename);
+                        all_paths.insert(rt.to_string(), full_path);
+                    } else {
+                        panic!("InputType of data should have a sub directory name.");
+                    }
                 }
             }
-            _ => {
+            InputType::Fw => {
+                let base_filename = self.settings.base_filename_for_dataset(dataset_name);
                 let full_filename = format!("{}.{}", base_filename, extension);
                 let full_path = data_path.join(full_filename);
                 all_paths.insert("".to_string(), full_path);
             }
-        }
+        } // match
         all_paths
     }
 
@@ -426,13 +471,30 @@ mod test {
     pub fn test_context() {
         // Look in test directory
         let data_root = Some(String::from("test/data_root"));
-        let mut usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
         assert!(
-            usa_ctx.allow_full_metadata,
+            !usa_ctx.allow_full_metadata,
             "Default allow_full_metadata should be false"
         );
         assert!(usa_ctx.product_root.is_some());
         assert!(usa_ctx.data_root.is_some());
         assert_eq!("USA".to_string(), usa_ctx.settings.name);
+    }
+
+    #[test]
+    pub fn test_paths_for_dataset_names() {
+        let data_root = Some(String::from("test/data_root"));
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
+        let paths_by_rectype = usa_ctx.paths_from_dataset_name("us2015b", InputType::Parquet);
+        let person_path = paths_by_rectype.get("P");
+        let household_path = paths_by_rectype.get("H");
+        assert!(person_path.is_some(), "should have a person type path");
+        assert!(household_path.is_some(), "should have a household path");
+        if let Some(ref p) = person_path {
+            assert_eq!(
+                "test/data_root/parquet/us2015b/us2015b_usa.P.parquet",
+                &p.to_string_lossy()
+            );
+        }
     }
 }

@@ -78,13 +78,23 @@ pub enum InputType {
     Csv,
 }
 
+impl InputType {
+    pub fn data_sub_directory(&self) -> Option<String> {
+        match self {
+            Self::Csv => Some("csv".to_string()),
+            Self::Parquet => Some("parquet".to_string()),
+            Self::Fw => None,
+        }
+    }
+}
+
 // The key point is you can take an impl of a DataRequest and do something with it.
 pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
     Ok(())
 }
 
 fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -> RecordType {
-    let uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.name.clone());
+    let uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.value.clone());
 
     // Check that uoa is present for the current context
     let unit_rectype = match ctx.settings.record_types.get(&uoa) {
