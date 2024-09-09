@@ -11,8 +11,8 @@
 use crate::conventions::Context;
 use crate::ipums_data_model::RecordWeight;
 use crate::ipums_metadata_model::{self, IpumsDataType};
-use crate::request::InputType;
 use crate::request::DataRequest;
+use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
 use sql_builder::{prelude::Bind, SqlBuilder};
@@ -70,7 +70,12 @@ impl TabBuilder {
         Ok(q)
     }
 
-    fn build_select_clause(&self, request_variables: &[RequestVariable], weight_name: Option<String>, weight_divisor: Option<usize>) -> String {
+    fn build_select_clause(
+        &self,
+        request_variables: &[RequestVariable],
+        weight_name: Option<String>,
+        weight_divisor: Option<usize>,
+    ) -> String {
         let mut select_clause = "select count(*) as ct".to_string();
 
         if let Some(ref wt) = weight_name {
@@ -85,7 +90,10 @@ impl TabBuilder {
             select_clause += &if rq.is_detailed {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             } else {
-                format!(", {}/{} as {}", &rq.variable.name, &rq.general_divisor, &rq.name)
+                format!(
+                    ", {}/{} as {}",
+                    &rq.variable.name, &rq.general_divisor, &rq.name
+                )
             };
         }
 
@@ -130,19 +138,25 @@ impl TabBuilder {
         let weight_name = ctx.settings.weight_for_rectype(&uoa);
         let weight_divisor = ctx.settings.weight_divisor(&uoa);
 
-        let select_clause = self.build_select_clause(request_variables, weight_name, weight_divisor);
+        let select_clause =
+            self.build_select_clause(request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &request_sample.name, &uoa, &rectypes)?;
 
-                // Build this from '.case_selection' on each RequestVariable or other conditions
+        // Build this from '.case_selection' on each RequestVariable or other conditions
         let mut where_clause = "".to_string();
 
-        let group_by_clause = "group by ".to_string() + &request_variables.iter()
-            .map(|v| v.name.clone())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let group_by_clause = "group by ".to_string()
+            + &request_variables
+                .iter()
+                .map(|v| v.name.clone())
+                .collect::<Vec<_>>()
+                .join(", ");
 
-        let order_by_clause ="".to_string();
-        Ok(format!("{}\n{}\n{}\n{}\n{}", &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause))
+        let order_by_clause = "".to_string();
+        Ok(format!(
+            "{}\n{}\n{}\n{}\n{}",
+            &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause
+        ))
     }
 }
 
@@ -270,7 +284,12 @@ impl Condition {
 // Returns one query per dataset in the request; if you wanted totabulate across
 // datasets that would be a different query that unions thetables of the same record type...
 // You can accomplish the same thing by combining the results of each query.
-pub fn tab_queries(ctx: &Context,request: impl DataRequest, input_format: &InputType, platform: &DataPlatform) -> Result<Vec<String>, String>{
+pub fn tab_queries(
+    ctx: &Context,
+    request: impl DataRequest,
+    input_format: &InputType,
+    platform: &DataPlatform,
+) -> Result<Vec<String>, String> {
     let mut queries = Vec::new();
     for dataset in request.get_request_samples() {
         let tb = TabBuilder::new(ctx, &dataset.name, platform, input_format)?;
@@ -310,14 +329,12 @@ pub fn frequency(
     }
 }
 
-
 mod test {
     use super::*;
     use crate::request::SimpleRequest;
 
     #[test]
     fn test_frequency_duckdb_parquet() {
-
         let data_root = String::from("test/data_root");
         let (ctx, rq) = SimpleRequest::from_names(
             "usa",
@@ -328,16 +345,11 @@ mod test {
             Some(data_root),
         );
 
-        let queries = tab_queries(&ctx, rq, &InputType::Parquet,&DataPlatform::Duckdb);
+        let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         assert!(queries.is_ok());
         if let Ok(qs) = queries {
             assert_eq!(1, qs.len());
             assert_eq!("select abc", qs[0]);
-
         }
-
-
-
-
     }
 }

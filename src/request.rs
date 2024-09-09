@@ -20,8 +20,6 @@ use crate::{
     ipums_metadata_model::{IpumsDataset, IpumsVariable},
 };
 
-
-
 pub struct RequestVariable {
     pub variable: IpumsVariable,
     pub is_detailed: bool,
@@ -56,11 +54,9 @@ impl RequestSample {
     }
 }
 
-
 /// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
-
     fn get_request_variables(&self) -> Vec<RequestVariable>;
     fn get_request_samples(&self) -> Vec<RequestSample>;
     fn get_conditions(&self) -> Option<Vec<Condition>>;
@@ -232,13 +228,15 @@ impl DataRequest for SimpleRequest {
     }
 
     fn get_request_variables(&self) -> Vec<RequestVariable> {
-        self.variables.iter()
+        self.variables
+            .iter()
             .map(|v| RequestVariable::from_ipums_variable(v))
             .collect()
     }
 
-    fn get_request_samples(&self) -> Vec<RequestSample>{
-        self.datasets.iter()
+    fn get_request_samples(&self) -> Vec<RequestSample> {
+        self.datasets
+            .iter()
             .map(|d| RequestSample::from_ipums_dataset(d))
             .collect()
     }
