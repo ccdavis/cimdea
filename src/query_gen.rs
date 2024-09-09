@@ -346,6 +346,11 @@ mod test {
         );
 
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
+        match queries {
+            Err(ref e) => assert_eq!("abc",e),
+            _ => (),
+
+        }
         assert!(queries.is_ok());
         if let Ok(qs) = queries {
             assert_eq!(1, qs.len());
