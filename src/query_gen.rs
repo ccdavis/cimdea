@@ -12,6 +12,7 @@ use crate::conventions::Context;
 use crate::ipums_data_model::RecordWeight;
 use crate::ipums_metadata_model::{self, IpumsDataType};
 use crate::request::InputType;
+use crate::request::DataRequest;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
 use sql_builder::{prelude::Bind, SqlBuilder};
@@ -69,6 +70,28 @@ impl TabBuilder {
         Ok(q)
     }
 
+    fn build_select_clause(&self, request_variables: &[RequestVariable], weight_name: Option<String>, weight_divisor: Option<usize>) -> String {
+        let mut select_clause = "select count(*) as ct".to_string();
+
+        if let Some(ref wt) = weight_name {
+            select_clause += &format!(
+                ", sum({}/{} as weighted_ct",
+                wt,
+                weight_divisor.unwrap_or(1)
+            );
+        }
+
+        for rq in request_variables {
+            select_clause += &if rq.is_detailed {
+                format!(", {} as {}", &rq.variable.name, &rq.name)
+            } else {
+                format!(", {}/{} as {}", &rq.variable.name, &rq.general_divisor, &rq.name)
+            };
+        }
+
+        select_clause
+    }
+
     pub fn make_query(
         &self,
         ctx: &Context,
@@ -107,18 +130,19 @@ impl TabBuilder {
         let weight_name = ctx.settings.weight_for_rectype(&uoa);
         let weight_divisor = ctx.settings.weight_divisor(&uoa);
 
+        let select_clause = self.build_select_clause(request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &request_sample.name, &uoa, &rectypes)?;
-        let mut select_clause = "select count(*) as ct".to_string();
 
-        if let Some(ref wt) = weight_name {
-            select_clause += &format!(
-                ", sum({}/{} as weighted_ct",
-                wt,
-                weight_divisor.unwrap_or(1)
-            );
-        }
+                // Build this from '.case_selection' on each RequestVariable or other conditions
+        let mut where_clause = "".to_string();
 
-        Ok(format!("{}\n{}", &select_clause, &from_clause))
+        let group_by_clause = "group by ".to_string() + &request_variables.iter()
+            .map(|v| v.name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        let order_by_clause ="".to_string();
+        Ok(format!("{}\n{}\n{}\n{}\n{}", &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause))
     }
 }
 
@@ -243,6 +267,19 @@ impl Condition {
     }
 }
 
+// Returns one query per dataset in the request; if you wanted totabulate across
+// datasets that would be a different query that unions thetables of the same record type...
+// You can accomplish the same thing by combining the results of each query.
+pub fn tab_queries(ctx: &Context,request: impl DataRequest, input_format: &InputType, platform: &DataPlatform) -> Result<Vec<String>, String>{
+    let mut queries = Vec::new();
+    for dataset in request.get_request_samples() {
+        let tb = TabBuilder::new(ctx, &dataset.name, platform, input_format)?;
+        let q = tb.make_query(ctx, &request.get_request_variables(), &dataset)?;
+        queries.push(q);
+    }
+    Ok(queries)
+}
+
 pub fn frequency(
     table_name: &str,
     variable_name: &str,
@@ -273,65 +310,34 @@ pub fn frequency(
     }
 }
 
-// A generalization of frequency()
-// tables: List of table name and alias, like ('us2015b_usa.H.parquet', h_recs), ('us2015b_usa.P.parquet', p_recs)]
-//  join_keys: Pairs of keys to use in a join either in where clause like "where h_recs.SERIAL = p_recs.SERIALP "
-pub fn cross_tab(
-    tables: &[(&str, &str)],
-    join_keys: &[(&str, &str)],
-    vars: &[&str],
-    weight: Option<String>,
-    divisor: Option<usize>,
-) -> String {
-    let freq_field: String = if let Some(w) = weight {
-        if let Some(d) = divisor {
-            format!("sum({} / :divisor:)", &w)
-        } else {
-            format!("sum({} )", &w)
-        }
-    } else {
-        "count(*)".to_string()
-    } + " as frequency";
 
-    "Not implemented".to_string()
-}
-
-// In theory this version can also generate the two simpler versions. I'm building up to it.
-pub fn cross_tab_subpopulation(
-    tables: &[&str],
-    vars: &[&str],
-    weight: Option<String>,
-    divisor: Option<usize>,
-    subpop: &[Condition],
-) -> String {
-    "Not implemented".to_string()
-}
 mod test {
     use super::*;
+    use crate::request::SimpleRequest;
 
     #[test]
     fn test_frequency_duckdb_parquet() {
-        // Determination of specific table names based on dataset happens outside the query generation
 
-        // These are in single quotes to match what Duck DB expects for parquet files
-        let us2015b_people = "'us2015b_usa.P.parquet'";
-        let us2015b_households = "'us2015b_usa.H.parquet'";
-
-        let q = frequency(us2015b_people, "AGE", None, None);
-        assert!(q.len() > 1);
-
-        let expected =
-            "SELECT AGE, count(*) as frequency FROM 'us2015b_usa.P.parquet' GROUP BY AGE;";
-        assert_eq!(expected, q);
-
-        let hh_expected = "SELECT VEHICLES, sum(HHWT / 100) as frequency FROM 'us2015b_usa.H.parquet' GROUP BY VEHICLES;";
-
-        let hh_q = frequency(
-            us2015b_households,
-            "VEHICLES",
-            Some("HHWT".to_string()),
-            Some(100),
+        let data_root = String::from("test/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
         );
-        assert_eq!(hh_expected, hh_q);
+
+        let queries = tab_queries(&ctx, rq, &InputType::Parquet,&DataPlatform::Duckdb);
+        assert!(queries.is_ok());
+        if let Ok(qs) = queries {
+            assert_eq!(1, qs.len());
+            assert_eq!("select abc", qs[0]);
+
+        }
+
+
+
+
     }
 }

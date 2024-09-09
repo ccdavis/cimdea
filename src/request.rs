@@ -20,14 +20,50 @@ use crate::{
     ipums_metadata_model::{IpumsDataset, IpumsVariable},
 };
 
+
+
+pub struct RequestVariable {
+    pub variable: IpumsVariable,
+    pub is_detailed: bool,
+    pub general_divisor: usize, // for instance, 100 for RELATE vs RELATED
+    pub name: String,
+    pub case_selection: Option<Condition>,
+}
+
+impl RequestVariable {
+    pub fn from_ipums_variable(var: &IpumsVariable) -> Self {
+        Self {
+            variable: var.clone(),
+            is_detailed: true,
+            general_divisor: 1,
+            name: var.name.clone(),
+            case_selection: None,
+        }
+    }
+}
+
+pub struct RequestSample {
+    pub sample: IpumsDataset,
+    pub name: String,
+}
+
+impl RequestSample {
+    pub fn from_ipums_dataset(ds: &IpumsDataset) -> Self {
+        Self {
+            sample: ds.clone(),
+            name: ds.name.clone(),
+        }
+    }
+}
+
+
 /// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
-    /// An SQL query if this is an extraction request
-    fn extract_query(&self) -> String;
 
-    ///  An SQL query to summarize the described data.
-    fn aggregate_query(&self) -> String;
+    fn get_request_variables(&self) -> Vec<RequestVariable>;
+    fn get_request_samples(&self) -> Vec<RequestSample>;
+    fn get_conditions(&self) -> Option<Vec<Condition>>;
 
     /// To the Tractor / generic IPUMS representation
     fn serialize_to_IPUMS_JSON(&self) -> String;
@@ -103,8 +139,8 @@ fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -
         Some(urt) => urt.clone(),
         None => {
             let rectype_names = ctx.settings.record_types.keys().cloned();
-            let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'", 
-            &uoa, 
+            let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'",
+            &uoa,
             rectype_names);
             panic!("{}", msg);
         }
@@ -195,13 +231,22 @@ impl DataRequest for SimpleRequest {
         )
     }
 
-    fn aggregate_query(&self) -> String {
-        "".to_string()
+    fn get_request_variables(&self) -> Vec<RequestVariable> {
+        self.variables.iter()
+            .map(|v| RequestVariable::from_ipums_variable(v))
+            .collect()
     }
 
-    fn extract_query(&self) -> String {
-        "".to_string()
+    fn get_request_samples(&self) -> Vec<RequestSample>{
+        self.datasets.iter()
+            .map(|d| RequestSample::from_ipums_dataset(d))
+            .collect()
     }
+
+    fn get_conditions(&self) -> Option<Vec<Condition>> {
+        self.conditions.clone()
+    }
+
     #[allow(refining_impl_trait)]
     fn deserialize_from_ipums_json(
         ctx: &conventions::Context,
@@ -291,40 +336,6 @@ impl DataRequest for SimpleRequest {
 
     fn print_codebook(&self) -> String {
         "".to_string()
-    }
-}
-
-pub struct RequestVariable {
-    pub variable: IpumsVariable,
-    pub is_detailed: bool,
-    pub general_divisor: usize, // for instance, 100 for RELATE vs RELATED
-    pub name: String,
-    pub case_selection: Option<Condition>,
-}
-
-impl RequestVariable {
-    pub fn from_ipums_variable(var: &IpumsVariable) -> Self {
-        Self {
-            variable: var.clone(),
-            is_detailed: true,
-            general_divisor: 1,
-            name: var.name.clone(),
-            case_selection: None,
-        }
-    }
-}
-
-pub struct RequestSample {
-    pub sample: IpumsDataset,
-    pub name: String,
-}
-
-impl RequestSample {
-    pub fn from_ipums_dataset(ds: &IpumsDataset) -> Self {
-        Self {
-            sample: ds.clone(),
-            name: ds.name.clone(),
-        }
     }
 }
 
