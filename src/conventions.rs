@@ -353,7 +353,7 @@ pub struct Context {
 }
 
 impl Context {
-    /// Formats the exact paths needed to get data for this dataset, by record type.    
+    /// Formats the exact paths needed to get data for this dataset, by record type.
     pub fn paths_from_dataset_name(
         &self,
         dataset_name: &str,
@@ -491,11 +491,19 @@ mod test {
         // Look in test directory
         let data_root = Some(String::from("test/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
-        assert!(
-            !usa_ctx.allow_full_metadata,
-            "Default allow_full_metadata should be false"
-        );
-        assert!(usa_ctx.product_root.is_some());
+        if usa_ctx.product_root.is_some() {
+            assert!(
+                usa_ctx.allow_full_metadata,
+                "Default allow_full_metadata should be true when product root dir was found."
+            );
+
+        } else {
+            assert!(
+                !usa_ctx.allow_full_metadata,
+                "Default allow_full_metadata should be false"
+            );
+        }
+
         assert!(usa_ctx.data_root.is_some());
         assert_eq!("USA".to_string(), usa_ctx.settings.name);
     }

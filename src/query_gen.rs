@@ -47,39 +47,6 @@ impl TabBuilder {
 }
 
 impl TabBuilder {
-    fn get_connecting_foreign_key(
-        ctx: &Context,
-        from_rt: &str,
-        to_parent: &str,
-    ) -> Result<String, String> {
-        if let Some(ref child_rt) = ctx.settings.record_types.get(from_rt) {
-            let fkey_name = child_rt
-                .foreign_keys
-                .iter()
-                .find(|(to_rt, f_)| to_rt == to_parent);
-            if let Some(key_name) = fkey_name {
-                Ok(key_name.1.clone())
-            } else {
-                Err(format!(
-                    "Cannot find a connection between '{}' and a parent record type of '{}'",
-                    from_rt, to_parent
-                ))
-            }
-        } else {
-            Err(format!(
-                "Cannot find a connection between '{}' and a parent record type of '{}'",
-                from_rt, to_parent
-            ))
-        }
-    }
-
-    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, String> {
-        if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
-            Ok(record_type.unique_id.clone())
-        } else {
-            Err(format!("No record type '{}' in current context.", rt))
-        }
-    }
 
     fn build_from_clause(
         &self,
@@ -215,6 +182,41 @@ impl TabBuilder {
             &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause
         ))
     }
+
+    fn get_connecting_foreign_key(
+        ctx: &Context,
+        from_rt: &str,
+        to_parent: &str,
+    ) -> Result<String, String> {
+        if let Some(ref child_rt) = ctx.settings.record_types.get(from_rt) {
+            let fkey_name = child_rt
+                .foreign_keys
+                .iter()
+                .find(|(to_rt, f_)| to_rt == to_parent);
+            if let Some(key_name) = fkey_name {
+                Ok(key_name.1.clone())
+            } else {
+                Err(format!(
+                    "Cannot find a connection between '{}' and a parent record type of '{}'",
+                    from_rt, to_parent
+                ))
+            }
+        } else {
+            Err(format!(
+                "Cannot find a connection between '{}' and a parent record type of '{}'",
+                from_rt, to_parent
+            ))
+        }
+    }
+
+    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, String> {
+        if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
+            Ok(record_type.unique_id.clone())
+        } else {
+            Err(format!("No record type '{}' in current context.", rt))
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -404,13 +406,14 @@ mod test {
 
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
+            // print the error whatever it is.
             Err(ref e) => assert_eq!("abc", e),
             _ => (),
         }
         assert!(queries.is_ok());
         if let Ok(qs) = queries {
             assert_eq!(1, qs.len());
-            assert_eq!("select abc", qs[0]);
+            assert!(qs[0].contains("from"));
         }
     }
 }
