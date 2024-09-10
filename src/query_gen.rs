@@ -15,6 +15,7 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
+use parquet::column::reader::get_column_reader;
 use sql_builder::{prelude::Bind, SqlBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -46,6 +47,40 @@ impl TabBuilder {
 }
 
 impl TabBuilder {
+    fn get_connecting_foreign_key(
+        ctx: &Context,
+        from_rt: &str,
+        to_parent: &str,
+    ) -> Result<String, String> {
+        if let Some(ref child_rt) = ctx.settings.record_types.get(from_rt) {
+            let fkey_name = child_rt
+                .foreign_keys
+                .iter()
+                .find(|(to_rt, f_)| to_rt == to_parent);
+            if let Some(key_name) = fkey_name {
+                Ok(key_name.1.clone())
+            } else {
+                Err(format!(
+                    "Cannot find a connection between '{}' and a parent record type of '{}'",
+                    from_rt, to_parent
+                ))
+            }
+        } else {
+            Err(format!(
+                "Cannot find a connection between '{}' and a parent record type of '{}'",
+                from_rt, to_parent
+            ))
+        }
+    }
+
+    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, String> {
+        if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
+            Ok(record_type.unique_id.clone())
+        } else {
+            Err(format!("No record type '{}' in current context.", rt))
+        }
+    }
+
     fn build_from_clause(
         &self,
         ctx: &Context,
@@ -56,14 +91,36 @@ impl TabBuilder {
         let lhs = &self.data_sources.get(uoa).unwrap();
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
+
         let mut q = format!("from {} as {}", left_platform_specific_path, left_alias);
 
-        // Handle the remaining tables
+        // TODO: Handle the remaining tables. Currently the connections between the joined tables are only
+        // generated to connect any two tables where we have foreign and primary keys. Three or more
+        // correct joins aren't yet supported.
+        if self.data_sources.len() > 2 {
+            return Err(
+                "Tabulations across more than two record types not yet supported!".to_string(),
+            );
+        }
         for (rt, ds) in &self.data_sources {
             if rt != uoa && all_rectypes.contains(rt) {
+                // The uoa should be the lowest record in the hierarchy by definition. The 'foreign_key' will point to the record
+                // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
+                // should not be allowed in the same tabulation.
+                let left_foreign_key = Self::get_connecting_foreign_key(ctx, uoa, rt)?;
+
                 let platform_specific_path = ds.for_platform(&self.platform);
                 let table_alias = ds.table_name();
-                q = q + &format!(", {} as {}", platform_specific_path, table_alias);
+                let table_id = Self::get_id_for_record_type(ctx, rt)?;
+                q = q + &format!(
+                    "\n left join  {} {} on {}.{} = {}.{}",
+                    platform_specific_path,
+                    table_alias,
+                    left_alias,
+                    left_foreign_key,
+                    table_alias,
+                    table_id
+                );
             }
         }
 
@@ -193,9 +250,9 @@ impl DataSource {
 
     pub fn new(name: String, full_path: Option<PathBuf>) -> Result<Self, String> {
         if let Some(p) = full_path {
-            if p.ends_with(".parquet") {
+            if p.to_string_lossy().ends_with(".parquet") {
                 Ok(Self::Parquet { name, full_path: p })
-            } else if p.ends_with(".csv") {
+            } else if p.to_string_lossy().ends_with(".csv") {
                 Ok(Self::Csv { name, full_path: p })
             } else {
                 let msg = format!(
@@ -347,9 +404,8 @@ mod test {
 
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
-            Err(ref e) => assert_eq!("abc",e),
+            Err(ref e) => assert_eq!("abc", e),
             _ => (),
-
         }
         assert!(queries.is_ok());
         if let Ok(qs) = queries {
