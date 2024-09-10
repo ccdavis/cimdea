@@ -1,8 +1,13 @@
+use std::io::empty;
+
 use crate::conventions::Context;
-use crate::ipums_data_model::*;
-use crate::ipums_metadata_model::*;
+use crate::ipums_metadata_model::IpumsDataType;
 use crate::request::InputType;
-use crate::request::SimpleRequest;
+use crate::request::RequestVariable;
+use crate::request::DataRequest;
+use crate::query_gen::tab_queries;
+use crate::query_gen::DataPlatform;
+use duckdb::{params, Connection, Result};
 
 pub enum TableFormat {
     Csv,
@@ -11,13 +16,38 @@ pub enum TableFormat {
     TextTable,
 }
 
+pub enum OutputColumn {
+    Constructed { name: String, width: usize, data_type:IpumsDataType },
+    RequestVar(RequestVariable),
+}
+
+impl OutputColumn {
+    pub fn name(&self) -> String {
+        match self {
+            Self::Constructed { ref name, ..} => name.clone(),
+            Self::RequestVar(ref v) => v.name.clone(),
+        }
+    }
+
+    pub fn width(&self) -> usize {
+        match self {
+            Self::Constructed { ref width, ..} => width,
+            Self::RequestVar(ref v) => {
+                if v.is_detailed {
+                    v.variable.formatting.1
+                } else {
+                    v.variable.general_width
+                }
+
+            }
+        }
+    }
+} // impl
+
 // If we want we can use the IpumsVariable categories to replace the numbers in the results (rows)
 // with category labels and use the data type and width information to better format the table.
 pub struct Table {
-    pub heading: Vec<IpumsVariable>, // variable name columns
-    pub count: String,
-    pub weighted_count: Option<String>,
-    pub weight_variable: Option<IpumsVariable>,
+    pub heading: Vec<OutputColumn>, // variable name columns
     pub rows: Vec<Vec<String>>,
 }
 
@@ -36,7 +66,7 @@ impl Table {
         let widths = self.column_widths();
 
         for (column, v) in self.heading.iter().enumerate() {
-            let name = self.heading[column].name.clone();
+            let name = self.heading[column].name();
             let column_header = format!("| {:>1$} |", &name, widths[column]);
             out.push_str(&column_header);
         }
@@ -61,13 +91,13 @@ impl Table {
     fn column_widths(&self) -> Vec<usize> {
         let mut widths = Vec::new();
         for (column, var) in self.heading.iter().enumerate() {
-            let name_width = var.name.len();
-            if let Some((_, width)) = var.formatting {
-                if name_width < width {
-                    widths.push(width);
-                } else {
-                    widths.push(name_width);
-                }
+            let name_width = var.name().len();
+            let width = var.width();
+            if name_width < width {
+                widths.push(width);
+            } else {
+                widths.push(name_width);
+
             } else {
                 if let Some(w) = self.width_from_data(column) {
                     if name_width < w {
@@ -91,26 +121,46 @@ impl Table {
         Self {
             rows: Vec::new(),
             heading: Vec::new(),
-            count: "count".to_string(),
-            weighted_count: None,
-            weight_variable: None,
         }
     }
 }
 
-pub fn tabulate(ctx: &Context, rq: &SimpleRequest) -> Result<Vec<Table>, String> {
-    //    let dataset_name = rq.datasets[0].name.clone();
-    let tables = rq
-        .datasets
-        .iter()
-        .map(|dataset| {
-            let dataset_name = dataset.name.to_owned();
-            // Construct the conventional path given the InputType, one per record type in case of non-hierarchical formats.
-            let data_paths = ctx.paths_from_dataset_name(&dataset_name, &InputType::Parquet);
+pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, String> {
+    let requested_output_columns = &rq.get_request_variables().iter()
+        .map(|v| OutputColumn::RequestVar(v))
+        .collect();
 
-            let tb = Table::empty();
-            tb
-        })
-        .collect::<Vec<Table>>();
+        let mut tables: Vec<Table> = Vec::new();
+
+    let sql_queries =tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
+    let conn = Connection::open_in_memory()?;
+    for q in sql_queries {
+        let mut stmt = match conn.prepare(&q) {
+            Ok(results) => results,
+            Err(e) => return Err(format!("{}",e)),
+        };
+
+        let column_names = stmt.column_names();
+        let mut output = Table { heading: Vec::new(), rows: Vec::new()};
+        output.heading.push(OutputColumn::Constructed{ name: "ct".to_string(), width:10, data_type: IpumsDataType::Integer});
+        output.heading.push(OutputColumn::Constructed{ name: "weighted_ct".to_string(), width:10, data_type: IpumsDataType::Integer});
+        output.heading.extend(requested_output_columns);
+
+        let rows = match stmt.query([]) {
+            Ok(r) => r,
+            Err(e) => return Err(format!("{}",e)),
+        };
+
+        while let Some(row) = rows.next().expect("Error reading row.") {
+            let mut this_row = Vec::new();
+            for (column_number, column_name)  in column_names.iter().enumerate() {
+                let item = row.get_unwrap(column_number);
+                this_row.push(item);
+            }
+            output.rows.push(this_row);
+        }
+        tables.push(output);
+    }
+
     Ok(tables)
 }

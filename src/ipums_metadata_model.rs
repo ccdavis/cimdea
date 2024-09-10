@@ -89,6 +89,7 @@ pub struct IpumsVariable {
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
+    pub general_width: usize,
     pub description: Option<ComprString>,
     pub id: IpumsVariableId, // auto-assigned in load order
 }
