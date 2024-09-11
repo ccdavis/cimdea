@@ -104,6 +104,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             label: None,
             categories: None,
             formatting: Some((value.0.start, value.0.width)),
+            general_width: value.0.width,
             description: None,
         }
     }

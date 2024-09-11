@@ -15,7 +15,7 @@ pub enum TableFormat {
     Json,
     TextTable,
 }
-
+#[derive(Clone,Debug)]
 pub enum OutputColumn {
     Constructed { name: String, width: usize, data_type:IpumsDataType },
     RequestVar(RequestVariable),
@@ -31,10 +31,14 @@ impl OutputColumn {
 
     pub fn width(&self) -> usize {
         match self {
-            Self::Constructed { ref width, ..} => width,
+            Self::Constructed { ref width, ..} => *width,
             Self::RequestVar(ref v) => {
                 if v.is_detailed {
-                    v.variable.formatting.1
+                    if let Some((_,wid)) = v.variable.formatting {
+                        wid
+                    } else {
+                        panic!("Width from metadata Variable required.");
+                    }
                 } else {
                     v.variable.general_width
                 }
@@ -97,9 +101,9 @@ impl Table {
                 widths.push(width);
             } else {
                 widths.push(name_width);
-
-            } else {
-                if let Some(w) = self.width_from_data(column) {
+            } 
+            /* 
+            else  if let Some(w) = self.width_from_data(column) {
                     if name_width < w {
                         widths.push(w);
                     } else {
@@ -109,6 +113,7 @@ impl Table {
                     panic!("Can't determine column width of data.");
                 }
             }
+            */
         }
         widths
     }
@@ -127,13 +132,16 @@ impl Table {
 
 pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, String> {
     let requested_output_columns = &rq.get_request_variables().iter()
-        .map(|v| OutputColumn::RequestVar(v))
-        .collect();
+        .map(|v| OutputColumn::RequestVar(v.clone()))
+        .collect::<Vec<OutputColumn>>();
 
         let mut tables: Vec<Table> = Vec::new();
 
     let sql_queries =tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
-    let conn = Connection::open_in_memory()?;
+    let conn = match Connection::open_in_memory() {
+        Ok(c) => c,
+        Err(e) => return Err(format!("{}",e),)
+    };
     for q in sql_queries {
         let mut stmt = match conn.prepare(&q) {
             Ok(results) => results,
@@ -144,9 +152,9 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, Strin
         let mut output = Table { heading: Vec::new(), rows: Vec::new()};
         output.heading.push(OutputColumn::Constructed{ name: "ct".to_string(), width:10, data_type: IpumsDataType::Integer});
         output.heading.push(OutputColumn::Constructed{ name: "weighted_ct".to_string(), width:10, data_type: IpumsDataType::Integer});
-        output.heading.extend(requested_output_columns);
+        output.heading.extend(requested_output_columns.clone());
 
-        let rows = match stmt.query([]) {
+        let mut rows = match stmt.query([]) {
             Ok(r) => r,
             Err(e) => return Err(format!("{}",e)),
         };
