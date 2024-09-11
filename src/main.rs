@@ -35,7 +35,7 @@ fn main() {
         None,
         None,
     );
-    match tabulate::tabulate(&context, &rq) {
+    match tabulate::tabulate(&context, rq) {
         Ok(tables) => {
             for table in tables {
                 println!("{}", table.output(TableFormat::TextTable));

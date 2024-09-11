@@ -104,7 +104,7 @@ impl TabBuilder {
 
         if let Some(ref wt) = weight_name {
             select_clause += &format!(
-                ", sum({}/{} as weighted_ct",
+                ", sum({}/{}) as weighted_ct",
                 wt,
                 weight_divisor.unwrap_or(1)
             );
