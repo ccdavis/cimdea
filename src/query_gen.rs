@@ -47,7 +47,6 @@ impl TabBuilder {
 }
 
 impl TabBuilder {
-
     fn build_from_clause(
         &self,
         ctx: &Context,
@@ -216,7 +215,6 @@ impl TabBuilder {
             Err(format!("No record type '{}' in current context.", rt))
         }
     }
-
 }
 
 #[derive(Debug, Clone)]

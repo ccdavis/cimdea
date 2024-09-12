@@ -19,7 +19,7 @@ use crate::{
     conventions,
     ipums_metadata_model::{IpumsDataset, IpumsVariable},
 };
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct RequestVariable {
     pub variable: IpumsVariable,
     pub is_detailed: bool,
@@ -40,7 +40,7 @@ impl RequestVariable {
     }
 }
 
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct RequestSample {
     pub sample: IpumsDataset,
     pub name: String,

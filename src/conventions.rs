@@ -491,21 +491,30 @@ mod test {
         // Look in test directory
         let data_root = Some(String::from("test/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
-        if usa_ctx.product_root.is_some() {
-            assert!(
-                usa_ctx.allow_full_metadata,
-                "Default allow_full_metadata should be true when product root dir was found."
-            );
 
+        if let Some(ref prod_root) = usa_ctx.product_root {
+            if prod_root.exists() {
+                assert!(
+                    !usa_ctx.allow_full_metadata,
+                    "Default allow_full_metadata should be false"
+                );
+            } else {
+                assert!(
+                    !usa_ctx.allow_full_metadata,
+                    "Default allow_full_metadata should be true when product root dir was found."
+                );
+            }
         } else {
             assert!(
                 !usa_ctx.allow_full_metadata,
-                "Default allow_full_metadata should be false"
+                "Default allow_full_metadata should be true when product root dir was found."
             );
         }
-
         assert!(usa_ctx.data_root.is_some());
         assert_eq!("USA".to_string(), usa_ctx.settings.name);
+        assert_eq!(2, usa_ctx.settings.record_types.len());
+        assert!(usa_ctx.settings.record_types.contains_key("H"));
+        assert!(usa_ctx.settings.record_types.contains_key("P"));
     }
 
     #[test]
