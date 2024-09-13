@@ -1,3 +1,4 @@
+#[allow(unused)]
 mod conventions;
 mod defaults;
 mod ipums_data_model;
@@ -12,13 +13,21 @@ use query_gen::*;
 use request::DataRequest;
 use tabulate::TableFormat;
 
+use clap::Parser;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+#[derive(Parser, Debug)]
+struct CliRequest {
+    pub sample_name: String,
+    pub product_name: String,
+    pub variable_names: Vec<String>,
+}
+
 fn main() {
-    let product = "usa";
-    let requested_datasets = ["us2015a", "us2016a"];
-    let requested_variables = ["RELATE", "GQ"];
+    let args = CliRequest::parse();
+
+    println!("Parsed args: {:?}", &args);
 
     // You could set up a context explicitly with a custom data root.
     //let data_root = String::from("test/data_root");
@@ -27,10 +36,13 @@ fn main() {
 
     // Or have the find_by_names construct the default context for the named product and load
     // metadata into that context just for the named metadata on the spot.
+
+    let variable_names: Vec<&str> = args.variable_names.iter().map(|v| &**v).collect();
+
     let (context, rq) = request::SimpleRequest::from_names(
-        product,
-        &requested_datasets,
-        &requested_variables,
+        &args.product_name,
+        &[&args.sample_name],
+        &variable_names,
         None,
         None,
         None,
