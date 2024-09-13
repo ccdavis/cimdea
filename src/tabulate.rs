@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::io::empty;
 
 use crate::conventions::Context;
@@ -8,14 +9,20 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
 use duckdb::{params, Connection, Result};
+use serde::Deserialize;
 use std::time::Instant;
 
+use serde::Serialize;
+use serde_json::*;
+
+#[derive(Clone, Debug)]
 pub enum TableFormat {
     Csv,
     Html,
     Json,
     TextTable,
 }
+
 #[derive(Clone, Debug)]
 enum OutputColumn {
     Constructed {
@@ -25,6 +32,48 @@ enum OutputColumn {
     },
     RequestVar(RequestVariable),
 }
+
+// The RequestVar variant has a real RequestVariable struct because there is a lot of useful information in there
+// to help format or generate codebooks etc. However for basic table serialization we only want to capture the
+// name, type and format width.We don't want to serialize the whole content of the RequestVar varient into JSON.
+impl Serialize for OutputColumn {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStructVariant;
+        match &self {
+            Self::Constructed {
+                name,
+                width,
+                data_type,
+            } => {
+                let mut ser =
+                    serializer.serialize_struct_variant("OutputColumn", 0, "Constructed", 3)?;
+                ser.serialize_field("name", &name)?;
+                ser.serialize_field("width", &width)?;
+                ser.serialize_field("data_type", &format!("{}", data_type))?;
+                ser.end()
+            }
+            Self::RequestVar(ref v) => {
+                let mut ser =
+                    serializer.serialize_struct_variant("OutputColumn", 1, "RequestVar", 3)?;
+                ser.serialize_field("name", &v.name)?;
+                ser.serialize_field("width", &v.requested_width().expect("Width not available."))?;
+                ser.serialize_field(
+                    "data_type",
+                    &format!(
+                        "{}",
+                        &v.variable.data_type.clone().expect(
+                            "Variables must have data types to allow serializing of table data."
+                        )
+                    ),
+                )?;
+                ser.end()
+            }
+        }
+    } // serialize trait
+} // impl
 
 impl OutputColumn {
     pub fn name(&self) -> String {
@@ -54,6 +103,7 @@ impl OutputColumn {
 
 // If we want we can use the IpumsVariable categories to replace the numbers in the results (rows)
 // with category labels and use the data type and width information to better format the table.
+#[derive(Clone, Debug, Serialize)]
 pub struct Table {
     pub heading: Vec<OutputColumn>, // variable name columns
     pub rows: Vec<Vec<String>>,
@@ -62,10 +112,20 @@ pub struct Table {
 impl Table {
     pub fn output(&self, format: TableFormat) -> String {
         match format {
-            TableFormat::Html | TableFormat::Csv | TableFormat::Json => {
+            TableFormat::Html | TableFormat::Csv => {
                 panic!("Output format not implemented yet.")
             }
+            TableFormat::Json => self.format_as_json(),
             TableFormat::TextTable => self.formatAsText(),
+        }
+    }
+
+    pub fn format_as_json(&self) -> String {
+        match serde_json::to_string_pretty(&self) {
+            Ok(j) => j,
+            Err(e) => {
+                panic!("Cannot serialize result into json: {}", e);
+            }
         }
     }
 

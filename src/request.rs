@@ -9,6 +9,7 @@
 
 use serde::de::IntoDeserializer;
 use serde::Deserializer;
+use serde::Serialize;
 use serde_json::{to_string, Error};
 
 use crate::conventions::Context;
@@ -36,6 +37,29 @@ impl RequestVariable {
             general_divisor: 1,
             name: var.name.clone(),
             case_selection: None,
+        }
+    }
+
+    pub fn detailed_width(&self) -> Result<usize, String> {
+        if let Some((_, w)) = self.variable.formatting {
+            Ok(w)
+        } else {
+            Err(format!("No width metadata available for {}", self.name))
+        }
+    }
+    pub fn general_width(&self) -> Result<usize, String> {
+        if !self.is_detailed {
+            Ok(self.variable.general_width)
+        } else {
+            Err(format!("General width not available for {}", self.name))
+        }
+    }
+
+    pub fn requested_width(&self) -> Result<usize, String> {
+        if self.is_detailed {
+            self.detailed_width()
+        } else {
+            self.general_width()
         }
     }
 }

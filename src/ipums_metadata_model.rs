@@ -48,6 +48,7 @@ use bstr::*;
 use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt;
 
 use compressed_string::ComprString;
 use interner::global::{GlobalPool, GlobalString};
@@ -116,6 +117,17 @@ pub enum IpumsDataType {
     Float,
     String,
     Fixed(usize),
+}
+
+impl fmt::Display for IpumsDataType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            IpumsDataType::Integer => write!(f, "integer"),
+            IpumsDataType::Fixed(_) => write!(f, "fixed"),
+            IpumsDataType::Float => write!(f, "double"),
+            IpumsDataType::String => write!(f, "string"),
+        }
+    }
 }
 
 impl From<&str> for IpumsDataType {
