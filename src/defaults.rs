@@ -1,6 +1,6 @@
 //! The Household - Person record structure is the default for much IPUMS data. Here we have some
 //!  functions to support setting up such a default structure without needing any external configuration.
-//!  
+//!
 //!  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
 //!
 
@@ -33,11 +33,11 @@ fn default_record_types() -> HashMap<String, RecordType> {
 }
 
 fn default_household_weight() -> RecordWeight {
-    RecordWeight::new("HHWT", 1)
+    RecordWeight::new("HHWT", 100)
 }
 
 fn default_person_weight() -> RecordWeight {
-    RecordWeight::new("PERWT", 1)
+    RecordWeight::new("PERWT", 100)
 }
 
 fn default_hierarchy() -> RecordHierarchy {
