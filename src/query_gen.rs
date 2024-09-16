@@ -168,14 +168,15 @@ impl TabBuilder {
         // Build this from '.case_selection' on each RequestVariable or other conditions
         let mut where_clause = "".to_string();
 
-        let group_by_clause = "group by ".to_string()
-            + &request_variables
+
+        let vars_in_order =  &request_variables
                 .iter()
                 .map(|v| v.name.clone())
                 .collect::<Vec<_>>()
                 .join(", ");
 
-        let order_by_clause = "".to_string();
+        let group_by_clause = "group by ".to_string() + &vars_in_order;
+        let order_by_clause = "order by ".to_string() + &vars_in_order;
         Ok(format!(
             "{}\n{}\n{}\n{}\n{}",
             &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause
