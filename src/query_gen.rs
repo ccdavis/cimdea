@@ -275,8 +275,14 @@ impl DataSource {
             DataPlatform::Duckdb => match self {
                 Self::Parquet { name, full_path } => {
                     // Check if full path points to a directory
-
-                    format!("'{}'", &full_path.display())
+                    if full_path.is_dir() {
+                        // Duckdb can query a directory of parquet files
+                        // as if they're a single logical file as long as
+                        // the schema matches on all of them.
+                        format!("'{}/*.parquet'", &full_path.display())
+                    } else {
+                        format!("'{}'", &full_path.display())
+                    }
                 }
                 Self::Csv { name, full_path } => format!("'{}'", &full_path.display()),
                 Self::NativeTable { name } => name.to_owned(),
