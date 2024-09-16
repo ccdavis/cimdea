@@ -23,6 +23,19 @@ pub enum TableFormat {
     TextTable,
 }
 
+impl TableFormat {
+    pub fn from_str(name: &str) -> Result<Self, String> {
+        let tf = match name.to_ascii_lowercase().as_str() {
+            "csv" => Self::Csv,
+            "json" => Self::Json,
+            "text" => Self::TextTable,
+            "html" => Self::Html,
+            _ => return Err("unknown format name.".to_string()),
+        };
+        Ok(tf)
+    }
+}
+
 #[derive(Clone, Debug)]
 enum OutputColumn {
     Constructed {

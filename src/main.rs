@@ -18,14 +18,20 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
 struct CliRequest {
     pub sample_name: String,
     pub product_name: String,
     pub variable_names: Vec<String>,
+
+    #[arg(short, long, default_value = "text")]
+    pub format: String,
 }
 
 fn main() {
     let args = CliRequest::parse();
+
+    println!("Output in {} format.", &args.format);
 
     println!("Parsed args: {:?}", &args);
 
@@ -37,8 +43,15 @@ fn main() {
     // Or have the find_by_names construct the default context for the named product and load
     // metadata into that context just for the named metadata on the spot.
 
-    let variable_names: Vec<&str> = args.variable_names.iter().map(|v| &**v).collect();
+    let table_format = match TableFormat::from_str(&args.format) {
+        Ok(tf) => tf,
+        Err(e) => {
+            eprintln!("{}: '{}'", &e, &args.format);
+            std::process::exit(1);
+        }
+    };
 
+    let variable_names: Vec<&str> = args.variable_names.iter().map(|v| &**v).collect();
     let (context, rq) = request::SimpleRequest::from_names(
         &args.product_name,
         &[&args.sample_name],
@@ -50,7 +63,7 @@ fn main() {
     match tabulate::tabulate(&context, rq) {
         Ok(tables) => {
             for table in tables {
-                println!("{}", table.output(TableFormat::TextTable));
+                println!("{}", table.output(table_format.clone()));
             }
         }
         Err(e) => {

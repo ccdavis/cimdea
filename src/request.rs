@@ -213,7 +213,7 @@ impl DataRequest for SimpleRequest {
         let variables = if let Some(ref md) = ctx.settings.metadata {
             let mut loaded_vars = Vec::new();
             for rv in requested_variables {
-                if let Some(id) = md.variables_by_name.get(*rv) {
+                if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
                     loaded_vars.push(md.variables_index[*id].clone());
                 } else {
                     panic!("Variable {} not in any loaded metadata.", rv);
