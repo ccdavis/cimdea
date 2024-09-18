@@ -110,7 +110,7 @@ impl TabBuilder {
         }
 
         for rq in request_variables {
-            select_clause += &if rq.is_detailed {
+            select_clause += &if !rq.is_general {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             } else {
                 format!(
@@ -168,12 +168,11 @@ impl TabBuilder {
         // Build this from '.case_selection' on each RequestVariable or other conditions
         let mut where_clause = "".to_string();
 
-
-        let vars_in_order =  &request_variables
-                .iter()
-                .map(|v| v.name.clone())
-                .collect::<Vec<_>>()
-                .join(", ");
+        let vars_in_order = &request_variables
+            .iter()
+            .map(|v| v.name.clone())
+            .collect::<Vec<_>>()
+            .join(", ");
 
         let group_by_clause = "group by ".to_string() + &vars_in_order;
         let order_by_clause = "order by ".to_string() + &vars_in_order;

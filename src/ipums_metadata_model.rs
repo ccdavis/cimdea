@@ -92,18 +92,20 @@ pub struct IpumsVariable {
     pub formatting: Option<(usize, usize)>,
     pub general_width: usize,
     pub description: Option<ComprString>,
+    pub categoryBins: Option<Vec<CategoryBin>>,
     pub id: IpumsVariableId, // auto-assigned in load order
 }
 
 impl From<(&LayoutVar, usize)> for IpumsVariable {
     fn from(value: (&LayoutVar, usize)) -> Self {
         Self {
+            id: value.1,
             name: value.0.name.clone(),
             record_type: value.0.rectype.clone(),
-            id: value.1,
             data_type: Some(value.0.data_type.clone()),
             label: None,
             categories: None,
+            categoryBins: None,
             formatting: Some((value.0.start, value.0.width)),
             general_width: value.0.width,
             description: None,
@@ -189,6 +191,44 @@ impl IpumsCategory {
             meaning,
             value,
             id: 0,
+        }
+    }
+}
+#[derive(Clone, Debug)]
+pub enum CategoryBin {
+    LessThan { value: i64, label: String },
+    Range { low: i64, high: i64, label: String },
+    MoreThan { value: i64, label: String },
+}
+
+impl CategoryBin {
+    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Self {
+        if low.is_some() && high.is_some() {
+            Self::Range {
+                low: low.unwrap(),
+                high: high.unwrap(),
+                label: label.to_owned(),
+            }
+        } else if low.is_none() && high.is_some() {
+            Self::LessThan {
+                value: high.unwrap(),
+                label: label.to_owned(),
+            }
+        } else if low.is_some() && high.is_none() {
+            Self::MoreThan {
+                value: low.unwrap(),
+                label: label.to_owned(),
+            }
+        } else {
+            panic!("Must have at low or high or both equal to some value.");
+        }
+    }
+
+    pub fn within(&self, testValue: i64) -> bool {
+        match self {
+            Self::LessThan { value, .. } => testValue < *value,
+            Self::Range { low, high, .. } => testValue >= *low && testValue <= *high,
+            Self::MoreThan { value, .. } => testValue > *value,
         }
     }
 }

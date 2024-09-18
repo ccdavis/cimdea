@@ -100,7 +100,7 @@ impl OutputColumn {
         match self {
             Self::Constructed { ref width, .. } => *width,
             Self::RequestVar(ref v) => {
-                if v.is_detailed {
+                if !v.is_general {
                     if let Some((_, wid)) = v.variable.formatting {
                         wid
                     } else {

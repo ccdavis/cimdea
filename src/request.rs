@@ -12,31 +12,52 @@ use serde::Deserializer;
 use serde::Serialize;
 use serde_json::{to_string, Error};
 
-use crate::conventions::Context;
 use crate::ipums_data_model::{self, RecordType};
-use crate::ipums_metadata_model::IpumsVariableId;
-use crate::query_gen::Condition;
 use crate::{
     conventions,
-    ipums_metadata_model::{IpumsDataset, IpumsVariable},
+    conventions::Context,
+    ipums_metadata_model::{CategoryBin, IpumsDataType, IpumsDataset, IpumsVariable},
+    query_gen::Condition,
 };
+
 #[derive(Clone, Debug)]
 pub struct RequestVariable {
     pub variable: IpumsVariable,
-    pub is_detailed: bool,
+    pub is_general: bool,
     pub general_divisor: usize, // for instance, 100 for RELATE vs RELATED
     pub name: String,
     pub case_selection: Option<Condition>,
+    pub attached_variable_pointer: Option<IpumsVariable>,
+    pub category_bins: Option<Vec<CategoryBin>>,
 }
 
 impl RequestVariable {
-    pub fn from_ipums_variable(var: &IpumsVariable) -> Self {
+    pub fn from_ipums_variable(var: &IpumsVariable, use_general: bool) -> Self {
+        let general_divisor: usize = if let Some((_, w)) = var.formatting {
+            if w == var.general_width {
+                1
+            } else if (w < var.general_width) {
+                let exponent: u32 = (w - var.general_width).try_into().unwrap();
+                let base: i32 = 10;
+                base.pow(exponent).try_into().unwrap()
+            } else {
+                panic!(
+                    "Bad metadata, general width can't be larger than detailed width on {}",
+                    &var.name
+                );
+            }
+        } else {
+            1
+        };
+
         Self {
             variable: var.clone(),
-            is_detailed: true,
-            general_divisor: 1,
+            is_general: use_general,
+            general_divisor,
             name: var.name.clone(),
             case_selection: None,
+            attached_variable_pointer: None,
+            category_bins: var.categoryBins.clone(),
         }
     }
 
@@ -47,8 +68,9 @@ impl RequestVariable {
             Err(format!("No width metadata available for {}", self.name))
         }
     }
+
     pub fn general_width(&self) -> Result<usize, String> {
-        if !self.is_detailed {
+        if self.is_general {
             Ok(self.variable.general_width)
         } else {
             Err(format!("General width not available for {}", self.name))
@@ -56,11 +78,19 @@ impl RequestVariable {
     }
 
     pub fn requested_width(&self) -> Result<usize, String> {
-        if self.is_detailed {
-            self.detailed_width()
-        } else {
+        if self.is_general {
             self.general_width()
+        } else {
+            self.detailed_width()
         }
+    }
+
+    pub fn data_type(&self) -> Option<IpumsDataType> {
+        self.variable.data_type.clone()
+    }
+
+    pub fn variable_name(&self) -> String {
+        self.variable.name.clone()
     }
 }
 
@@ -126,6 +156,7 @@ pub enum OutputFormat {
     CSV,
     FW,
     Json,
+    Html,
 }
 
 #[derive(Clone, Debug)]
@@ -189,6 +220,7 @@ pub struct SimpleRequest {
     pub request_type: RequestType,
     pub output_format: OutputFormat,
     pub conditions: Option<Vec<Condition>>,
+    pub use_general_variables: bool,
 }
 
 // The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
@@ -248,6 +280,7 @@ impl DataRequest for SimpleRequest {
                 request_type: RequestType::Tabulation,
                 output_format: OutputFormat::CSV,
                 conditions: None,
+                use_general_variables: false,
             },
         )
     }
@@ -255,7 +288,7 @@ impl DataRequest for SimpleRequest {
     fn get_request_variables(&self) -> Vec<RequestVariable> {
         self.variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v))
+            .map(|v| RequestVariable::from_ipums_variable(v, self.use_general_variables))
             .collect()
     }
 
@@ -346,6 +379,7 @@ impl DataRequest for SimpleRequest {
             request_type,
             output_format,
             conditions: None,
+            use_general_variables: false,
         })
     }
 
@@ -368,7 +402,7 @@ mod test {
     use super::*;
 
     #[test]
-    pub fn test_deserialize_request() {
+    pub fn test_deserialize_into_simple_request() {
         let data_root = String::from("test/data_root");
         let mut ctx =
             conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
