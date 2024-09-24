@@ -344,7 +344,7 @@ impl Condition {
     }
 }
 
-// Returns one query per dataset in the request; if you wanted totabulate across
+// Returns one query per dataset in the request; if you wanted to tabulate across
 // datasets that would be a different query that unions thetables of the same record type...
 // You can accomplish the same thing by combining the results of each query.
 pub fn tab_queries(

@@ -200,6 +200,89 @@ fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -
     unit_rectype
 }
 
+/// The Abacus Request type contains variables to tabulate, variables used for conditions and datasets.
+#[derive(Clone, Debug)]
+pub struct AbacusRequest {
+    pub product: String,                         // name of data collection
+    pub request_variables: Vec<RequestVariable>, //  Tabulate these variables, and use general / detailed and the category bins
+    pub subpopulation: Vec<RequestVariable>,     // These will provide the data for the conditions
+    pub request_samples: Vec<RequestSample>,
+    pub unit_rectype: ipums_data_model::RecordType,
+    pub output_format: OutputFormat,
+    pub use_general_variables: bool,
+    pub data_root: Option<String>,
+}
+
+impl AbacusRequest {
+    /// Accepts a single JSON with keys for Request, Subpop and any other arguments.
+    /// ///
+    ///  { "product": "usa",
+    ///  "data_root" : "/pkg/ipums/usa/output_data/current",
+    /// "request_variables": [...],
+    /// request_samples: [...],
+    ///  "subpop" : [ {...}, {...}],
+    /// "uoa" : "P"}
+    pub fn from_json(input: &str) -> Result<Self, String> {
+        let parsed: serde_json::Value = match serde_json::from_str(input) {
+            Ok(parsed) => parsed,
+            Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
+        };
+
+        let Some(product) = parsed["product"].as_str() else {
+            return Err("No 'product' in request".to_string());
+        };
+
+        let optional_data_root = if let Some(ref r) = parsed["data_root"].as_str() {
+            Some(r.to_string())
+        } else {
+            None
+        };
+
+        let mut ctx = conventions::Context::from_ipums_collection_name(
+            product,
+            None,
+            optional_data_root.clone(),
+        );
+
+        let Some(parsed_request_samples) = parsed["request_samples"].as_array() else {
+            return Err("No 'request_samples' in request.".to_string());
+        };
+        let Some(parsed_request_variables) = parsed["request_variables"].as_array() else {
+            return Err("Request must have 'request_variables' field.".to_string());
+        };
+        let Some(parsed_uoa) = parsed["uoa"].as_str() else {
+            return Err("'uoa' (unit of analysis) required.".to_string());
+        };
+
+        let mut requested_dataset_names = Vec::new();
+        for rs in parsed_request_samples {
+            let Some(name) = rs["name"].as_str() else {
+                return Err("Missing name field in RequestSample object.".to_string());
+            };
+            requested_dataset_names.push(name);
+        }
+
+        // Use the names of the requested samples to load partial metadata
+        ctx.load_metadata_for_datasets(&requested_dataset_names);
+
+        // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
+        let Some(uoa) = ctx.settings.record_types.get(parsed_uoa) else {
+            return Err("No record type for uoa.".to_string());
+        };
+
+        Ok(Self {
+            product: product.to_string(),
+            request_variables: Vec::new(),
+            request_samples: Vec::new(),
+            subpopulation: Vec::new(),
+            output_format: OutputFormat::Json,
+            use_general_variables: true,
+            unit_rectype: uoa.clone(),
+            data_root: optional_data_root,
+        })
+    }
+}
+
 /// The `SimpleRequest` probably can describe 90% of IPUMS tabulation and extraction requests.
 ///
 /// In a ComplexRequest, Variables could have attached variables or monetary standardization adjustment factors,
@@ -445,5 +528,14 @@ mod test {
         assert_eq!(4, rq.variables.len());
         assert_eq!(rq.product, "usa");
         assert_eq!(1, rq.datasets.len());
+    }
+
+    #[test]
+    pub fn test_abacus_request_from_json() {
+        let json_request = fs::read_to_string("test/requests/usa_abacus_request.json")
+            .expect("Error reading test fixture in test/requests");
+
+        let abacus_request = AbacusRequest::from_json(&json_request);
+        assert!(abacus_request.is_ok());
     }
 }

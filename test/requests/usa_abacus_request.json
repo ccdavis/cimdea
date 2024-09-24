@@ -1,0 +1,63 @@
+{
+    "product": "usa",
+    "data_root": "test/data_root",
+    "uoa": "P",
+    "output_format" : "json",
+    "subpopulation": [],
+    "category_bins": [],    
+    
+      "request_variables": [
+        {
+          "variable_mnemonic": "GQ",
+          "mnemonic": "GQ",
+          "general_detailed_selection": null,
+          "attached_variable_pointer": null,
+          "case_selection": false,
+          "request_case_selections": [
+  
+          ],
+          "extract_start": 71,
+          "extract_width": 1
+        },                
+        {
+          "variable_mnemonic": "OCCSOC",
+          "mnemonic": "OCCSOC",
+          "general_detailed_selection": null,
+          "attached_variable_pointer": null,
+          "case_selection": false,
+          "request_case_selections": [
+  
+          ],
+          "extract_start": 86,
+          "extract_width": 6
+        },
+        {
+          "variable_mnemonic": "INDNAICS",
+          "mnemonic": "INDNAICS",
+          "general_detailed_selection": null,
+          "attached_variable_pointer": null,
+          "case_selection": false,
+          "request_case_selections": [
+  
+          ],
+          "extract_start": 92,
+          "extract_width": 8
+        }
+      ],
+      
+      "request_samples": [
+      {
+          "name": "us2016c",
+          "custom_sampling_ratio": "5.0",
+          "first_household_sampled": 4
+        },
+      {
+          "name": "us2014d",
+          "custom_sampling_ratio": "4.88",
+          "first_household_sampled": 2
+        }
+      ]
+    
+    
+  }
+  
