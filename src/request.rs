@@ -250,6 +250,11 @@ impl AbacusRequest {
         let Some(parsed_request_variables) = parsed["request_variables"].as_array() else {
             return Err("Request must have 'request_variables' field.".to_string());
         };
+
+        let Some(parsed_subpop) = parsed["subpopulation"].as_array() else {
+            return Err("No subpopulation key.".to_string());
+        };
+
         let Some(parsed_uoa) = parsed["uoa"].as_str() else {
             return Err("'uoa' (unit of analysis) required.".to_string());
         };
@@ -270,11 +275,64 @@ impl AbacusRequest {
             return Err("No record type for uoa.".to_string());
         };
 
+        let Some(ref md) = ctx.settings.metadata else {
+            return Err("Insufficient metadata loaded to deserialize request.".to_string());
+        };
+
+        let mut rqs = Vec::new();
+        for p in parsed_request_samples {
+            let name = p["name"].as_str().unwrap();
+            let Some(ipums_ds) = md.cloned_dataset_from_name(name) else {
+                return Err(format!("No metadata for dataset named {}", &name));
+            };
+            rqs.push(RequestSample {
+                name: name.to_string(),
+                sample: ipums_ds,
+            });
+        }
+
+        let mut rqv = Vec::new();
+        for v in parsed_request_variables {
+            let name = v["mnemonic"].as_str() else {
+                return Err("Missing mnemonic on request variable.".to_string());
+            };
+
+            let Some(variable_mnemonic) = v["variable_mnemonic"].as_str() else {
+                return Err("Missing variable_mnemonic in RequestVariable.".to_string());
+            };
+
+            let Some(ipums_var) = md.cloned_variable_from_name(variable_mnemonic) else {
+                return Err(format!(
+                    "No variable named '{}' in loaded metadata.",
+                    variable_mnemonic
+                ));
+            };
+
+            let use_general = if v["general_detailed_selection"].is_null() {
+                false
+            } else {
+                if let Some(gendet) = v["general_detail_selection"].as_str() {
+                    gendet == "G"
+                } else {
+                    false
+                }
+            };
+
+            let mut request_var = RequestVariable::from_ipums_variable(&ipums_var, use_general);
+
+            // TODO add category bins
+
+            rqv.push(request_var);
+        }
+
+        let mut subpop = Vec::new();
+        for s in parsed_subpop {}
+
         Ok(Self {
             product: product.to_string(),
-            request_variables: Vec::new(),
-            request_samples: Vec::new(),
-            subpopulation: Vec::new(),
+            request_variables: rqv,
+            request_samples: rqs,
+            subpopulation: subpop,
             output_format: OutputFormat::Json,
             use_general_variables: true,
             unit_rectype: uoa.clone(),
@@ -536,6 +594,10 @@ mod test {
             .expect("Error reading test fixture in test/requests");
 
         let abacus_request = AbacusRequest::from_json(&json_request);
+        match abacus_request {
+            Err(ref e) => eprintln!("Error was '{}'", e),
+            _ => (),
+        }
         assert!(abacus_request.is_ok());
     }
 }
