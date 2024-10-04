@@ -1,30 +1,30 @@
+use cimdea::conventions::Context;
 use cimdea::request::AbacusRequest;
 use cimdea::tabulate;
-use cimdea::conventions::Context;
 
-use std::io::{self, BufRead};
 use clap::Parser;
+use std::io::{self, BufRead};
 
 fn get_from_stdin() -> String {
     let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
-    let data = match lines.collect::<Result<Vec<String>,_>>() {
+    let lines = stdin.lock().lines();
+    let data = match lines.collect::<Result<Vec<String>, _>>() {
         Ok(lns) => lns.join("\n"),
         Err(ref e) => {
-            eprintln!("Error reading from STDIN: '{}'",e);
+            eprintln!("Error reading from STDIN: '{}'", e);
             std::process::exit(1);
         }
     };
     data
 }
 
-fn abacus_request_from_str(rq: &str) ->  (Context, AbacusRequest) {
+fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
     match AbacusRequest::from_json(rq) {
         Err(e) => {
             eprintln!("Error parsing input JSON: '{}'", &e);
             std::process::exit(1);
         }
-        Ok((ctx, ar)) => (ctx,ar),
+        Ok((ctx, ar)) => (ctx, ar),
     }
 }
 
@@ -48,7 +48,7 @@ fn main() {
         let json = match std::fs::read_to_string(&input_value) {
             Ok(j) => j,
             Err(e) => {
-                eprintln!("Can't access Abacus request file: '{}'",e);
+                eprintln!("Can't access Abacus request file: '{}'", e);
                 std::process::exit(1);
             }
         };
@@ -56,7 +56,7 @@ fn main() {
     };
 
     let table_format = tabulate::TableFormat::Json;
-    match tabulate::tabulate(&context, &request) {
+    match tabulate::tabulate(&context, request) {
         Ok(tables) => {
             // Print a JSON array and separate table objects with ',' if more than one in
             // the output.
@@ -64,7 +64,7 @@ fn main() {
             for (table_number, table) in tables.iter().enumerate() {
                 if table_number > 0 {
                     println!(",");
-                                    }
+                }
                 println!("{}", table.output(table_format.clone()));
             }
             println!("\n]\n");
@@ -73,5 +73,4 @@ fn main() {
             eprintln!("Error trying to tabulate: {}", &e);
         }
     }
-
 }

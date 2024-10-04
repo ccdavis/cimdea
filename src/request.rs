@@ -19,6 +19,50 @@ use crate::{
     query_gen::Condition,
 };
 
+// Given a set of variable and dataset names and a product name, produce a context loaded
+// with metadata just for those named parts and return copies of the IpumsVariable and IpumsSample structs.
+fn context_from_names_helper(
+    product: &str,
+    requested_datasets: &[&str],
+    requested_variables: &[&str],
+    optional_product_root: Option<String>,
+    optional_data_root: Option<String>,
+) -> (conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>) {
+    let mut ctx =
+        conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
+    ctx.load_metadata_for_datasets(requested_datasets);
+
+    // Get variables from selections
+    let variables = if let Some(ref md) = ctx.settings.metadata {
+        let mut loaded_vars = Vec::new();
+        for rv in requested_variables {
+            if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
+                loaded_vars.push(md.variables_index[*id].clone());
+            } else {
+                panic!("Variable {} not in any loaded metadata.", rv);
+            }
+        }
+        loaded_vars
+    } else {
+        Vec::new()
+    };
+
+    let datasets = if let Some(ref md) = ctx.settings.metadata {
+        let mut loaded_datasets = Vec::new();
+        for rd in requested_datasets {
+            if let Some(id) = md.datasets_by_name.get(*rd) {
+                loaded_datasets.push(md.datasets_index[*id].clone());
+            } else {
+                panic!("No dataset named {} found in metadata or layouts!", rd);
+            }
+        }
+        loaded_datasets
+    } else {
+        Vec::new()
+    };
+    (ctx, variables, datasets)
+}
+
 #[derive(Clone, Debug)]
 pub struct RequestVariable {
     pub variable: IpumsVariable,
@@ -213,8 +257,91 @@ pub struct AbacusRequest {
 }
 
 impl DataRequest for AbacusRequest {
+    fn get_request_variables(&self) -> Vec<RequestVariable> {
+        self.request_variables.clone()
+    }
 
+    fn get_request_samples(&self) -> Vec<RequestSample> {
+        self.request_samples.clone()
+    }
 
+    fn get_conditions(&self) -> Option<Vec<Condition>> {
+        let conditions = self
+            .subpopulation
+            .iter()
+            .filter(|rv| rv.case_selection.is_some())
+            .map(|rv_c| rv_c.clone().case_selection.unwrap())
+            .collect::<Vec<Condition>>();
+        if conditions.len() > 0 {
+            Some(conditions)
+        } else {
+            None
+        }
+    }
+
+    fn deserialize_from_ipums_json(
+        ctx: &conventions::Context,
+        request_type: RequestType,
+        json_request: &str,
+    ) -> Result<Self, String>
+    where
+        Self: std::marker::Sized,
+    {
+        panic!("Not implemented yet")
+    }
+
+    fn print_codebook(&self) -> String {
+        "".to_string()
+    }
+
+    fn print_stata(&self) -> String {
+        "".to_string()
+    }
+
+    fn from_names(
+        product: &str,
+        requested_datasets: &[&str],
+        requested_variables: &[&str],
+        unit_of_analysis: Option<String>,
+        optional_product_root: Option<String>,
+        optional_data_root: Option<String>,
+    ) -> (conventions::Context, Self) {
+        // get datasets from selections
+        let (ctx, variables, datasets) = context_from_names_helper(
+            product,
+            requested_datasets,
+            requested_variables,
+            optional_product_root,
+            optional_data_root.clone(),
+        );
+        let request_variables = variables
+            .iter()
+            .map(|v| RequestVariable::from_ipums_variable(v, false))
+            .collect();
+        let request_samples = datasets
+            .iter()
+            .map(|d| RequestSample::from_ipums_dataset(d))
+            .collect();
+
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+        (
+            ctx,
+            Self {
+                product: product.to_string(),
+                request_samples,
+                request_variables,
+                unit_rectype,
+                output_format: OutputFormat::CSV,
+                subpopulation: Vec::new(),
+                use_general_variables: false,
+                data_root: optional_data_root,
+            },
+        )
+    }
+
+    fn serialize_to_IPUMS_JSON(&self) -> String {
+        panic!("Not implemented.")
+    }
 }
 
 impl AbacusRequest {
@@ -275,7 +402,7 @@ impl AbacusRequest {
         ctx.load_metadata_for_datasets(&requested_dataset_names);
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let uoa  = if let Some(u) = ctx.settings.record_types.clone().get(parsed_uoa){
+        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(parsed_uoa) {
             u.clone()
         } else {
             return Err("No record type for uoa.".to_string());
@@ -334,16 +461,19 @@ impl AbacusRequest {
         let mut subpop = Vec::new();
         for s in parsed_subpop {}
 
-        Ok((ctx, Self {
-            product: product.to_string(),
-            request_variables: rqv,
-            request_samples: rqs,
-            subpopulation: subpop,
-            output_format: OutputFormat::Json,
-            use_general_variables: true,
-            unit_rectype: uoa.clone(),
-            data_root: optional_data_root,
-        }))
+        Ok((
+            ctx,
+            Self {
+                product: product.to_string(),
+                request_variables: rqv,
+                request_samples: rqs,
+                subpopulation: subpop,
+                output_format: OutputFormat::Json,
+                use_general_variables: true,
+                unit_rectype: uoa.clone(),
+                data_root: optional_data_root,
+            },
+        ))
     }
 }
 
@@ -383,40 +513,15 @@ impl DataRequest for SimpleRequest {
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
     ) -> (conventions::Context, Self) {
-        let mut ctx =
-            conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
-        ctx.load_metadata_for_datasets(requested_datasets);
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
-
-        // Get variables from selections
-        let variables = if let Some(ref md) = ctx.settings.metadata {
-            let mut loaded_vars = Vec::new();
-            for rv in requested_variables {
-                if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
-                    loaded_vars.push(md.variables_index[*id].clone());
-                } else {
-                    panic!("Variable {} not in any loaded metadata.", rv);
-                }
-            }
-            loaded_vars
-        } else {
-            Vec::new()
-        };
-
-        let datasets = if let Some(ref md) = ctx.settings.metadata {
-            let mut loaded_datasets = Vec::new();
-            for rd in requested_datasets {
-                if let Some(id) = md.datasets_by_name.get(*rd) {
-                    loaded_datasets.push(md.datasets_index[*id].clone());
-                } else {
-                    panic!("No dataset named {} found in metadata or layouts!", rd);
-                }
-            }
-            loaded_datasets
-        } else {
-            Vec::new()
-        };
         // get datasets from selections
+        let (ctx, variables, datasets) = context_from_names_helper(
+            product,
+            requested_datasets,
+            requested_variables,
+            optional_product_root,
+            optional_data_root,
+        );
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
         (
             ctx,
             Self {
