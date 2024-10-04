@@ -31,7 +31,6 @@ use crate::ipums_metadata_model::*;
 use crate::layout;
 use crate::request::InputType;
 
-use std::ascii::AsciiExt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

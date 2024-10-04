@@ -20,3 +20,14 @@ serde ={version =  "1.0.201", features=["derive"]}
 serde_json = "1.0.117"
 clap = {version="4.0.0", features=["derive"]}
 
+[lib]
+name = "cimdea"
+path = "src/lib.rs"
+
+[[bin]]
+name = "abacus"
+path = "src/bin/abacus.rs"
+
+[[bin]]
+name = "cimdea"
+path = "src/main.rs"

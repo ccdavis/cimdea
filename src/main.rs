@@ -11,6 +11,7 @@ mod tabulate;
 use conventions::*;
 use query_gen::*;
 use request::DataRequest;
+use request::AbacusRequest;
 use tabulate::TableFormat;
 
 use clap::Parser;
@@ -26,6 +27,31 @@ struct CliRequest {
 
     #[arg(short, long, default_value = "text")]
     pub format: String,
+}
+
+use std::io::{self, BufRead};
+
+fn get_from_stdin() -> String {
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+    let data = match lines.collect::<Result<Vec<String>,_>>() {
+        Ok(lns) => lns.join("\n"),
+        Err(ref e) => {
+            eprintln!("Error reading from STDIN: '{}'",e);
+            std::process::exit(1);
+        }
+    };
+    data
+}
+
+fn abacus_request_from_stdin() ->  AbacusRequest {
+    match AbacusRequest::from_json(&get_from_stdin()) {
+        Err(e) => {
+            eprintln!("Error parsing input JSON: '{}'", &e);
+            std::process::exit(1);
+        }
+        Ok(ar) => ar,
+    }
 }
 
 fn main() {

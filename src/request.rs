@@ -8,7 +8,6 @@
 //!
 
 use serde::de::IntoDeserializer;
-use serde::Deserializer;
 use serde::Serialize;
 use serde_json::{to_string, Error};
 
@@ -213,6 +212,11 @@ pub struct AbacusRequest {
     pub data_root: Option<String>,
 }
 
+impl DataRequest for AbacusRequest {
+
+
+}
+
 impl AbacusRequest {
     /// Accepts a single JSON with keys for Request, Subpop and any other arguments.
     /// ///
@@ -222,7 +226,7 @@ impl AbacusRequest {
     /// request_samples: [...],
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
-    pub fn from_json(input: &str) -> Result<Self, String> {
+    pub fn from_json(input: &str) -> Result<(conventions::Context, Self), String> {
         let parsed: serde_json::Value = match serde_json::from_str(input) {
             Ok(parsed) => parsed,
             Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
@@ -271,11 +275,13 @@ impl AbacusRequest {
         ctx.load_metadata_for_datasets(&requested_dataset_names);
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let Some(uoa) = ctx.settings.record_types.get(parsed_uoa) else {
+        let uoa  = if let Some(u) = ctx.settings.record_types.clone().get(parsed_uoa){
+            u.clone()
+        } else {
             return Err("No record type for uoa.".to_string());
         };
 
-        let Some(ref md) = ctx.settings.metadata else {
+        let Some(ref md) = &ctx.settings.metadata else {
             return Err("Insufficient metadata loaded to deserialize request.".to_string());
         };
 
@@ -328,7 +334,7 @@ impl AbacusRequest {
         let mut subpop = Vec::new();
         for s in parsed_subpop {}
 
-        Ok(Self {
+        Ok((ctx, Self {
             product: product.to_string(),
             request_variables: rqv,
             request_samples: rqs,
@@ -337,7 +343,7 @@ impl AbacusRequest {
             use_general_variables: true,
             unit_rectype: uoa.clone(),
             data_root: optional_data_root,
-        })
+        }))
     }
 }
 
