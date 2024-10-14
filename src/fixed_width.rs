@@ -1,3 +1,6 @@
+//! A support module for reading fixed-width IPUMS files and their layout files. Layouts are required as a minimum level of metadata to do all advanced Abacus tabulations and formatting.
+//!
+//!  The 'HFLR" type models the "Hierarchical Fixed-Length Record" data IPUMS uses.
 use crate::layout;
 //use duckdb::arrow::datatypes::ToByteSlice;
 use ascii;
@@ -141,7 +144,7 @@ pub fn make_zero_padded_numeric(code: &[u8]) -> Vec<u8> {
 }
 
 mod tests {
-    
+
 
     #[test]
     fn test_make_zero_padded_numeric() {

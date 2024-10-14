@@ -1,5 +1,5 @@
 //! The Household - Person record structure is the default for much IPUMS data. Here we have some
-//!  functions to support setting up such a default structure without needing any external configuration.
+//!  functions to support setting up such a default structure without needing any external configuration. Everything modeled here could originate from a run-time configuration process instead.
 //!
 //!  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
 //!
@@ -66,8 +66,8 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
 ///
 ///
 
-// Right now we only set defaults programmatically but in future this should set some additional
-// properties particular to products or stuff loaded in from
+/// Right now we only set defaults programmatically but in future this should set some additional
+/// properties particular to products or stuff loaded in from
 // an external configuration.
 pub fn defaults_for(product: &str) -> MicroDataCollection {
     match product.to_lowercase().as_ref() {

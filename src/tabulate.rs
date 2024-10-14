@@ -1,4 +1,10 @@
-use std::fmt::Display;
+//! The high level module for executing and formatting tabulations.
+//!
+//!   The result of the tabulations are tabulation::Table structs that
+//! carry some metadata information with them to be used by formatters or even codebook
+//! generators.
+//!
+//! use std::fmt::Display;
 use std::io::empty;
 
 use crate::conventions::Context;
@@ -46,9 +52,10 @@ enum OutputColumn {
     RequestVar(RequestVariable),
 }
 
-// The RequestVar variant has a real RequestVariable struct because there is a lot of useful information in there
-// to help format or generate codebooks etc. However for basic table serialization we only want to capture the
-// name, type and format width.We don't want to serialize the whole content of the RequestVar varient into JSON.
+/// The RequestVar variant on OutputColumn has a real RequestVariable struct because there is a lot of useful information in there
+/// to help format or generate codebooks etc. However for basic table serialization we only want to capture the
+/// name, type and format width.We don't want to serialize the whole content of the RequestVar varient into JSON.
+/// This serialization exists to convert an tabulate::Table into JSON for outside consumption.
 impl Serialize for OutputColumn {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -210,6 +217,11 @@ impl Table {
     }
 }
 
+/// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
+/// the request.Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
+/// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
+/// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
+/// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
 pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, String> {
     let requested_output_columns = &rq
         .get_request_variables()

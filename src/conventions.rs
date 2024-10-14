@@ -1,5 +1,7 @@
 //! This module provides structs and methods for loading metadata and storing information about a IPUMS data
-//! collection based on conventions and minimal configuration. Every collection has a set of data record types
+//! collection based on IPUMS conventions and minimal configuration.
+//!
+//! Every collection has a set of data record types
 //! and a hierarchy those records belong to: For instance, person records belong to household records.
 //!
 //! The `MicroDataCollection` struct initialization  makes heavy use of IPUMS directory and naming conventions.
