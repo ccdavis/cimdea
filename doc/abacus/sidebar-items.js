@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["abacus_request_from_str","get_from_stdin","main"],"struct":["CliRequest"]};

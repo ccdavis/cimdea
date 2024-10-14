@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["IpumsDataType","IpumsValue","UniversalCategoryType"],"struct":["IpumsCategory","IpumsDataset","IpumsVariable"],"type":["IpumsDatasetId","IpumsVariableId"]};
+window.SIDEBAR_ITEMS = {"enum":["CategoryBin","IpumsDataType","IpumsValue","UniversalCategoryType"],"struct":["IpumsCategory","IpumsDataset","IpumsVariable"],"type":["IpumsDatasetId","IpumsVariableId"]};

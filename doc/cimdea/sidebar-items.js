@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["conventions","defaults","ipums_data_model","ipums_metadata_model","layout","query_gen","request"]};
+window.SIDEBAR_ITEMS = {"mod":["conventions","defaults","ipums_data_model","ipums_metadata_model","layout","query_gen","request","tabulate"]};

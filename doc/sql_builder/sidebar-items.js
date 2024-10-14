@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["baquote","brquote","dquote","esc","quote"],"macro":["baname","brname","dname","name","qname"],"mod":["arg","bind","error","name","prelude"],"struct":["SqlBuilder"]};

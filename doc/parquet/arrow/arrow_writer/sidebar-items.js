@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["compute_leaves","get_column_writers"],"struct":["ArrowColumnChunk","ArrowColumnWriter","ArrowLeafColumn","ArrowWriter","ArrowWriterOptions"]};

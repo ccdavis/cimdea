@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EnumType","FromSqlError","TimeUnit","ToSqlOutput","Type","Value","ValueRef"],"struct":["Null"],"trait":["FromSql","ToSql"],"type":["FromSqlResult"]};

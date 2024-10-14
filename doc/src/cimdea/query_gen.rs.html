@@ -1,5 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/query_gen.rs`."><title>query_gen.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ac92e1bbe349e143.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.76.0 (07dca489a 2024-02-04)" data-channel="1.76.0" data-search-js="search-2b6ce74ff89ae146.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-f2adc0d6ca4d09fb.js"></script><script defer src="../../static.files/src-script-39ed315d46fb705f.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-305769736d49e732.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-feafe1bb7466e4bd.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><div class="sidebar-resizer"></div>
-    <main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/query_gen.rs`."><title>query_gen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -199,20 +198,449 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
-</pre></div><pre class="rust"><code><span class="doccomment">//! This is an exploratory module to try out ideas for aggregating IPUMS data with generic SQL.
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+</pre></div><pre class="rust"><code><span class="doccomment">//! Generate queries from a DataRequest . Currently supports cross-tab style queries.
+//!
 //! Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
 //! TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
 //! file, or if the parquet is multiple files it would look like ` table_name/*.parquet' `. /
 //!
 //! The IPUMS conventions have been applied earlier; the table / filenames have been checked and determined and
 //! weight variables have been checked. We're assuming inputs here are valid.
-//! 
+//!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
-</span><span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::{<span class="self">self</span>, IpumsDataType};
+</span><span class="kw">use </span><span class="kw">crate</span>::conventions::Context;
+<span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::RecordWeight;
+<span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::{<span class="self">self</span>, IpumsDataType};
+<span class="kw">use </span><span class="kw">crate</span>::request::DataRequest;
+<span class="kw">use </span><span class="kw">crate</span>::request::InputType;
+<span class="kw">use </span><span class="kw">crate</span>::request::RequestSample;
+<span class="kw">use </span><span class="kw">crate</span>::request::RequestVariable;
+<span class="kw">use </span>parquet::column::reader::get_column_reader;
 <span class="kw">use </span>sql_builder::{prelude::Bind, SqlBuilder};
-<span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::path::PathBuf;
+
+<span class="doccomment">/// The TabBuilder is meant to assist with one or more tabulations from the same data product.
+</span><span class="kw">struct </span>TabBuilder {
+    platform: DataPlatform,
+    input_format: InputType,
+    dataset: String,
+    data_sources: HashMap&lt;String, DataSource&gt;,
+}
+
+<span class="kw">impl </span>TabBuilder {
+    <span class="kw">pub fn </span>new(
+        ctx: <span class="kw-2">&amp;</span>Context,
+        dataset: <span class="kw-2">&amp;</span>str,
+        platform: <span class="kw-2">&amp;</span>DataPlatform,
+        input_format: <span class="kw-2">&amp;</span>InputType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="kw">let </span>data_sources = DataSource::for_dataset(ctx, dataset, input_format)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            data_sources,
+            dataset: dataset.to_string(),
+            platform: platform.clone(),
+            input_format: input_format.clone(),
+        })
+    }
+}
+
+<span class="kw">impl </span>TabBuilder {
+    <span class="kw">fn </span>build_from_clause(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;</span>Context,
+        dataset: <span class="kw-2">&amp;</span>str,
+        uoa: <span class="kw-2">&amp;</span>str,
+        all_rectypes: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+        <span class="kw">let </span>lhs = <span class="kw-2">&amp;</span><span class="self">self</span>.data_sources.get(uoa).unwrap();
+        <span class="kw">let </span>left_platform_specific_path = lhs.for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>.platform);
+        <span class="kw">let </span>left_alias = lhs.table_name();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>q = <span class="macro">format!</span>(<span class="string">"from {} as {}"</span>, left_platform_specific_path, left_alias);
+
+        <span class="comment">// TODO: Handle the remaining tables. Currently the connections between the joined tables are only
+        // generated to connect any two tables where we have foreign and primary keys. Three or more
+        // correct joins aren't yet supported.
+        </span><span class="kw">if </span><span class="self">self</span>.data_sources.len() &gt; <span class="number">2 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(
+                <span class="string">"Tabulations across more than two record types not yet supported!"</span>.to_string(),
+            );
+        }
+        <span class="kw">for </span>(rt, ds) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.data_sources {
+            <span class="kw">if </span>rt != uoa &amp;&amp; all_rectypes.contains(rt) {
+                <span class="comment">// The uoa should be the lowest record in the hierarchy by definition. The 'foreign_key' will point to the record
+                // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
+                // should not be allowed in the same tabulation.
+                </span><span class="kw">let </span>left_foreign_key = <span class="self">Self</span>::get_connecting_foreign_key(ctx, uoa, rt)<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>platform_specific_path = ds.for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>.platform);
+                <span class="kw">let </span>table_alias = ds.table_name();
+                <span class="kw">let </span>table_id = <span class="self">Self</span>::get_id_for_record_type(ctx, rt)<span class="question-mark">?</span>;
+                q = q + <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                    <span class="string">"\n left join  {} {} on {}.{} = {}.{}"</span>,
+                    platform_specific_path,
+                    table_alias,
+                    left_alias,
+                    left_foreign_key,
+                    table_alias,
+                    table_id
+                );
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(q)
+    }
+
+    <span class="kw">fn </span>build_select_clause(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        request_variables: <span class="kw-2">&amp;</span>[RequestVariable],
+        weight_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        weight_divisor: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    ) -&gt; String {
+        <span class="kw">let </span><span class="kw-2">mut </span>select_clause = <span class="string">"select count(*) as ct"</span>.to_string();
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>wt) = weight_name {
+            select_clause += <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                <span class="string">", sum({}/{}) as weighted_ct"</span>,
+                wt,
+                weight_divisor.unwrap_or(<span class="number">1</span>)
+            );
+        }
+
+        <span class="kw">for </span>rq <span class="kw">in </span>request_variables {
+            select_clause += <span class="kw-2">&amp;</span><span class="kw">if </span>!rq.is_general {
+                <span class="macro">format!</span>(<span class="string">", {} as {}"</span>, <span class="kw-2">&amp;</span>rq.variable.name, <span class="kw-2">&amp;</span>rq.name)
+            } <span class="kw">else </span>{
+                <span class="macro">format!</span>(
+                    <span class="string">", {}/{} as {}"</span>,
+                    <span class="kw-2">&amp;</span>rq.variable.name, <span class="kw-2">&amp;</span>rq.general_divisor, <span class="kw-2">&amp;</span>rq.name
+                )
+            };
+        }
+
+        select_clause
+    }
+
+    <span class="kw">pub fn </span>make_query(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;</span>Context,
+        request_variables: <span class="kw-2">&amp;</span>[RequestVariable],
+        request_sample: <span class="kw-2">&amp;</span>RequestSample,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+        <span class="kw">if </span>request_variables.len() == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Must supply at least one request variable."</span>.to_string());
+        }
+        <span class="comment">// Find all rectypes used by the requested variables
+        </span><span class="kw">let </span>rectypes_vec = request_variables
+            .iter()
+            .map(|v| v.variable.record_type.clone())
+            .collect::&lt;Vec&lt;String&gt;&gt;();
+
+        <span class="kw">let </span>rectypes: HashSet&lt;String&gt; = HashSet::from_iter(rectypes_vec.iter().cloned());
+
+        <span class="comment">// TODO: Decide the unit of analysis based on variable selection?
+        </span><span class="kw">let </span><span class="kw-2">mut </span>uoa = ctx.settings.default_unit_of_analysis.value.clone();
+
+        <span class="kw">if </span>!<span class="self">self</span>.data_sources.contains_key(<span class="kw-2">&amp;</span>uoa) {
+            <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'"</span>, uoa, ctx.settings.name);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(msg);
+        }
+
+        <span class="comment">// What if the default unit of analysis isn't in the requested variables. This covers the common case
+        // where only household type variables are in the request. It doesn't handle all cases, such as
+        // a request with "activity" and "person" variables, where the uoa (could) be "activity". If we
+        // have more than one rectype therefore, we error out.
+        </span><span class="kw">if </span>!rectypes.contains(<span class="kw-2">&amp;</span>uoa) {
+            <span class="kw">if </span>rectypes.len() == <span class="number">1 </span>{
+                uoa = rectypes_vec[<span class="number">0</span>].clone();
+            }
+        }
+
+        <span class="kw">let </span>weight_name = ctx.settings.weight_for_rectype(<span class="kw-2">&amp;</span>uoa);
+        <span class="kw">let </span>weight_divisor = ctx.settings.weight_divisor(<span class="kw-2">&amp;</span>uoa);
+
+        <span class="kw">let </span>select_clause =
+            <span class="self">self</span>.build_select_clause(request_variables, weight_name, weight_divisor);
+        <span class="kw">let </span>from_clause = <span class="kw-2">&amp;</span><span class="self">self</span>.build_from_clause(ctx, <span class="kw-2">&amp;</span>request_sample.name, <span class="kw-2">&amp;</span>uoa, <span class="kw-2">&amp;</span>rectypes)<span class="question-mark">?</span>;
+
+        <span class="comment">// Build this from '.case_selection' on each RequestVariable or other conditions
+        </span><span class="kw">let </span><span class="kw-2">mut </span>where_clause = <span class="string">""</span>.to_string();
+
+        <span class="kw">let </span>vars_in_order = <span class="kw-2">&amp;</span>request_variables
+            .iter()
+            .map(|v| v.name.clone())
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            .join(<span class="string">", "</span>);
+
+        <span class="kw">let </span>group_by_clause = <span class="string">"group by "</span>.to_string() + <span class="kw-2">&amp;</span>vars_in_order;
+        <span class="kw">let </span>order_by_clause = <span class="string">"order by "</span>.to_string() + <span class="kw-2">&amp;</span>vars_in_order;
+        <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
+            <span class="string">"{}\n{}\n{}\n{}\n{}"</span>,
+            <span class="kw-2">&amp;</span>select_clause, <span class="kw-2">&amp;</span>from_clause, <span class="kw-2">&amp;</span>where_clause, <span class="kw-2">&amp;</span>group_by_clause, <span class="kw-2">&amp;</span>order_by_clause
+        ))
+    }
+
+    <span class="kw">fn </span>get_connecting_foreign_key(
+        ctx: <span class="kw-2">&amp;</span>Context,
+        from_rt: <span class="kw-2">&amp;</span>str,
+        to_parent: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>child_rt) = ctx.settings.record_types.get(from_rt) {
+            <span class="kw">let </span>fkey_name = child_rt
+                .foreign_keys
+                .iter()
+                .find(|(to_rt, f_)| to_rt == to_parent);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(key_name) = fkey_name {
+                <span class="prelude-val">Ok</span>(key_name.<span class="number">1</span>.clone())
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                    <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
+                    from_rt, to_parent
+                ))
+            }
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
+                from_rt, to_parent
+            ))
+        }
+    }
+
+    <span class="kw">fn </span>get_id_for_record_type(ctx: <span class="kw-2">&amp;</span>Context, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>record_type) = ctx.settings.record_types.get(rt) {
+            <span class="prelude-val">Ok</span>(record_type.unique_id.clone())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"No record type '{}' in current context."</span>, rt))
+        }
+    }
+}
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>DataSource {
@@ -221,40 +649,65 @@
     Csv { name: String, full_path: PathBuf },
 }
 
-<span class="kw">pub enum </span>DataPlatform {
+<span class="attr">#[derive(Clone, Debug)]
+</span><span class="kw">pub enum </span>DataPlatform {
     Duckdb,
     DataFusion,
 }
 
 <span class="kw">impl </span>DataSource {
-    <span class="kw">pub fn </span>new(name: String, full_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>for_dataset(
+        ctx: <span class="kw-2">&amp;</span>Context,
+        dataset: <span class="kw-2">&amp;</span>str,
+        input_format: <span class="kw-2">&amp;</span>InputType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, DataSource&gt;, String&gt; {
+        <span class="kw">let </span>paths_by_rectypes = ctx.paths_from_dataset_name(dataset, <span class="kw-2">&amp;</span>input_format);
+        <span class="kw">let </span><span class="kw-2">mut </span>data_sources = HashMap::new();
+        <span class="kw">for </span>rt <span class="kw">in </span>ctx.settings.record_types.keys() {
+            <span class="kw">let </span>table_alias = ctx.settings.default_table_name(dataset, rt);
+            <span class="kw">let </span>p = paths_by_rectypes.get(rt).cloned();
+            <span class="kw">let </span>ds = DataSource::new(table_alias, p)<span class="question-mark">?</span>;
+            data_sources.insert(rt.to_string(), ds);
+        }
+
+        <span class="prelude-val">Ok</span>(data_sources)
+    }
+
+    <span class="kw">pub fn </span>new(name: String, full_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = full_path {
-            <span class="kw">if </span>p.ends_with(<span class="string">".parquet"</span>) {
-                <span class="self">Self</span>::Parquet { name, full_path: p }
-            } <span class="kw">else if </span>p.ends_with(<span class="string">".csv"</span>) {
-                <span class="self">Self</span>::Csv { name, full_path: p }
+            <span class="kw">if </span>p.to_string_lossy().ends_with(<span class="string">".parquet"</span>) {
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Parquet { name, full_path: p })
+            } <span class="kw">else if </span>p.to_string_lossy().ends_with(<span class="string">".csv"</span>) {
+                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Csv { name, full_path: p })
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(
+                <span class="kw">let </span>msg = <span class="macro">format!</span>(
                     <span class="string">"Can't construct DataSource '{}' from {}"</span>,
                     <span class="kw-2">&amp;</span>name,
                     <span class="kw-2">&amp;</span>p.display()
                 );
+                <span class="prelude-val">Err</span>(msg)
             }
         } <span class="kw">else </span>{
-            <span class="self">Self</span>::NativeTable { name }
+            <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NativeTable { name })
         }
     }
 
     <span class="comment">// The table in the 'from' clause needs to be represented differently
     // depending on the platform and if it's an external table or part
     // of a database.
-    </span><span class="kw">pub fn </span>for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>, platform: DataPlatform) -&gt; String {
+    </span><span class="kw">pub fn </span>for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>, platform: <span class="kw-2">&amp;</span>DataPlatform) -&gt; String {
         <span class="kw">match </span>platform {
             DataPlatform::Duckdb =&gt; <span class="kw">match </span><span class="self">self </span>{
                 <span class="self">Self</span>::Parquet { name, full_path } =&gt; {
                     <span class="comment">// Check if full path points to a directory
-
-                    </span><span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display())
+                    </span><span class="kw">if </span>full_path.is_dir() {
+                        <span class="comment">// Duckdb can query a directory of parquet files
+                        // as if they're a single logical file as long as
+                        // the schema matches on all of them.
+                        </span><span class="macro">format!</span>(<span class="string">"'{}/*.parquet'"</span>, <span class="kw-2">&amp;</span>full_path.display())
+                    } <span class="kw">else </span>{
+                        <span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display())
+                    }
                 }
                 <span class="self">Self</span>::Csv { name, full_path } =&gt; <span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display()),
                 <span class="self">Self</span>::NativeTable { name } =&gt; name.to_owned(),
@@ -270,6 +723,14 @@
             },
         }
     }
+
+    <span class="kw">pub fn </span>table_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Parquet { name, .. } =&gt; name.clone(),
+            <span class="self">Self</span>::Csv { name, .. } =&gt; name.clone(),
+            <span class="self">Self</span>::NativeTable { name } =&gt; name.clone(),
+        }
+    }
 }
 
 <span class="comment">// TODO not yet dealing with escaping string values
@@ -283,6 +744,7 @@
     Between,
     In,
 }
+
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>Condition {
     <span class="kw">pub </span>var: ipums_metadata_model::IpumsVariable,
@@ -305,6 +767,24 @@
             compare_to,
         }
     }
+}
+
+<span class="comment">// Returns one query per dataset in the request; if you wanted to tabulate across
+// datasets that would be a different query that unions thetables of the same record type...
+// You can accomplish the same thing by combining the results of each query.
+</span><span class="kw">pub fn </span>tab_queries(
+    ctx: <span class="kw-2">&amp;</span>Context,
+    request: <span class="kw">impl </span>DataRequest,
+    input_format: <span class="kw-2">&amp;</span>InputType,
+    platform: <span class="kw-2">&amp;</span>DataPlatform,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, String&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>queries = Vec::new();
+    <span class="kw">for </span>dataset <span class="kw">in </span>request.get_request_samples() {
+        <span class="kw">let </span>tb = TabBuilder::new(ctx, <span class="kw-2">&amp;</span>dataset.name, platform, input_format)<span class="question-mark">?</span>;
+        <span class="kw">let </span>q = tb.make_query(ctx, <span class="kw-2">&amp;</span>request.get_request_variables(), <span class="kw-2">&amp;</span>dataset)<span class="question-mark">?</span>;
+        queries.push(q);
+    }
+    <span class="prelude-val">Ok</span>(queries)
 }
 
 <span class="kw">pub fn </span>frequency(
@@ -337,66 +817,33 @@
     }
 }
 
-<span class="comment">// A generalization of frequency()
-// tables: List of table name and alias, like ('us2015b_usa.H.parquet', h_recs), ('us2015b_usa.P.parquet', p_recs)]
-//  join_keys: Pairs of keys to use in a join either in where clause like "where h_recs.SERIAL = p_recs.SERIALP "
-</span><span class="kw">pub fn </span>cross_tab(
-    tables: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)],
-    join_keys: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)],
-    vars: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
-    weight: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    divisor: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-) -&gt; String {
-    <span class="kw">let </span>freq_field: String = <span class="kw">if let </span><span class="prelude-val">Some</span>(w) = weight {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = divisor {
-            <span class="macro">format!</span>(<span class="string">"sum({} / :divisor:)"</span>, <span class="kw-2">&amp;</span>w)
-        } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">"sum({} )"</span>, <span class="kw-2">&amp;</span>w)
-        }
-    } <span class="kw">else </span>{
-        <span class="string">"count(*)"</span>.to_string()
-    } + <span class="string">" as frequency"</span>;
-
-    <span class="string">"Not implemented"</span>.to_string()
-}
-
-<span class="comment">// In theory this version can also generate the two simpler versions. I'm building up to it.
-</span><span class="kw">pub fn </span>cross_tab_subpopulation(
-    tables: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
-    vars: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
-    weight: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    divisor: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-    subpop: <span class="kw-2">&amp;</span>[Condition],
-) -&gt; String {
-    <span class="string">"Not implemented"</span>.to_string()
-}
 <span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::request::SimpleRequest;
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>test_frequency_duckdb_parquet() {
-        <span class="comment">// Determination of specific table names based on dataset happens outside the query generation
-
-        // These are in single quotes to match what Duck DB expects for parquet files
-        </span><span class="kw">let </span>us2015b_people = <span class="string">"'us2015b_usa.P.parquet'"</span>;
-        <span class="kw">let </span>us2015b_households = <span class="string">"'us2015b_usa.H.parquet'"</span>;
-
-        <span class="kw">let </span>q = frequency(us2015b_people, <span class="string">"AGE"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
-        <span class="macro">assert!</span>(q.len() &gt; <span class="number">1</span>);
-
-        <span class="kw">let </span>expected =
-            <span class="string">"SELECT AGE, count(*) as frequency FROM 'us2015b_usa.P.parquet' GROUP BY AGE;"</span>;
-        <span class="macro">assert_eq!</span>(expected, q);
-
-        <span class="kw">let </span>hh_expected = <span class="string">"SELECT VEHICLES, sum(HHWT / 100) as frequency FROM 'us2015b_usa.H.parquet' GROUP BY VEHICLES;"</span>;
-
-        <span class="kw">let </span>hh_q = frequency(
-            us2015b_households,
-            <span class="string">"VEHICLES"</span>,
-            <span class="prelude-val">Some</span>(<span class="string">"HHWT"</span>.to_string()),
-            <span class="prelude-val">Some</span>(<span class="number">100</span>),
+        <span class="kw">let </span>data_root = String::from(<span class="string">"test/data_root"</span>);
+        <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
         );
-        <span class="macro">assert_eq!</span>(hh_expected, hh_q);
+
+        <span class="kw">let </span>queries = tab_queries(<span class="kw-2">&amp;</span>ctx, rq, <span class="kw-2">&amp;</span>InputType::Parquet, <span class="kw-2">&amp;</span>DataPlatform::Duckdb);
+        <span class="kw">match </span>queries {
+            <span class="comment">// print the error whatever it is.
+            </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; <span class="macro">assert_eq!</span>(<span class="string">"abc"</span>, e),
+            <span class="kw">_ </span>=&gt; (),
+        }
+        <span class="macro">assert!</span>(queries.is_ok());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(qs) = queries {
+            <span class="macro">assert_eq!</span>(<span class="number">1</span>, qs.len());
+            <span class="macro">assert!</span>(qs[<span class="number">0</span>].contains(<span class="string">"from"</span>));
+        }
     }
 }
 </code></pre></div></section></main></body></html>
