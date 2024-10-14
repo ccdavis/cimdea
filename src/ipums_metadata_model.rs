@@ -1,5 +1,7 @@
 //! The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
-//!  of their relationships to one another and their description of the data. However they don't include (1) all fields / pieces
+//!  of their relationships to one another and their description of the data.
+//!
+//! However they don't include (1) all fields / pieces
 //! of info from the full IPUMS metadata; and (2) do not contain all metadata models -- only those essential for understanding
 //! the data files on a technical level. For instance there are no enumeration text or citations metadata modeled here.
 //!

@@ -1,5 +1,5 @@
 //! Requests describe requested IPUMS data either as an extract -- multiple records -- or an aggregation of
-//! data  from those records. We use names of IPUMS "variables" and "datasets" in the requests along with other details.
+//! data  from those records. We use names of IPUMS "variables" and "datasets" to make the requests along with other details.
 //!
 //! The code associated with the Request structs will produce queries but not include code to perform the
 //! extracts. This work will be handled by "Extract" or "Tabulate" modules which will be responsible for reading
@@ -159,7 +159,7 @@ pub trait DataRequest {
     fn get_request_samples(&self) -> Vec<RequestSample>;
     fn get_conditions(&self) -> Option<Vec<Condition>>;
 
-    /// To the Tractor / generic IPUMS representation
+    /// Convert to the Tractor / generic IPUMS representation
     fn serialize_to_IPUMS_JSON(&self) -> String;
 
     /// Convert from the Tractor / generic JSON representation.
@@ -172,6 +172,7 @@ pub trait DataRequest {
         Self: std::marker::Sized;
 
     /// Build request from a basic set of variable and dataset names and data locations.
+    /// Get back a SimpleRequest and a Context needed to execute the request or future requests.
     fn from_names(
         product_name: &str,
         requested_datasets: &[&str],
@@ -287,17 +288,18 @@ impl DataRequest for AbacusRequest {
     where
         Self: std::marker::Sized,
     {
-        panic!("Not implemented yet")
+        todo!("Not implemented yet")
     }
 
     fn print_codebook(&self) -> String {
-        "".to_string()
+        todo!("Not implemented!");
     }
 
     fn print_stata(&self) -> String {
-        "".to_string()
+        todo!("Not implemented");
     }
-
+    /// Inteded for command line utilities. Construct an Abacus Request from variable and dataset names and return
+    /// the AbacusRequest as well as the Context needed to run it.
     fn from_names(
         product: &str,
         requested_datasets: &[&str],

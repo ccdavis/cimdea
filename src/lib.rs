@@ -1,3 +1,5 @@
+//! CIMDEA == Convenientt IPUMS Microdata Extraction and Aggregation
+
 pub mod conventions;
 pub mod defaults;
 pub mod ipums_data_model;

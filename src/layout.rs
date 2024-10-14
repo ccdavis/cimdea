@@ -1,4 +1,6 @@
-//! Supports reading the "layout" files from IPUMS microdata. These files describe fixed-width
+//! Supports reading the "layout" metadata files from IPUMS microdata.
+//!
+//! These files describe fixed-width
 //! formatted IPUMS datasets. While they were developed to act as minimal record layouts for fixed-width
 //! they can be useful for getting basic metadata for the dataset.
 

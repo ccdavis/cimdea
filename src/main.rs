@@ -1,3 +1,5 @@
+//! A command line program showing how to use the library. This example program takes variable and sample names and returns a formatted cross-tabulation of the data.
+
 #[allow(unused)]
 mod conventions;
 mod defaults;
