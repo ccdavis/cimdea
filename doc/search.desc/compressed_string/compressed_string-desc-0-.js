@@ -1,0 +1,1 @@
+searchState.loadedDescShard("compressed_string", 0, "DEFLATE-compressed <code>String</code>\nLength of just the DEFLATE-compressed data (there’s a …\nReturns the argument unchanged.\nCalls <code>U::from(self)</code>.\nCompress the given string.\nDecompress the string")
