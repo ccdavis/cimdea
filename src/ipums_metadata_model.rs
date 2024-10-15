@@ -204,23 +204,23 @@ pub enum CategoryBin {
 }
 
 impl CategoryBin {
-    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Self {
+    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Result<Self, String> {
         if low.is_some() && high.is_some() {
-            Self::Range {
+            Ok(Self::Range {
                 low: low.unwrap(),
                 high: high.unwrap(),
                 label: label.to_owned(),
-            }
+            })
         } else if low.is_none() && high.is_some() {
-            Self::LessThan {
+            Ok(Self::LessThan {
                 value: high.unwrap(),
                 label: label.to_owned(),
-            }
+            })
         } else if low.is_some() && high.is_none() {
-            Self::MoreThan {
+            Ok(Self::MoreThan {
                 value: low.unwrap(),
                 label: label.to_owned(),
-            }
+            })
         } else {
             panic!("Must have at low or high or both equal to some value.");
         }
@@ -273,25 +273,27 @@ mod test {
 
     #[test]
     fn test_category_bin_new_less_than() {
-        let bin = CategoryBin::new(None, Some(3), "less than 3");
+        let bin = CategoryBin::new(None, Some(3), "less than 3")
+            .expect("expected Ok(CategoryBin::LessThan)");
         assert!(matches!(bin, CategoryBin::LessThan { .. }))
     }
 
     #[test]
     fn test_category_bin_new_more_than() {
-        let bin = CategoryBin::new(Some(3), None, "more than 3");
+        let bin = CategoryBin::new(Some(3), None, "more than 3")
+            .expect("expected Ok(CategoryBin::MoreThan)");
         assert!(matches!(bin, CategoryBin::MoreThan { .. }));
     }
 
     #[test]
     fn test_category_bin_new_range() {
-        let bin = CategoryBin::new(Some(3), Some(5), "between 3 and 5");
+        let bin = CategoryBin::new(Some(3), Some(5), "between 3 and 5")
+            .expect("expected Ok(CategoryBin::Range)");
         assert!(matches!(bin, CategoryBin::Range { .. }));
     }
 
     #[test]
-    #[should_panic]
     fn test_category_bin_new_no_boundaries() {
-        CategoryBin::new(None, None, "no boundaries!");
+        assert!(CategoryBin::new(None, None, "no boundaries!").is_err());
     }
 }
