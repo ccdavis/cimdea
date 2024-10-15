@@ -4,8 +4,6 @@
 //! carry some metadata information with them to be used by formatters or even codebook
 //! generators.
 //!
-//! use std::fmt::Display;
-use std::io::empty;
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
@@ -15,8 +13,6 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
 use duckdb::{params, Connection, Result};
-use serde::Deserialize;
-use std::time::Instant;
 
 use serde::Serialize;
 use serde_json::*;
@@ -290,9 +286,12 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, Strin
 }
 
 mod test {
-
+    #[cfg(test)]
     use super::*;
+    #[cfg(test)]
     use crate::request::SimpleRequest;
+    #[cfg(test)]
+    use std::time::*;
 
     #[test]
     fn test_tabulation() {

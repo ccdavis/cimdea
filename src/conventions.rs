@@ -98,17 +98,23 @@ impl MicroDataCollection {
 
     /// Read one fixed-width layout file. These files contain some variable level metadata for
     /// every record type in the data product.
-    fn load_metadata_from_layout(&mut self, layout_file: &Path) {}
+    pub fn load_metadata_from_layout(&mut self, _layout_file: &Path) {
+        todo!("implement");
+    }
 
     /// Read all layout files for the data root like `../output_data/current/layouts`
     /// The existence of a layout file implies existence of a dataset. The presence of
     /// a variable in a dataset's layout indicates availability in that dataset.
-    fn load_metadata_from_all_layouts(&mut self, layouts_dir: &Path) {}
+    pub fn load_metadata_from_all_layouts(&mut self, _layouts_dir: &Path) {
+        todo!("implement");
+    }
 
     /// The path like `../output_data/current/parquet/us2019a/`
     /// Reading the schema will give approximately the same metadata information
     /// as reading the fixed-width layout file for the same dataset.
-    fn load_metadata_from_parquet(&mut self, parquet_dataset_path: &Path) {}
+    pub fn load_metadata_from_parquet(&mut self, _parquet_dataset_path: &Path) {
+        todo!("implement");
+    }
 
     /// Using the data_root, scan the layouts and load metadata from them.
     pub fn load_metadata_for_selected_datasets_from_layouts(
@@ -132,12 +138,16 @@ impl MicroDataCollection {
     }
 
     /// Uses default product_root to find metadata database and load all metadata for given datasets.
-    pub fn load_full_metadata_for_datasets(&mut self, datasets: &[String]) {}
+    pub fn load_full_metadata_for_datasets(&mut self, _datasets: &[String]) {
+        todo!("implement");
+    }
 
     /// Takes a path like ../output_data/current/parquet/, which could be derived
     /// automatically from defaults based on data root or product root. Scans all
     /// parquet schema information.
-    fn load_metadata_from_all_parquet(&mut self, parquet_path: &Path) {}
+    pub fn load_metadata_from_all_parquet(&mut self, _parquet_path: &Path) {
+        todo!("implement");
+    }
 
     /// Load everything available for the selected variables and samples from the available
     /// metadata database file. Requires 'allow_full_metadata' which depends on a product root
@@ -145,16 +155,19 @@ impl MicroDataCollection {
     /// a Some(metadata_location).
     pub fn load_full_metadata_for_selections(
         &mut self,
-        variables: &[String],
-        datasets: &[String],
-        metadata_location: Option<PathBuf>,
+        _variables: &[String],
+        _datasets: &[String],
+        _metadata_location: Option<PathBuf>,
     ) {
+        todo!("implement");
     }
 
     /// Load all variables and samples for the context and the default metadata location unless
     /// you provide Some(metadata_location) to override the default. The result of the load may
     /// be very large, into the gigabyte range.
-    pub fn load_full_metadata(&mut self, metadata_location: Option<PathBuf>) {}
+    pub fn load_full_metadata(&mut self, _metadata_location: Option<PathBuf>) {
+        todo!("implement");
+    }
 
     pub fn clear_metadata(&mut self) {}
 }
@@ -293,6 +306,7 @@ impl DatasetsForVariable {
 }
 
 impl MetadataEntities {
+    #[allow(dead_code)]
     fn connect_names(&mut self, dataset_name: &str, variable_name: &str) {
         let dataset_id = self.datasets_by_name.get(dataset_name);
         let variable_id = self.variables_by_name.get(variable_name);
@@ -424,11 +438,13 @@ impl Context {
     /// The context should be set to read from layouts or full metadata
     pub fn load_metadata_for_datasets_and_variables(
         &mut self,
-        datasets: Vec<String>,
-        variables: Vec<String>,
+        _datasets: Vec<String>,
+        _variables: Vec<String>,
     ) {
         if !self.enable_full_metadata {
+            todo!("not implemented.");
         } else {
+            todo!("not implemented.");
         }
     }
 
@@ -484,6 +500,7 @@ impl Context {
     */
 }
 mod test {
+    #[cfg(test)]
     use super::*;
 
     #[test]

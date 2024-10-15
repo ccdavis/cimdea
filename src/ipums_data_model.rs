@@ -6,6 +6,7 @@
 //! Every collection has a single hierarchy of record types.
 //! A record type on a particular data product may have a default weight variable -- or it may not.
 //!
+use crate::mderror::MdError;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -66,7 +67,7 @@ impl RecordHierarchy {
         }
     }
 
-    pub fn add_member(&mut self, rectype: &str, parent: &str) {
+    pub fn add_member(&mut self, rectype: &str, parent: &str) -> Result<(), MdError> {
         let member = RecordHierarchyMember {
             name: rectype.to_string(),
             parent: Some(parent.to_string()),
@@ -76,9 +77,33 @@ impl RecordHierarchy {
         // Update the parent level to include this as a child
         match self.levels.get_mut(parent) {
             Some(p) =>  p.add_child(rectype),
-            None => panic!("You tried to add a child record of type {} with a parent '{}' but no such parent is in the hierarchy yet.", rectype, parent),
+            None => return Err(MdError::Msg(format!("You tried to add a child record of type {} with a parent '{}' but no such parent is in the hierarchy yet.", rectype, parent))),
 
         }
         self.levels.insert(rectype.to_string(), member);
+        Ok(())
+    }
+}
+
+mod test {
+    #[cfg(test)]
+    use super::*;
+
+    #[test]
+    fn test_hierarchy() {
+        let mut rh = RecordHierarchy::new("H");
+        assert_eq!(1, rh.levels.len());
+        let result = rh.add_member("P", "H");
+        assert!(
+            result.is_ok(),
+            "Should be able to add P with H as parent to a record hierarchy."
+        );
+        assert_eq!(2, rh.levels.len());
+
+        let bad_result = rh.add_member("X", "Y");
+        assert!(
+            bad_result.is_err(),
+            "Should error out when adding a member with a parent type that doesn't exist."
+        );
     }
 }

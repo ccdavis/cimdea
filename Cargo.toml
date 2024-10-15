@@ -29,5 +29,5 @@ name = "abacus"
 path = "src/bin/abacus.rs"
 
 [[bin]]
-name = "cimdea"
-path = "src/main.rs"
+name = "tab2"
+path = "src/bin/tab2.rs"

@@ -6,9 +6,6 @@
 //! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //!
-
-use serde::de::IntoDeserializer;
-use serde::Serialize;
 use serde_json::{to_string, Error};
 
 use crate::ipums_data_model::{self, RecordType};
@@ -16,6 +13,7 @@ use crate::{
     conventions,
     conventions::Context,
     ipums_metadata_model::{CategoryBin, IpumsDataType, IpumsDataset, IpumsVariable},
+    mderror,
     query_gen::Condition,
 };
 

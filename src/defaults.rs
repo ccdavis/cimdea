@@ -42,7 +42,8 @@ fn default_person_weight() -> RecordWeight {
 
 fn default_hierarchy() -> RecordHierarchy {
     let mut hierarchy = RecordHierarchy::new("H");
-    hierarchy.add_member("P", "H");
+    let result = hierarchy.add_member("P", "H");
+    assert!(result.is_ok());
     hierarchy
 }
 

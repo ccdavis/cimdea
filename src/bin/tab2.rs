@@ -1,24 +1,12 @@
 //! A command line program showing how to use the library. This example program takes variable and sample names and returns a formatted cross-tabulation of the data.
 
 #[allow(unused)]
-mod conventions;
-mod defaults;
-mod ipums_data_model;
-mod ipums_metadata_model;
-mod layout;
-mod query_gen;
-mod request;
-mod tabulate;
-
-use conventions::*;
-use query_gen::*;
-use request::AbacusRequest;
-use request::DataRequest;
-use tabulate::TableFormat;
-
+use cimdea::conventions::*;
+use cimdea::request::DataRequest;
+use cimdea::request::SimpleRequest;
+use cimdea::tabulate;
+use cimdea::tabulate::TableFormat;
 use clap::Parser;
-use std::collections::HashMap;
-use std::sync::Mutex;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -32,19 +20,6 @@ struct CliRequest {
 }
 
 use std::io::{self, BufRead};
-
-fn get_from_stdin() -> String {
-    let stdin = io::stdin();
-    let mut lines = stdin.lock().lines();
-    let data = match lines.collect::<Result<Vec<String>, _>>() {
-        Ok(lns) => lns.join("\n"),
-        Err(ref e) => {
-            eprintln!("Error reading from STDIN: '{}'", e);
-            std::process::exit(1);
-        }
-    };
-    data
-}
 
 fn main() {
     let args = CliRequest::parse();
@@ -66,7 +41,7 @@ fn main() {
     };
 
     let variable_names: Vec<&str> = args.variable_names.iter().map(|v| &**v).collect();
-    let (context, rq) = request::SimpleRequest::from_names(
+    let (context, rq) = SimpleRequest::from_names(
         &args.product_name,
         &[&args.sample_name],
         &variable_names,
