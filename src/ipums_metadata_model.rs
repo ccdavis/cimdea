@@ -270,4 +270,28 @@ mod test {
         assert_eq!(cat2.label(), cat3.label());
         assert_eq!("second", cat3.label());
     }
+
+    #[test]
+    fn test_category_bin_new_less_than() {
+        let bin = CategoryBin::new(None, Some(3), "less than 3");
+        assert!(matches!(bin, CategoryBin::LessThan { .. }))
+    }
+
+    #[test]
+    fn test_category_bin_new_more_than() {
+        let bin = CategoryBin::new(Some(3), None, "more than 3");
+        assert!(matches!(bin, CategoryBin::MoreThan { .. }));
+    }
+
+    #[test]
+    fn test_category_bin_new_range() {
+        let bin = CategoryBin::new(Some(3), Some(5), "between 3 and 5");
+        assert!(matches!(bin, CategoryBin::Range { .. }));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_category_bin_new_no_boundaries() {
+        CategoryBin::new(None, None, "no boundaries!");
+    }
 }
