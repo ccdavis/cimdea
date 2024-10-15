@@ -205,32 +205,25 @@ pub enum CategoryBin {
 
 impl CategoryBin {
     pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Result<Self, String> {
-        if low.is_some() && high.is_some() {
-            if high < low {
-                Err(format!(
-                    "a low of {} and high of {} do not satisfy low <= high",
-                    low.unwrap(),
-                    high.unwrap()
-                ))
-            } else {
-                Ok(Self::Range {
-                    low: low.unwrap(),
-                    high: high.unwrap(),
-                    label: label.to_owned(),
-                })
-            }
-        } else if low.is_none() && high.is_some() {
-            Ok(Self::LessThan {
-                value: high.unwrap(),
+        match (low, high) {
+            (Some(low), Some(high)) if high < low => Err(format!(
+                "a low of {} and high of {} do not satisfy low <= high",
+                low, high
+            )),
+            (Some(low), Some(high)) => Ok(Self::Range {
+                low,
+                high,
                 label: label.to_owned(),
-            })
-        } else if low.is_some() && high.is_none() {
-            Ok(Self::MoreThan {
-                value: low.unwrap(),
+            }),
+            (None, Some(high)) => Ok(Self::LessThan {
+                value: high,
                 label: label.to_owned(),
-            })
-        } else {
-            Err("Must have low, high, or both set to some value".to_string())
+            }),
+            (Some(low), None) => Ok(Self::MoreThan {
+                value: low,
+                label: label.to_owned(),
+            }),
+            (None, None) => Err("Must have low, high, or both set to some value".to_string()),
         }
     }
 
@@ -301,7 +294,7 @@ mod test {
     }
 
     #[test]
-    fn test_category_bin_new_no_boundaries() {
+    fn test_category_bin_new_no_boundaries_error() {
         let result = CategoryBin::new(None, None, "no boundaries!");
         assert!(
             result.is_err(),
@@ -310,7 +303,7 @@ mod test {
     }
 
     #[test]
-    fn test_category_bin_high_less_than_low() {
+    fn test_category_bin_new_high_less_than_low_error() {
         let result = CategoryBin::new(Some(10), Some(2), "that's not possible");
         assert!(result.is_err(), "it should be an error if high < low");
     }
