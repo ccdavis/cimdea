@@ -240,7 +240,11 @@ impl TryFrom<serde_json::Value> for CategoryBin {
     type Error = String;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        todo!()
+        let Some(label) = value.get("value_label") else {
+            return Err("missing required field 'value_label'".to_string());
+        };
+        let label = label.to_string();
+        Ok(CategoryBin::new(None, None, &label)?)
     }
 }
 
@@ -314,5 +318,54 @@ mod test {
     fn test_category_bin_new_high_less_than_low_error() {
         let result = CategoryBin::new(Some(10), Some(2), "that's not possible");
         assert!(result.is_err(), "it should be an error if high < low");
+    }
+
+    #[test]
+    fn test_category_bin_try_from_json_value() {
+        let json_str = "{\"code\": 1,\n\
+                        \"value_label\": \"1 to 14 hours worked per week\",\n\
+                        \"low\": 1,\n\
+                        \"high\": 14}";
+
+        let value: serde_json::Value =
+            serde_json::from_str(json_str).expect("test fixture JSON is invalid");
+
+        let category_bin: CategoryBin = value.try_into().expect("parsing into CategoryBin failed");
+
+        match category_bin {
+            CategoryBin::Range { low, high, label } => {
+                assert_eq!(low, 1);
+                assert_eq!(high, 14);
+                assert_eq!(label, "1 to 14 hours worked per week");
+            }
+            _ => {
+                panic!("expected variant CategoryBin::Range because both low and high are present");
+            }
+        }
+    }
+
+    /// It's an error if the value_label field is missing from the input JSON.
+    #[test]
+    fn test_category_bin_try_from_json_value_label_required() {
+        let json_str = "{\"code\": 1,\n\
+                         \"low\": 1,\n\
+                         \"high\": 14}";
+        let value: serde_json::Value =
+            serde_json::from_str(json_str).expect("test fixture JSON is invalid");
+        let result: Result<CategoryBin, _> = value.try_into();
+        assert!(result.is_err());
+    }
+
+    /// It's an error if the value_label field is present but isn't a string.
+    #[test]
+    fn test_category_bin_try_from_json_value_is_string() {
+        let json_str = "{\"code\": 1,\n\
+                        \"value_label\": 2,\n\
+                        \"low\": 1,\n\
+                        \"high\": 14}";
+        let value: serde_json::Value =
+            serde_json::from_str(json_str).expect("test fixture JSON is invalid");
+        let result: Result<CategoryBin, _> = value.try_into();
+        assert!(result.is_err());
     }
 }
