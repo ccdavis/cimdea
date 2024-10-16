@@ -7,6 +7,7 @@
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
+use crate::mderror::MdError;
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
@@ -218,7 +219,7 @@ impl Table {
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, String> {
+pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdError> {
     let requested_output_columns = &rq
         .get_request_variables()
         .iter()
@@ -229,17 +230,17 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, Strin
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
     let conn = match Connection::open_in_memory() {
         Ok(c) => c,
-        Err(e) => return Err(format!("{}", e)),
+        Err(e) => return Err(MdError::Msg(format!("{}", e))),
     };
     for q in sql_queries {
         let mut stmt = match conn.prepare(&q) {
             Ok(results) => results,
-            Err(e) => return Err(format!("{}", e)),
+            Err(e) => return Err(MdError::Msg(format!("{}", e))),
         };
 
         let mut rows = match stmt.query([]) {
             Ok(r) => r,
-            Err(e) => return Err(format!("{}", e)),
+            Err(e) => return Err(MdError::Msg(format!("{}", e))),
         };
 
         let mut output = Table {
@@ -269,10 +270,10 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, Strin
                 let item: usize = match row.get(column_number) {
                     Ok(i) => i,
                     Err(e) => {
-                        return Err(format!(
+                        return Err(MdError::Msg(format!(
                             "Can't extract value for '{}', error was '{}'",
                             &column_name, e
-                        ))
+                        )))
                     }
                 };
                 this_row.push(format!("{}", item));

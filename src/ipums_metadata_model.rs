@@ -46,10 +46,6 @@
 //!
 //!
 use crate::layout::LayoutVar;
-use bstr::*;
-use std::ascii::AsciiExt;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 
 use compressed_string::ComprString;
@@ -94,7 +90,7 @@ pub struct IpumsVariable {
     pub formatting: Option<(usize, usize)>,
     pub general_width: usize,
     pub description: Option<ComprString>,
-    pub categoryBins: Option<Vec<CategoryBin>>,
+    pub category_bins: Option<Vec<CategoryBin>>,
     pub id: IpumsVariableId, // auto-assigned in load order
 }
 
@@ -107,7 +103,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             data_type: Some(value.0.data_type.clone()),
             label: None,
             categories: None,
-            categoryBins: None,
+            category_bins: None,
             formatting: Some((value.0.start, value.0.width)),
             general_width: value.0.width,
             description: None,
@@ -226,16 +222,17 @@ impl CategoryBin {
         }
     }
 
-    pub fn within(&self, testValue: i64) -> bool {
+    pub fn within(&self, test_value: i64) -> bool {
         match self {
-            Self::LessThan { value, .. } => testValue < *value,
-            Self::Range { low, high, .. } => testValue >= *low && testValue <= *high,
-            Self::MoreThan { value, .. } => testValue > *value,
+            Self::LessThan { value, .. } => test_value < *value,
+            Self::Range { low, high, .. } => test_value >= *low && test_value <= *high,
+            Self::MoreThan { value, .. } => test_value > *value,
         }
     }
 }
 
 mod test {
+    #[cfg(test)]
     use super::*;
 
     #[test]

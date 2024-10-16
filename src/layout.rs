@@ -129,7 +129,6 @@ impl DatasetLayout {
     }
 
     pub fn from_layout_file(filename: &Path) -> Self {
-        let layouts: HashMap<String, RecordLayout> = HashMap::new();
         let rdr = csv::ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b' ')

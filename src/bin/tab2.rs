@@ -19,8 +19,6 @@ struct CliRequest {
     pub format: String,
 }
 
-use std::io::{self, BufRead};
-
 fn main() {
     let args = CliRequest::parse();
 
