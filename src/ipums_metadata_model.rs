@@ -236,6 +236,14 @@ impl CategoryBin {
     }
 }
 
+impl TryFrom<serde_json::Value> for CategoryBin {
+    type Error = String;
+
+    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
 mod test {
     use super::*;
 
