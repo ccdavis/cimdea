@@ -240,11 +240,39 @@ impl TryFrom<serde_json::Value> for CategoryBin {
     type Error = String;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        let Some(label) = value.get("value_label") else {
+        let Some(label_value) = value.get("value_label") else {
             return Err("missing required field 'value_label'".to_string());
         };
-        let label = label.to_string();
-        Ok(CategoryBin::new(None, None, &label)?)
+
+        let label = match label_value.as_str() {
+            Some(label) => label,
+            None => {
+                return Err("field 'value_label' must be a string".to_string());
+            }
+        };
+
+        let low = match value.get("low") {
+            None => None,
+            Some(low_value) => match low_value.as_i64() {
+                None => {
+                    return Err("field 'low' must be an integer".to_string());
+                }
+                Some(low) => Some(low),
+            },
+        };
+
+        let high = match value.get("high") {
+            None => None,
+            Some(high_value) => match high_value.as_i64() {
+                None => {
+                    return Err("field 'high' must be an integer".to_string());
+                }
+                Some(high) => Some(high),
+            },
+        };
+
+        let bin = CategoryBin::new(low, high, label)?;
+        Ok(bin)
     }
 }
 
@@ -363,6 +391,34 @@ mod test {
                         \"value_label\": 2,\n\
                         \"low\": 1,\n\
                         \"high\": 14}";
+        let value: serde_json::Value =
+            serde_json::from_str(json_str).expect("test fixture JSON is invalid");
+        let result: Result<CategoryBin, _> = value.try_into();
+        assert!(result.is_err());
+    }
+
+    /// It's an error if the low field is present but isn't an integer.
+    #[test]
+    fn test_category_bin_try_from_json_low_is_integer() {
+        let json_str = "{\"code\": 1,\n\
+                        \"value_label\": \"1 to 14 hours worked per week\",\n\
+                        \"low\": \"a\",\n\
+                        \"high\": 14}";
+
+        let value: serde_json::Value =
+            serde_json::from_str(json_str).expect("test fixture JSON is invalid");
+        let result: Result<CategoryBin, _> = value.try_into();
+        assert!(result.is_err());
+    }
+
+    /// It's an error if the high field is present but isn't an integer.
+    #[test]
+    fn test_category_bin_try_from_json_high_is_integer() {
+        let json_str = "{\"code\": 1,\n\
+                        \"value_label\": \"1 to 14 hours worked per week\",\n\
+                        \"low\": 1,\n\
+                        \"high\": \"b\"}";
+
         let value: serde_json::Value =
             serde_json::from_str(json_str).expect("test fixture JSON is invalid");
         let result: Result<CategoryBin, _> = value.try_into();
