@@ -72,7 +72,7 @@ impl TabBuilder {
         }
         for (rt, ds) in &self.data_sources {
             if rt != uoa && all_rectypes.contains(rt) {
-                // The uoa should be the lowest record in the hierarchy by definition. The 'foreign_key' will point to the record
+                // The uoa should be the lowest record in the hierarchy of record types from requested variables by definition. The 'foreign_key' will point to the record
                 // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
                 // should not be allowed in the same tabulation.
                 let left_foreign_key = Self::get_connecting_foreign_key(ctx, uoa, rt)?;
@@ -123,6 +123,19 @@ impl TabBuilder {
         }
 
         select_clause
+    }
+
+    fn build_where_clause(&self, conditions: &[Condition]) -> Result<String, MdError> {
+        let w: Vec<String> = conditions
+            .iter()
+            .map(|c| format!("({})", c.to_sql()))
+            .collect();
+
+        // The case selection logic can be 'or' or 'and' but typically is 'and'.
+        // NOTE: This will apply to the unit of analysis record types / individual. The 'entire household'
+        // behavior isn't here.
+
+        Ok(w.join(" and "))
     }
 
     pub fn make_query(
@@ -332,21 +345,45 @@ pub struct Condition {
     pub var: ipums_metadata_model::IpumsVariable,
     pub comparison: CompareOperation,
     pub compare_to: Vec<String>, // one or more values depending on context
+    pub data_type: IpumsDataType,
 }
 
 impl Condition {
     pub fn new(
         var: &ipums_metadata_model::IpumsVariable,
-        _data_type: IpumsDataType,
         comparison: CompareOperation,
         compare_to: Vec<String>,
     ) -> Self {
+        let data_type = if let Some(ref dt) = var.data_type {
+            dt.clone()
+        } else {
+            IpumsDataType::Integer
+        };
+
         // TODO check with data type and compare_to for a  valid representation (parse  into i32 for example)
         // If values are string type add appropriate escaping and quotes (possibly)
         Self {
             var: var.clone(),
             comparison,
             compare_to,
+            data_type,
+        }
+    }
+
+    fn lit(&self, v: &str) -> String {
+        match self.data_type {
+            IpumsDataType::String => format!("'{}'", v),
+            _ => format!("{}", v),
+        }
+    }
+
+    // A helper method to generate part of an SQL  'where' clause.
+    pub fn to_sql(&self) -> String {
+        if self.compare_to.len() == 1 {
+            let value = self.compare_to.get(0).unwrap();
+            format!("{} = {}", &self.var.name, &self.lit(&value))
+        } else {
+            todo!("Not finished!");
         }
     }
 }
