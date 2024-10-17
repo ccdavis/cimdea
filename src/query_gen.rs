@@ -10,13 +10,12 @@
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
 use crate::conventions::Context;
-use crate::ipums_data_model::RecordWeight;
 use crate::ipums_metadata_model::{self, IpumsDataType};
+use crate::mderror::MdError;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
-use parquet::column::reader::get_column_reader;
 use sql_builder::{prelude::Bind, SqlBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -36,7 +35,7 @@ impl TabBuilder {
         dataset: &str,
         platform: &DataPlatform,
         input_format: &InputType,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, MdError> {
         let data_sources = DataSource::for_dataset(ctx, dataset, input_format)?;
         Ok(Self {
             data_sources,
@@ -54,7 +53,7 @@ impl TabBuilder {
         dataset: &str,
         uoa: &str,
         all_rectypes: &HashSet<String>,
-    ) -> Result<String, String> {
+    ) -> Result<String, MdError> {
         let lhs = &self.data_sources.get(uoa).unwrap();
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
@@ -65,9 +64,9 @@ impl TabBuilder {
         // generated to connect any two tables where we have foreign and primary keys. Three or more
         // correct joins aren't yet supported.
         if self.data_sources.len() > 2 {
-            return Err(
+            return Err(MdError::Msg(
                 "Tabulations across more than two record types not yet supported!".to_string(),
-            );
+            ));
         }
         for (rt, ds) in &self.data_sources {
             if rt != uoa && all_rectypes.contains(rt) {
@@ -129,9 +128,11 @@ impl TabBuilder {
         ctx: &Context,
         request_variables: &[RequestVariable],
         request_sample: &RequestSample,
-    ) -> Result<String, String> {
+    ) -> Result<String, MdError> {
         if request_variables.len() == 0 {
-            return Err("Must supply at least one request variable.".to_string());
+            return Err(MdError::Msg(
+                "Must supply at least one request variable.".to_string(),
+            ));
         }
         // Find all rectypes used by the requested variables
         let rectypes_vec = request_variables
@@ -146,7 +147,7 @@ impl TabBuilder {
 
         if !self.data_sources.contains_key(&uoa) {
             let msg = format!("Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'", uoa, ctx.settings.name);
-            return Err(msg);
+            return Err(MdError::Msg(msg));
         }
 
         // What if the default unit of analysis isn't in the requested variables. This covers the common case
@@ -187,7 +188,7 @@ impl TabBuilder {
         ctx: &Context,
         from_rt: &str,
         to_parent: &str,
-    ) -> Result<String, String> {
+    ) -> Result<String, MdError> {
         if let Some(ref child_rt) = ctx.settings.record_types.get(from_rt) {
             let fkey_name = child_rt
                 .foreign_keys
@@ -196,24 +197,27 @@ impl TabBuilder {
             if let Some(key_name) = fkey_name {
                 Ok(key_name.1.clone())
             } else {
-                Err(format!(
+                Err(MdError::Msg(format!(
                     "Cannot find a connection between '{}' and a parent record type of '{}'",
                     from_rt, to_parent
-                ))
+                )))
             }
         } else {
-            Err(format!(
+            Err(MdError::Msg(format!(
                 "Cannot find a connection between '{}' and a parent record type of '{}'",
                 from_rt, to_parent
-            ))
+            )))
         }
     }
 
-    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, String> {
+    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
-            Err(format!("No record type '{}' in current context.", rt))
+            Err(MdError::Msg(format!(
+                "No record type '{}' in current context.",
+                rt
+            )))
         }
     }
 }
@@ -236,7 +240,7 @@ impl DataSource {
         ctx: &Context,
         dataset: &str,
         input_format: &InputType,
-    ) -> Result<HashMap<String, DataSource>, String> {
+    ) -> Result<HashMap<String, DataSource>, MdError> {
         let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
@@ -249,7 +253,7 @@ impl DataSource {
         Ok(data_sources)
     }
 
-    pub fn new(name: String, full_path: Option<PathBuf>) -> Result<Self, String> {
+    pub fn new(name: String, full_path: Option<PathBuf>) -> Result<Self, MdError> {
         if let Some(p) = full_path {
             if p.to_string_lossy().ends_with(".parquet") {
                 Ok(Self::Parquet { name, full_path: p })
@@ -261,7 +265,7 @@ impl DataSource {
                     &name,
                     &p.display()
                 );
-                Err(msg)
+                Err(MdError::Msg(msg))
             }
         } else {
             Ok(Self::NativeTable { name })
@@ -353,7 +357,7 @@ pub fn tab_queries(
     request: impl DataRequest,
     input_format: &InputType,
     platform: &DataPlatform,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, MdError> {
     let mut queries = Vec::new();
     for dataset in request.get_request_samples() {
         let tb = TabBuilder::new(ctx, &dataset.name, platform, input_format)?;
@@ -394,7 +398,9 @@ pub fn frequency(
 }
 
 mod test {
+    #[cfg(test)]
     use super::*;
+    #[cfg(test)]
     use crate::request::SimpleRequest;
 
     #[test]
@@ -412,7 +418,10 @@ mod test {
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
             // print the error whatever it is.
-            Err(ref e) => assert_eq!("abc", e),
+            Err(ref e) => {
+                println!("{}", e);
+                assert_eq!(1, 2);
+            }
             _ => (),
         }
         assert!(queries.is_ok());
