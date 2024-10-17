@@ -169,6 +169,7 @@ pub enum UniversalCategoryType {
 
 type IpumsCategoryId = usize;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct IpumsCategory {
     label_intern: GlobalString,

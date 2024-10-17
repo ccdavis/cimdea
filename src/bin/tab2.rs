@@ -39,22 +39,24 @@ fn main() {
     };
 
     let variable_names: Vec<&str> = args.variable_names.iter().map(|v| &**v).collect();
-    let (context, rq) = SimpleRequest::from_names(
+    match SimpleRequest::from_names(
         &args.product_name,
         &[&args.sample_name],
         &variable_names,
         None,
         None,
         None,
-    );
-    match tabulate::tabulate(&context, rq) {
-        Ok(tables) => {
-            for table in tables {
-                println!("{}", table.output(table_format.clone()));
+    ) {
+        Ok((context, rq)) => match tabulate::tabulate(&context, rq) {
+            Ok(tables) => {
+                for table in tables {
+                    println!("{}", table.output(table_format.clone()));
+                }
             }
-        }
-        Err(e) => {
-            eprintln!("Error trying to tabulate: {}", &e);
-        }
-    }
+            Err(e) => {
+                eprintln!("Error trying to tabulate: {}", &e);
+            }
+        },
+        Err(e) => {}
+    } // match
 }

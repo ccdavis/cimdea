@@ -13,10 +13,9 @@ use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
-use duckdb::{params, Connection, Result};
+use duckdb::{Connection, Result};
 
 use serde::Serialize;
-use serde_json::*;
 
 #[derive(Clone, Debug)]
 pub enum TableFormat {
@@ -40,7 +39,7 @@ impl TableFormat {
 }
 
 #[derive(Clone, Debug)]
-enum OutputColumn {
+pub enum OutputColumn {
     Constructed {
         name: String,
         width: usize,
@@ -120,6 +119,7 @@ impl OutputColumn {
 
 // If we want we can use the IpumsVariable categories to replace the numbers in the results (rows)
 // with category labels and use the data type and width information to better format the table.
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Table {
     pub heading: Vec<OutputColumn>, // variable name columns
@@ -133,7 +133,7 @@ impl Table {
                 panic!("Output format not implemented yet.")
             }
             TableFormat::Json => self.format_as_json(),
-            TableFormat::TextTable => self.formatAsText(),
+            TableFormat::TextTable => self.format_as_text(),
         }
     }
 
@@ -146,10 +146,10 @@ impl Table {
         }
     }
 
-    pub fn formatAsText(&self) -> String {
+    pub fn format_as_text(&self) -> String {
         let mut out = String::new();
         let widths = self.column_widths();
-        for (column, v) in self.heading.iter().enumerate() {
+        for (column, _v) in self.heading.iter().enumerate() {
             let name = self.heading[column].name();
             let column_header = format!("| {n:>w$} ", n = &name, w = widths[column]);
             out.push_str(&column_header);
@@ -178,7 +178,7 @@ impl Table {
 
     fn column_widths(&self) -> Vec<usize> {
         let mut widths = Vec::new();
-        for (column, var) in self.heading.iter().enumerate() {
+        for (_column, var) in self.heading.iter().enumerate() {
             let name_width = var.name().len();
             let width = var.width();
             if name_width < width {
@@ -306,6 +306,9 @@ mod test {
             Some("P".to_string()),
             None,
             Some(data_root),
+        )
+        .expect(
+            "Setting up this request and context is for a subsequent test and should always work.",
         );
 
         println!(
@@ -325,7 +328,7 @@ mod test {
         if let Ok(tables) = result {
             assert_eq!(1, tables.len());
             for t in tables {
-                println!("{}", t.formatAsText());
+                println!("{}", t.format_as_text());
                 assert_eq!(18, t.rows.len());
                 assert_eq!(4, t.rows[0].len());
             }

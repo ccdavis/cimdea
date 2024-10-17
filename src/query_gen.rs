@@ -22,6 +22,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 /// The TabBuilder is meant to assist with one or more tabulations from the same data product.
+#[allow(dead_code)]
 struct TabBuilder {
     platform: DataPlatform,
     input_format: InputType,
@@ -47,10 +48,11 @@ impl TabBuilder {
 }
 
 impl TabBuilder {
+    #[allow(dead_code)]
     fn build_from_clause(
         &self,
         ctx: &Context,
-        dataset: &str,
+        _dataset: &str,
         uoa: &str,
         all_rectypes: &HashSet<String>,
     ) -> Result<String, MdError> {
@@ -193,7 +195,7 @@ impl TabBuilder {
             let fkey_name = child_rt
                 .foreign_keys
                 .iter()
-                .find(|(to_rt, f_)| to_rt == to_parent);
+                .find(|(to_rt, _f)| to_rt == to_parent);
             if let Some(key_name) = fkey_name {
                 Ok(key_name.1.clone())
             } else {
@@ -278,7 +280,7 @@ impl DataSource {
     pub fn for_platform(&self, platform: &DataPlatform) -> String {
         match platform {
             DataPlatform::Duckdb => match self {
-                Self::Parquet { name, full_path } => {
+                Self::Parquet { full_path, .. } => {
                     // Check if full path points to a directory
                     if full_path.is_dir() {
                         // Duckdb can query a directory of parquet files
@@ -289,7 +291,7 @@ impl DataSource {
                         format!("'{}'", &full_path.display())
                     }
                 }
-                Self::Csv { name, full_path } => format!("'{}'", &full_path.display()),
+                Self::Csv { full_path, .. } => format!("'{}'", &full_path.display()),
                 Self::NativeTable { name } => name.to_owned(),
             },
             // DataFusion expects the data tables to have been registered already
@@ -335,7 +337,7 @@ pub struct Condition {
 impl Condition {
     pub fn new(
         var: &ipums_metadata_model::IpumsVariable,
-        data_type: IpumsDataType,
+        _data_type: IpumsDataType,
         comparison: CompareOperation,
         compare_to: Vec<String>,
     ) -> Self {
@@ -375,7 +377,7 @@ pub fn frequency(
 ) -> String {
     // frequency field will differ if we are weighting and if there's a divisor
     let freq_field: String = if let Some(w) = weight {
-        if let Some(d) = divisor {
+        if let Some(_d) = divisor {
             format!("sum({} / :divisor:)", &w)
         } else {
             format!("sum({} )", &w)
@@ -413,7 +415,8 @@ mod test {
             Some("P".to_string()),
             None,
             Some(data_root),
-        );
+        )
+        .unwrap();
 
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
