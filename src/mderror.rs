@@ -2,6 +2,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum MdError {
     IoError(std::io::Error),
+    ParsingError(String),
     Msg(String),
     // more needed
 }

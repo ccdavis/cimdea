@@ -46,6 +46,7 @@
 //!
 //!
 use crate::layout::LayoutVar;
+use crate::mderror::MdError;
 use std::fmt;
 
 use compressed_string::ComprString;
@@ -200,12 +201,12 @@ pub enum CategoryBin {
 }
 
 impl CategoryBin {
-    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Result<Self, String> {
+    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Result<Self, MdError> {
         match (low, high) {
-            (Some(low), Some(high)) if high < low => Err(format!(
-                "a low of {} and high of {} do not satisfy low <= high",
+            (Some(low), Some(high)) if high < low => Err(MdError::Msg(format!(
+                "category_bins: a low of {} and high of {} do not satisfy low <= high",
                 low, high
-            )),
+            ))),
             (Some(low), Some(high)) => Ok(Self::Range {
                 low,
                 high,
@@ -219,7 +220,9 @@ impl CategoryBin {
                 value: low,
                 label: label.to_owned(),
             }),
-            (None, None) => Err("Must have low, high, or both set to some value".to_string()),
+            (None, None) => Err(MdError::Msg(
+                "category_bins: must have low, high, or both set to some value".to_string(),
+            )),
         }
     }
 
@@ -233,17 +236,23 @@ impl CategoryBin {
 }
 
 impl TryFrom<serde_json::Value> for CategoryBin {
-    type Error = String;
+    type Error = MdError;
 
     fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
+        use MdError::ParsingError;
+
         let Some(label_value) = value.get("value_label") else {
-            return Err("missing required field 'value_label'".to_string());
+            return Err(ParsingError(
+                "category_bins: missing required field 'value_label'".to_string(),
+            ));
         };
 
         let label = match label_value.as_str() {
             Some(label) => label,
             None => {
-                return Err("field 'value_label' must be a string".to_string());
+                return Err(ParsingError(
+                    "category_bins: field 'value_label' must be a string".to_string(),
+                ));
             }
         };
 
@@ -251,7 +260,9 @@ impl TryFrom<serde_json::Value> for CategoryBin {
             None => None,
             Some(low_value) => match low_value.as_i64() {
                 None => {
-                    return Err("field 'low' must be an integer".to_string());
+                    return Err(ParsingError(
+                        "category_bins: field 'low' must be an integer".to_string(),
+                    ));
                 }
                 Some(low) => Some(low),
             },
@@ -261,7 +272,9 @@ impl TryFrom<serde_json::Value> for CategoryBin {
             None => None,
             Some(high_value) => match high_value.as_i64() {
                 None => {
-                    return Err("field 'high' must be an integer".to_string());
+                    return Err(ParsingError(
+                        "category_bins: field 'high' must be an integer".to_string(),
+                    ));
                 }
                 Some(high) => Some(high),
             },
