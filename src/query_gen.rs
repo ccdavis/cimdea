@@ -45,9 +45,7 @@ impl TabBuilder {
             input_format: input_format.clone(),
         })
     }
-}
 
-impl TabBuilder {
     #[allow(dead_code)]
     fn build_from_clause(
         &self,
@@ -336,8 +334,24 @@ pub enum CompareOperation {
     Greater,
     LessEqual,
     GreaterEqual,
+    NotEqual,
     Between,
     In,
+}
+
+impl CompareOperation {
+    pub fn to_sql(&self, lhs: &str, rhs: &str) -> String {
+        match self {
+            Self::Equal => format!("{} = {}", lhs, rhs),
+            Self::Less => format!("{} < {}", lhs, rhs),
+            Self::Greater => format!("{} > {}", lhs, rhs),
+            Self::LessEqual => format!("{} <= {}", lhs, rhs),
+            Self::GreaterEqual => format!("{} >= {}", lhs, rhs),
+            Self::NotEqual => format!("{} != {}", lhs, rhs),
+            Self::Between => format!("{} between {}", lhs, rhs),
+            Self::In => format!("{} in {}", lhs, rhs),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -353,21 +367,41 @@ impl Condition {
         var: &ipums_metadata_model::IpumsVariable,
         comparison: CompareOperation,
         compare_to: Vec<String>,
-    ) -> Self {
+    ) -> Result<Self, MdError> {
         let data_type = if let Some(ref dt) = var.data_type {
             dt.clone()
         } else {
             IpumsDataType::Integer
         };
 
+        // If there are multiple values the condition can only be checked with 'in' or 'between'
+        match comparison {
+            CompareOperation::Between | CompareOperation::In => {
+                if compare_to.len() < 2 {
+                    let m = format!("The Between or In comparison operations require two or more values: {}, {}", &var.name, compare_to.join(", "));
+                    return Err(MdError::Msg(m));
+                }
+            }
+            _ => {
+                if compare_to.len() > 1 {
+                    let m = format!(
+                        "The  <,=,>, <=, >=, != comparison operations only take one value: {}, {}",
+                        &var.name,
+                        compare_to.join(", ")
+                    );
+                    return Err(MdError::Msg(m));
+                }
+            }
+        }
+
         // TODO check with data type and compare_to for a  valid representation (parse  into i32 for example)
         // If values are string type add appropriate escaping and quotes (possibly)
-        Self {
+        Ok(Self {
             var: var.clone(),
             comparison,
             compare_to,
             data_type,
-        }
+        })
     }
 
     fn lit(&self, v: &str) -> String {
@@ -381,9 +415,17 @@ impl Condition {
     pub fn to_sql(&self) -> String {
         if self.compare_to.len() == 1 {
             let value = self.compare_to.get(0).unwrap();
-            format!("{} = {}", &self.var.name, &self.lit(&value))
+            self.comparison.to_sql(&self.var.name, &self.lit(&value))
         } else {
-            todo!("Not finished!");
+            let lit_values: Vec<String> = self.compare_to.iter().map(|v| self.lit(v)).collect();
+
+            let rhs = match self.comparison {
+                CompareOperation::Between | CompareOperation::In => {
+                    format!("({})", &lit_values.join(","))
+                }
+                _ => format!("({})", lit_values.join(" or ")),
+            };
+            self.comparison.to_sql(&self.var.name, &rhs)
         }
     }
 }
@@ -441,6 +483,103 @@ mod test {
     use super::*;
     #[cfg(test)]
     use crate::request::SimpleRequest;
+
+    #[test]
+    fn test_new_condition() {
+        let data_root = String::from("test/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .unwrap();
+        let age_var = ctx
+            .settings
+            .metadata
+            .unwrap()
+            .cloned_variable_from_name("AGE")
+            .expect("'AGE' variable required for tests.");
+
+        let cond1_age = Condition::new(
+            &age_var,
+            CompareOperation::In,
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+        );
+
+        assert!(cond1_age.is_ok());
+        let cond2_age = Condition::new(
+            &age_var,
+            CompareOperation::Equal,
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+        );
+
+        assert!(cond2_age.is_err());
+
+        let cond3_age = Condition::new(&age_var, CompareOperation::Equal, vec!["1".to_string()]);
+
+        assert!(cond3_age.is_ok());
+
+        let cond4_age = Condition::new(&age_var, CompareOperation::Between, vec!["1".to_string()]);
+
+        assert!(cond4_age.is_err());
+    }
+
+    #[test]
+    fn test_build_where_clause() {
+        let data_root = String::from("test/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .unwrap();
+
+        let tab_builder =
+            TabBuilder::new(&ctx, "us2015b", &DataPlatform::Duckdb, &InputType::Parquet)
+                .expect("TabBuilder new() for testing should never error out.");
+
+        let mut test_conditions: Vec<Condition> = Vec::new();
+
+        let age_var = ctx
+            .get_md_variable_by_name("AGE")
+            .expect("'AGE' variable required for tests.");
+
+        let gq_var = ctx
+            .get_md_variable_by_name("GQ")
+            .expect("'GQ' variable required fortests.");
+
+        let cond1 = Condition::new(
+            &age_var,
+            CompareOperation::In,
+            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+        )
+        .expect("Condition should always be  constructed for testing.");
+
+        assert_eq!("AGE in (1,2,3)", &cond1.to_sql());
+
+        test_conditions.push(cond1);
+        let maybe_where_clause = tab_builder.build_where_clause(&test_conditions);
+        assert!(maybe_where_clause.is_ok());
+        assert_eq!("(AGE in (1,2,3))", &maybe_where_clause.unwrap());
+
+        let cond2 = Condition::new(&gq_var, CompareOperation::Equal, vec!["1".to_string()])
+            .expect("Condition should always be  constructed for testing.");
+
+        test_conditions.push(cond2);
+
+        let maybe_bigger_where_clause = tab_builder.build_where_clause(&test_conditions);
+        assert!(maybe_bigger_where_clause.is_ok());
+        assert_eq!(
+            "(AGE in (1,2,3)) and (GQ = 1)",
+            &maybe_bigger_where_clause.unwrap()
+        );
+    }
 
     #[test]
     fn test_frequency_duckdb_parquet() {

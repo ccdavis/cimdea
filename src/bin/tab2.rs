@@ -57,6 +57,8 @@ fn main() {
                 eprintln!("Error trying to tabulate: {}", &e);
             }
         },
-        Err(e) => {}
+        Err(e) => {
+            eprintln!("Error trying to tabulate during setup: {}", &e);
+        }
     } // match
 }

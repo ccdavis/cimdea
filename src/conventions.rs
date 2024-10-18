@@ -31,6 +31,7 @@ use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
 use crate::layout;
+use crate::mderror::MdError;
 use crate::request::InputType;
 
 use std::collections::HashMap;
@@ -367,6 +368,24 @@ pub struct Context {
 }
 
 impl Context {
+    // Convenience method mostly for testing
+    pub fn get_md_variable_by_name(&self, name: &str) -> Result<IpumsVariable, MdError> {
+        if let Some(ref md) = self.settings.metadata {
+            if let Some(var) = md.cloned_variable_from_name(name) {
+                Ok(var)
+            } else {
+                Err(MdError::Msg(format!(
+                    "Variable '{}' not in loaded metadata.",
+                    name
+                )))
+            }
+        } else {
+            Err(MdError::Msg(
+                "No metadata loaded. Can't get variable.".to_string(),
+            ))
+        }
+    }
+
     /// Formats the exact paths needed to get data for this dataset, by record type.
     pub fn paths_from_dataset_name(
         &self,
