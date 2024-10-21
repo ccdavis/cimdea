@@ -155,6 +155,26 @@ impl RequestSample {
     }
 }
 
+pub enum CaseSelectLogic {
+    And,
+    Or,
+}
+
+// We only ever apply CaseSelectUnit  to household-person but theoretically this is a way
+// to select all members of a given unit of analysis contained in the 'unit' if it's
+// not the current unit when one record matches. For instance 'EntireHousehold' means
+// include all people / person records from the current household if any person records match.
+// NOTE: The behavior when the case selection is on a household variable but the extract or
+// tabulation is using 'person' as the unit of analysis isn't well defined. In our old code
+// we include all persons in a household if a household variable matches even if there's no
+// person level variables with case selection. The interaction with the 'and' and 'or' of the case select logic
+// across record types and hierarchies is complicated. The old extract engine has a complex approach probably not worth
+// reproducing in full here.
+pub enum CaseSelectUnit {
+    Individual,
+    EntireHousehold,
+}
+
 /// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
@@ -192,6 +212,9 @@ pub trait DataRequest {
 
     /// Print a machine readable Stata codebook
     fn print_stata(&self) -> String;
+
+    fn case_select_logic(&self) -> CaseSelectLogic;
+    fn case_select_unit(&self) -> CaseSelectUnit;
 }
 
 #[derive(Clone, Debug)]
@@ -263,6 +286,14 @@ pub struct AbacusRequest {
 }
 
 impl DataRequest for AbacusRequest {
+    fn case_select_logic(&self) -> CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    fn case_select_unit(&self) -> CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     fn get_request_variables(&self) -> Vec<RequestVariable> {
         self.request_variables.clone()
     }
@@ -349,7 +380,7 @@ impl DataRequest for AbacusRequest {
     }
 
     fn serialize_to_ipums_json(&self) -> String {
-        panic!("Not implemented.")
+        todo!("Not implemented.")
     }
 }
 
@@ -532,6 +563,14 @@ pub struct SimpleRequest {
 // The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
 
 impl DataRequest for SimpleRequest {
+    fn case_select_logic(&self) -> CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    fn case_select_unit(&self) -> CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     // A simple builder if we don't have serialized JSON, for tests and CLI use cases.
     // Returns a new context.
     fn from_names(
@@ -569,9 +608,9 @@ impl DataRequest for SimpleRequest {
     fn get_request_variables(&self) -> Vec<RequestVariable> {
         self.variables
             .iter()
-            .map(|v| 
-                // If we got here from the from_names() then if the metadata iis broken (general detailed probably incorrect,) 
-                // we simply can't proceed. 
+            .map(|v|
+                // If we got here from the from_names() then if the metadata iis broken (general detailed probably incorrect,)
+                // we simply can't proceed.
                 RequestVariable::from_ipums_variable(v, self.use_general_variables)
                 .expect("Broken metadata."))
             .collect()

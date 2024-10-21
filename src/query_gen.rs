@@ -12,6 +12,7 @@
 use crate::conventions::Context;
 use crate::ipums_metadata_model::{self, IpumsDataType};
 use crate::mderror::MdError;
+use crate::request::CaseSelectLogic;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
@@ -123,7 +124,11 @@ impl TabBuilder {
         select_clause
     }
 
-    fn build_where_clause(&self, conditions: &[Condition]) -> Result<String, MdError> {
+    fn build_where_clause(
+        &self,
+        conditions: &[Condition],
+        case_select_logic: CaseSelectLogic,
+    ) -> Result<String, MdError> {
         let w: Vec<String> = conditions
             .iter()
             .map(|c| format!("({})", c.to_sql()))
@@ -132,8 +137,10 @@ impl TabBuilder {
         // The case selection logic can be 'or' or 'and' but typically is 'and'.
         // NOTE: This will apply to the unit of analysis record types / individual. The 'entire household'
         // behavior isn't here.
-
-        Ok(w.join(" and "))
+        match case_select_logic {
+            CaseSelectLogic::And => Ok(w.join(" and ")),
+            CaseSelectLogic::Or => Ok(w.join(" or ")),
+        }
     }
 
     pub fn make_query(
@@ -487,7 +494,7 @@ mod test {
     #[test]
     fn test_new_condition() {
         let data_root = String::from("test/data_root");
-        let (ctx, rq) = SimpleRequest::from_names(
+        let (ctx, _) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
@@ -530,7 +537,7 @@ mod test {
     #[test]
     fn test_build_where_clause() {
         let data_root = String::from("test/data_root");
-        let (ctx, rq) = SimpleRequest::from_names(
+        let (ctx, _) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
@@ -564,7 +571,8 @@ mod test {
         assert_eq!("AGE in (1,2,3)", &cond1.to_sql());
 
         test_conditions.push(cond1);
-        let maybe_where_clause = tab_builder.build_where_clause(&test_conditions);
+        let maybe_where_clause =
+            tab_builder.build_where_clause(&test_conditions, CaseSelectLogic::And);
         assert!(maybe_where_clause.is_ok());
         assert_eq!("(AGE in (1,2,3))", &maybe_where_clause.unwrap());
 
@@ -573,7 +581,8 @@ mod test {
 
         test_conditions.push(cond2);
 
-        let maybe_bigger_where_clause = tab_builder.build_where_clause(&test_conditions);
+        let maybe_bigger_where_clause =
+            tab_builder.build_where_clause(&test_conditions, CaseSelectLogic::And);
         assert!(maybe_bigger_where_clause.is_ok());
         assert_eq!(
             "(AGE in (1,2,3)) and (GQ = 1)",
