@@ -13,12 +13,13 @@ pub struct AbacusRequest {
     uoa: String,
     output_format: String,
     subpopulation: Vec<RequestVariable>,
-    category_bins: BTreeMap<String, Vec<CategoryBinRaw>>,
+    category_bins: BTreeMap<String, Vec<CategoryBin>>,
     request_samples: Vec<RequestSample>,
     request_variables: Vec<RequestVariable>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(try_from = "CategoryBinRaw")]
 pub enum CategoryBin {
     LessThan { value: i64, label: String },
     Range { low: i64, high: i64, label: String },
@@ -90,7 +91,7 @@ impl CategoryBin {
     }
 }
 #[derive(Deserialize, Serialize)]
-pub struct CategoryBinRaw {
+struct CategoryBinRaw {
     code: usize,
     value_label: String,
     low: Option<i64>,
@@ -238,5 +239,22 @@ mod tests {
         };
         let result = CategoryBin::try_from(raw_bin);
         assert!(result.is_err(), "it should be an error if high < low");
+    }
+
+    #[test]
+    fn test_category_bin_deserialize_range() {
+        let json_str =
+            "{\"code\": 0, \"value_label\": \"between 3 and 5\", \"low\": 3, \"high\": 5}";
+        let category_bin: CategoryBin =
+            serde_json::from_str(json_str).expect("should deserialize into CategoryBin");
+        assert!(matches!(category_bin, CategoryBin::Range { .. }));
+    }
+
+    #[test]
+    fn test_category_bin_deserialize_high_less_than_low_error() {
+        let json_str =
+            "{\"code\": 0, \"value_label\": \"that's not possible\", \"low\": 10, \"high\": 2}";
+        let result: Result<CategoryBin, _> = serde_json::from_str(json_str);
+        assert!(result.is_err());
     }
 }
