@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::mderror::MdError;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AbacusRequest {
     pub product: String,
     pub data_root: Option<String>,
@@ -18,8 +18,8 @@ pub struct AbacusRequest {
     pub request_variables: Vec<RequestVariable>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(try_from = "CategoryBinRaw")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(try_from = "CategoryBinRaw", into = "CategoryBinRaw")]
 pub enum CategoryBin {
     LessThan {
         value: i64,
@@ -91,7 +91,37 @@ struct CategoryBinRaw {
     high: Option<i64>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl From<CategoryBin> for CategoryBinRaw {
+    fn from(value: CategoryBin) -> Self {
+        match value {
+            CategoryBin::LessThan { value, code, label } => Self {
+                code,
+                value_label: label,
+                low: None,
+                high: Some(value),
+            },
+            CategoryBin::MoreThan { value, code, label } => Self {
+                code,
+                value_label: label,
+                low: Some(value),
+                high: None,
+            },
+            CategoryBin::Range {
+                low,
+                high,
+                code,
+                label,
+            } => Self {
+                code,
+                value_label: label,
+                low: Some(low),
+                high: Some(high),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RequestVariable {
     pub variable_mnemonic: String,
     pub mnemonic: String,
@@ -103,15 +133,15 @@ pub struct RequestVariable {
     pub extract_width: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RequestSample {
     pub name: String,
     pub custom_sampling_ratio: Option<String>,
     pub first_household_sampled: Option<usize>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(try_from = "RequestCaseSelectionRaw")]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(try_from = "RequestCaseSelectionRaw", into = "RequestCaseSelectionRaw")]
 pub struct RequestCaseSelection {
     pub low_code: u64,
     pub high_code: u64,
@@ -151,6 +181,15 @@ struct RequestCaseSelectionRaw {
     high_code: String,
 }
 
+impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
+    fn from(value: RequestCaseSelection) -> Self {
+        Self {
+            low_code: value.low_code.to_string(),
+            high_code: value.high_code.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +204,22 @@ mod tests {
 
         assert_eq!(request.product, "usa");
         assert_eq!(request.category_bins["INCWAGE"].len(), 17);
+    }
+
+    /// Make sure that AbacusRequest serializes in a way that it can also deserialize.
+    ///
+    /// The serialized string may not be exactly equal to the input string, but
+    /// it should deserialize to the same AbacusRequest as the input string does.
+    #[test]
+    fn test_json_request_round_trip() {
+        let json_str = include_str!("../test/requests/incwage_marst_example.json");
+        let deserialized1: AbacusRequest =
+            serde_json::from_str(json_str).expect("should deserialize into an AbacusRequest");
+        let serialized =
+            serde_json::to_string(&deserialized1).expect("should serialize back to a string");
+        let deserialized2: AbacusRequest =
+            serde_json::from_str(&serialized).expect("should serialize back into an AbacusRequest");
+        assert_eq!(deserialized1, deserialized2);
     }
 
     #[test]
