@@ -45,6 +45,7 @@
 //! information such as variable and value labels.
 //!
 //!
+use crate::input_schema_tabulation::CategoryBin;
 use crate::layout::LayoutVar;
 use std::fmt;
 
@@ -190,44 +191,6 @@ impl IpumsCategory {
             meaning,
             value,
             id: 0,
-        }
-    }
-}
-#[derive(Clone, Debug)]
-pub enum CategoryBin {
-    LessThan { value: i64, label: String },
-    Range { low: i64, high: i64, label: String },
-    MoreThan { value: i64, label: String },
-}
-
-impl CategoryBin {
-    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Self {
-        if low.is_some() && high.is_some() {
-            Self::Range {
-                low: low.unwrap(),
-                high: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } else if low.is_none() && high.is_some() {
-            Self::LessThan {
-                value: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } else if low.is_some() && high.is_none() {
-            Self::MoreThan {
-                value: low.unwrap(),
-                label: label.to_owned(),
-            }
-        } else {
-            panic!("Must have at low or high or both equal to some value.");
-        }
-    }
-
-    pub fn within(&self, test_value: i64) -> bool {
-        match self {
-            Self::LessThan { value, .. } => test_value < *value,
-            Self::Range { low, high, .. } => test_value >= *low && test_value <= *high,
-            Self::MoreThan { value, .. } => test_value > *value,
         }
     }
 }
