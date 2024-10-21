@@ -18,7 +18,8 @@ use crate::{
 
 // Given a set of variable and dataset names and a product name, produce a context loaded
 // with metadata just for those named parts and return copies of the IpumsVariable and IpumsSample structs.
-fn context_from_names_helper(
+// This is public so it can be used as a test helper.
+pub fn context_from_names_helper(
     product: &str,
     requested_datasets: &[&str],
     requested_variables: &[&str],
