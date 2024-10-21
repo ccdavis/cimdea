@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::mderror::MdError;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AbacusRequest {
     pub product: String,
     pub data_root: Option<String>,
@@ -91,7 +91,7 @@ struct CategoryBinRaw {
     high: Option<i64>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestVariable {
     pub variable_mnemonic: String,
     pub mnemonic: String,
@@ -103,17 +103,52 @@ pub struct RequestVariable {
     pub extract_width: usize,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RequestSample {
     pub name: String,
     pub custom_sampling_ratio: Option<String>,
     pub first_household_sampled: Option<usize>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(try_from = "RequestCaseSelectionRaw")]
 pub struct RequestCaseSelection {
-    pub low_code: String,
-    pub high_code: String,
+    pub low_code: u64,
+    pub high_code: u64,
+}
+
+impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
+    type Error = MdError;
+
+    fn try_from(value: RequestCaseSelectionRaw) -> Result<Self, Self::Error> {
+        let Ok(low_code) = value.low_code.parse() else {
+            return Err(MdError::ParsingError(
+                "request_case_selections: cannot parse low_code as an unsigned integer".to_string(),
+            ));
+        };
+
+        let Ok(high_code) = value.high_code.parse() else {
+            return Err(MdError::ParsingError(
+                "request_case_selections: cannot parse high_code as an unsigned integer"
+                    .to_string(),
+            ));
+        };
+
+        if high_code < low_code {
+            Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code} and high_code of {high_code} do not satisfy low_code <= high_code")))
+        } else {
+            Ok(Self {
+                low_code,
+                high_code,
+            })
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct RequestCaseSelectionRaw {
+    low_code: String,
+    high_code: String,
 }
 
 #[cfg(test)]
@@ -212,6 +247,31 @@ mod tests {
         let json_str =
             "{\"code\": 0, \"value_label\": \"that's not possible\", \"low\": 10, \"high\": 2}";
         let result: Result<CategoryBin, _> = serde_json::from_str(json_str);
+        assert!(result.is_err());
+    }
+
+    /// Although we represent the low and high codes as strings in the JSON, we
+    /// automatically convert them to integers during deserialization.
+    #[test]
+    fn test_request_case_selection_deserialize() {
+        let json_str = "{\"low_code\": \"060\", \"high_code\": \"065\"}";
+        let rcs: RequestCaseSelection =
+            serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
+        assert_eq!(rcs.low_code, 60);
+        assert_eq!(rcs.high_code, 65);
+    }
+
+    #[test]
+    fn test_request_case_selection_high_less_than_low_error() {
+        let json_str = "{\"low_code\": \"065\", \"high_code\": \"060\"}";
+        let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_request_case_selection_cannot_convert_int_error() {
+        let json_str = "{\"low_code\": \"A\", \"high_code\": \"B\"}";
+        let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
         assert!(result.is_err());
     }
 }
