@@ -47,7 +47,6 @@
 //!
 use crate::json_schema::CategoryBin;
 use crate::layout::LayoutVar;
-use crate::mderror::MdError;
 use std::fmt;
 
 use compressed_string::ComprString;
