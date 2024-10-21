@@ -374,34 +374,23 @@ impl AbacusRequest {
             }
         };
 
-        let product = request.product;
-        let optional_data_root = request.data_root;
-
         let mut ctx = conventions::Context::from_ipums_collection_name(
-            &product,
+            &request.product,
             None,
-            optional_data_root.clone(),
+            request.data_root.clone(),
         );
 
-        let parsed_request_samples = request.request_samples;
-        let parsed_request_variables = request.request_variables;
-        let parsed_subpop = request.subpopulation;
-        let parsed_uoa = request.uoa;
+        let requested_dataset_names: Vec<_> = request
+            .request_samples
+            .iter()
+            .map(|rs| rs.name.as_str())
+            .collect();
 
-        let mut requested_dataset_names = Vec::new();
-        for rs in &parsed_request_samples {
-            let ref name = rs.name;
-            requested_dataset_names.push(name);
-        }
-
-        // TODO fix this type-wrangling nonsense
-        let requested_dataset_names: Vec<&str> =
-            requested_dataset_names.iter().map(|s| s.as_str()).collect();
         // Use the names of the requested samples to load partial metadata
         ctx.load_metadata_for_datasets(requested_dataset_names.as_slice());
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&parsed_uoa) {
+        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
             u.clone()
         } else {
             return Err(MdError::Msg("No record type for uoa.".to_string()));
@@ -414,7 +403,7 @@ impl AbacusRequest {
         };
 
         let mut rqs = Vec::new();
-        for p in parsed_request_samples {
+        for p in request.request_samples {
             let name = p.name;
             let Some(ipums_ds) = md.cloned_dataset_from_name(&name) else {
                 return Err(MdError::Msg(format!(
@@ -429,7 +418,7 @@ impl AbacusRequest {
         }
 
         let mut rqv = Vec::new();
-        for v in parsed_request_variables {
+        for v in request.request_variables {
             let name = v.mnemonic;
             let variable_mnemonic = v.variable_mnemonic;
 
@@ -453,19 +442,19 @@ impl AbacusRequest {
         }
 
         let mut subpop = Vec::new();
-        for s in parsed_subpop {}
+        for s in request.subpopulation {}
 
         Ok((
             ctx,
             Self {
-                product: product.to_string(),
+                product: request.product,
                 request_variables: rqv,
                 request_samples: rqs,
                 subpopulation: subpop,
                 output_format: OutputFormat::Json,
                 use_general_variables: true,
                 unit_rectype: uoa.clone(),
-                data_root: optional_data_root,
+                data_root: request.data_root,
             },
         ))
     }
