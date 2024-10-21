@@ -12,8 +12,8 @@
         "case_selection": true,
         "request_case_selections": [          
           {
-            "low_code": 2,
-            "high_code":2
+            "low_code": "2",
+            "high_code": "2"
           }
         ],
         "extract_start": 71,
@@ -27,8 +27,8 @@
         "case_selection": true,
         "request_case_selections": [          
           {
-            "low_code": 15,
-            "high_code": 24
+            "low_code": "15",
+            "high_code": "24"
           }
         ],
         "extract_start": 71,
