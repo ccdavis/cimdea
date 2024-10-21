@@ -25,6 +25,36 @@ pub enum CategoryBin {
     MoreThan { value: i64, label: String },
 }
 
+impl TryFrom<CategoryBinRaw> for CategoryBin {
+    type Error = MdError;
+
+    fn try_from(value: CategoryBinRaw) -> Result<Self, Self::Error> {
+        let label = &value.value_label;
+        match (value.low, value.high) {
+            (Some(low), Some(high)) if high < low => Err(MdError::Msg(format!(
+                "category_bins: a low of {} and high of {} do not satisfy low <= high",
+                low, high
+            ))),
+            (Some(low), Some(high)) => Ok(Self::Range {
+                low,
+                high,
+                label: label.to_owned(),
+            }),
+            (None, Some(high)) => Ok(Self::LessThan {
+                value: high,
+                label: label.to_owned(),
+            }),
+            (Some(low), None) => Ok(Self::MoreThan {
+                value: low,
+                label: label.to_owned(),
+            }),
+            (None, None) => Err(MdError::Msg(
+                "category_bins: must have low, high, or both set to some value".to_string(),
+            )),
+        }
+    }
+}
+
 impl CategoryBin {
     pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Result<Self, MdError> {
         match (low, high) {
@@ -63,8 +93,8 @@ impl CategoryBin {
 pub struct CategoryBinRaw {
     code: usize,
     value_label: String,
-    low: Option<usize>,
-    high: Option<usize>,
+    low: Option<i64>,
+    high: Option<i64>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -116,6 +146,19 @@ mod tests {
     }
 
     #[test]
+    fn test_category_bin_try_from_less_than() {
+        let raw_bin = CategoryBinRaw {
+            code: 0,
+            value_label: "less than 3".to_string(),
+            low: None,
+            high: Some(3),
+        };
+        let bin = CategoryBin::try_from(raw_bin)
+            .expect("should successfully convert from CategoryBinRaw");
+        assert!(matches!(bin, CategoryBin::LessThan { .. }))
+    }
+
+    #[test]
     fn test_category_bin_new_more_than() {
         let bin = CategoryBin::new(Some(3), None, "more than 3")
             .expect("expected Ok(CategoryBin::MoreThan)");
@@ -123,9 +166,35 @@ mod tests {
     }
 
     #[test]
+    fn test_category_bin_try_from_more_than() {
+        let raw_bin = CategoryBinRaw {
+            code: 0,
+            value_label: "more than 3".to_string(),
+            low: Some(3),
+            high: None,
+        };
+        let bin = CategoryBin::try_from(raw_bin)
+            .expect("should successfully convert from CategoryBinRaw");
+        assert!(matches!(bin, CategoryBin::MoreThan { .. }));
+    }
+
+    #[test]
     fn test_category_bin_new_range() {
         let bin = CategoryBin::new(Some(3), Some(5), "between 3 and 5")
             .expect("expected Ok(CategoryBin::Range)");
+        assert!(matches!(bin, CategoryBin::Range { .. }));
+    }
+
+    #[test]
+    fn test_category_bin_try_from_range() {
+        let raw_bin = CategoryBinRaw {
+            code: 0,
+            value_label: "between 3 and 5".to_string(),
+            low: Some(3),
+            high: Some(5),
+        };
+        let bin = CategoryBin::try_from(raw_bin)
+            .expect("should successfully convert from CategoryBinRaw");
         assert!(matches!(bin, CategoryBin::Range { .. }));
     }
 
@@ -139,8 +208,35 @@ mod tests {
     }
 
     #[test]
+    fn test_category_bin_try_from_no_boundaries_error() {
+        let raw_bin = CategoryBinRaw {
+            code: 0,
+            value_label: "no boundaries!".to_string(),
+            low: None,
+            high: None,
+        };
+        let result = CategoryBin::try_from(raw_bin);
+        assert!(
+            result.is_err(),
+            "it should be an error if neither low nor high is provided"
+        );
+    }
+
+    #[test]
     fn test_category_bin_new_high_less_than_low_error() {
         let result = CategoryBin::new(Some(10), Some(2), "that's not possible");
+        assert!(result.is_err(), "it should be an error if high < low");
+    }
+
+    #[test]
+    fn test_category_bin_try_from_high_less_than_low_error() {
+        let raw_bin = CategoryBinRaw {
+            code: 0,
+            value_label: "that's not possible".to_string(),
+            low: Some(10),
+            high: Some(2),
+        };
+        let result = CategoryBin::try_from(raw_bin);
         assert!(result.is_err(), "it should be an error if high < low");
     }
 }
