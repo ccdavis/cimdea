@@ -11,9 +11,9 @@ use crate::ipums_data_model::{self, RecordType};
 use crate::{
     conventions,
     conventions::Context,
+    input_schema_tabulation,
+    input_schema_tabulation::CategoryBin,
     ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
-    json_schema,
-    json_schema::CategoryBin,
     mderror::MdError,
     query_gen::Condition,
 };
@@ -365,7 +365,7 @@ impl AbacusRequest {
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
     pub fn from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
-        let request: json_schema::AbacusRequest = match serde_json::from_str(input) {
+        let request: input_schema_tabulation::AbacusRequest = match serde_json::from_str(input) {
             Ok(request) => request,
             Err(err) => {
                 return Err(MdError::Msg(format!(

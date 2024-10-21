@@ -45,7 +45,7 @@
 //! information such as variable and value labels.
 //!
 //!
-use crate::json_schema::CategoryBin;
+use crate::input_schema_tabulation::CategoryBin;
 use crate::layout::LayoutVar;
 use std::fmt;
 
