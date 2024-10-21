@@ -11,7 +11,7 @@
 //! SQL.
 use crate::conventions::Context;
 use crate::ipums_metadata_model::{self, IpumsDataType};
-use crate::mderror::MdError;
+use crate::mderror::{self, MdError};
 use crate::request::CaseSelectLogic;
 use crate::request::DataRequest;
 use crate::request::InputType;
@@ -94,12 +94,16 @@ impl TabBuilder {
         Ok(q)
     }
 
+    fn bucketed(&self, rq: &RequestVariable) -> String {
+        "".to_string()
+    }
+
     fn build_select_clause(
         &self,
         request_variables: &[RequestVariable],
         weight_name: Option<String>,
         weight_divisor: Option<usize>,
-    ) -> String {
+    ) -> Result<String, MdError> {
         let mut select_clause = "select count(*) as ct".to_string();
 
         if let Some(ref wt) = weight_name {
@@ -111,8 +115,20 @@ impl TabBuilder {
         }
 
         for rq in request_variables {
+            // A request variable can be 'general' or 'bucketed' but not both.
+            if rq.is_general && rq.category_bins.is_some() {
+                if rq.category_bins.as_ref().unwrap().len() > 0 {
+                    let msg = format!(
+                        "The variable {} can't be both a general variable and use category bins.",
+                        &rq.name
+                    );
+                    return Err(MdError::Msg(msg));
+                }
+            }
             select_clause += &if !rq.is_general {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
+            } else if rq.category_bins.is_some() {
+                self.bucketed(&rq)
             } else {
                 format!(
                     ", {}/{} as {}",
@@ -121,7 +137,7 @@ impl TabBuilder {
             };
         }
 
-        select_clause
+        Ok(select_clause)
     }
 
     fn build_where_clause(
@@ -200,7 +216,7 @@ impl TabBuilder {
         let order_by_clause = "order by ".to_string() + &vars_in_order;
         Ok(format!(
             "{}\n{}\n{}\n{}\n{}",
-            &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause
+            &select_clause?, &from_clause, &where_clause, &group_by_clause, &order_by_clause
         ))
     }
 
