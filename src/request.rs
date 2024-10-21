@@ -11,7 +11,8 @@ use crate::ipums_data_model::{self, RecordType};
 use crate::{
     conventions,
     conventions::Context,
-    ipums_metadata_model::{CategoryBin, IpumsDataType, IpumsDataset, IpumsVariable},
+    ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
+    json_schema::CategoryBin,
     mderror::MdError,
     query_gen::Condition,
 };
