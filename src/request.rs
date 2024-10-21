@@ -12,7 +12,7 @@ use crate::{
     conventions,
     conventions::Context,
     input_schema_tabulation,
-    input_schema_tabulation::CategoryBin,
+    input_schema_tabulation::{CategoryBin, GeneralDetailedSelection},
     ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
     mderror::MdError,
     query_gen::Condition,
@@ -429,10 +429,10 @@ impl AbacusRequest {
                 )));
             };
 
-            let use_general = match v.general_detailed_selection {
-                None => false,
-                Some(gendet) => gendet == "G",
-            };
+            let use_general = matches!(
+                v.general_detailed_selection,
+                GeneralDetailedSelection::General
+            );
 
             let mut request_var = RequestVariable::from_ipums_variable(&ipums_var, use_general)?;
 

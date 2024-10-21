@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::mderror::MdError;
 
@@ -125,7 +125,8 @@ impl From<CategoryBin> for CategoryBinRaw {
 pub struct RequestVariable {
     pub variable_mnemonic: String,
     pub mnemonic: String,
-    pub general_detailed_selection: Option<String>,
+    #[serde(deserialize_with = "general_detailed_selection_from_nullable_field")]
+    pub general_detailed_selection: GeneralDetailedSelection,
     pub attached_variable_pointer: (),
     pub case_selection: bool,
     pub request_case_selections: Vec<RequestCaseSelection>,
@@ -190,6 +191,28 @@ impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     }
 }
 
+#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum GeneralDetailedSelection {
+    #[serde(rename = "G")]
+    General,
+    #[default]
+    #[serde(rename = "")]
+    Detailed,
+}
+
+/// This is because missing attributes and attributes that are null are handled differently by
+/// serde, so we can't just say #[serde(default)] for general_detailed_selection.
+/// Check out this GitHub issue: https://github.com/serde-rs/serde/issues/1098.
+fn general_detailed_selection_from_nullable_field<'de, D>(
+    deserializer: D,
+) -> Result<GeneralDetailedSelection, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let maybe_gendet = Option::deserialize(deserializer)?;
+    Ok(maybe_gendet.unwrap_or(GeneralDetailedSelection::default()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,6 +227,14 @@ mod tests {
 
         assert_eq!(request.product, "usa");
         assert_eq!(request.category_bins["INCWAGE"].len(), 17);
+        assert_eq!(
+            request.subpopulation[0].general_detailed_selection,
+            GeneralDetailedSelection::General
+        );
+        assert_eq!(
+            request.request_variables[0].general_detailed_selection,
+            GeneralDetailedSelection::Detailed
+        );
     }
 
     /// Make sure that AbacusRequest serializes in a way that it can also deserialize.
@@ -328,5 +359,19 @@ mod tests {
         let json_str = "{\"low_code\": \"A\", \"high_code\": \"B\"}";
         let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_deserialize_general_detailed_selection_g() {
+        let gen_det: GeneralDetailedSelection = serde_json::from_str("\"G\"")
+            .expect("should deserialize into a GeneralDetailedSelection");
+        assert_eq!(gen_det, GeneralDetailedSelection::General);
+    }
+
+    #[test]
+    fn test_deserialize_general_detailed_selection_empty() {
+        let gen_det: GeneralDetailedSelection = serde_json::from_str("\"\"")
+            .expect("should deserialize into a GeneralDetailedSelection");
+        assert_eq!(gen_det, GeneralDetailedSelection::Detailed);
     }
 }
