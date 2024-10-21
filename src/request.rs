@@ -12,6 +12,7 @@ use crate::{
     conventions,
     conventions::Context,
     ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
+    json_schema,
     json_schema::CategoryBin,
     mderror::MdError,
     query_gen::Condition,
@@ -364,66 +365,43 @@ impl AbacusRequest {
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
     pub fn from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
-        let parsed: serde_json::Value = match serde_json::from_str(input) {
-            Ok(parsed) => parsed,
-            Err(e) => {
+        let request: json_schema::AbacusRequest = match serde_json::from_str(input) {
+            Ok(request) => request,
+            Err(err) => {
                 return Err(MdError::Msg(format!(
-                    "Error deserializing request: '{}'",
-                    e
-                )))
+                    "Error deserializing request: '{err}'"
+                )));
             }
         };
 
-        let Some(product) = parsed["product"].as_str() else {
-            return Err(MdError::Msg("No 'product' in request".to_string()));
-        };
-
-        let optional_data_root = if let Some(ref r) = parsed["data_root"].as_str() {
-            Some(r.to_string())
-        } else {
-            None
-        };
+        let product = request.product;
+        let optional_data_root = request.data_root;
 
         let mut ctx = conventions::Context::from_ipums_collection_name(
-            product,
+            &product,
             None,
             optional_data_root.clone(),
         );
 
-        let Some(parsed_request_samples) = parsed["request_samples"].as_array() else {
-            return Err(MdError::Msg("No 'request_samples' in request.".to_string()));
-        };
-        let Some(parsed_request_variables) = parsed["request_variables"].as_array() else {
-            return Err(MdError::Msg(
-                "Request must have 'request_variables' field.".to_string(),
-            ));
-        };
-
-        let Some(parsed_subpop) = parsed["subpopulation"].as_array() else {
-            return Err(MdError::Msg("No subpopulation key.".to_string()));
-        };
-
-        let Some(parsed_uoa) = parsed["uoa"].as_str() else {
-            return Err(MdError::Msg(
-                "'uoa' (unit of analysis) required.".to_string(),
-            ));
-        };
+        let parsed_request_samples = request.request_samples;
+        let parsed_request_variables = request.request_variables;
+        let parsed_subpop = request.subpopulation;
+        let parsed_uoa = request.uoa;
 
         let mut requested_dataset_names = Vec::new();
-        for rs in parsed_request_samples {
-            let Some(name) = rs["name"].as_str() else {
-                return Err(MdError::Msg(
-                    "Missing name field in RequestSample object.".to_string(),
-                ));
-            };
+        for rs in &parsed_request_samples {
+            let ref name = rs.name;
             requested_dataset_names.push(name);
         }
 
+        // TODO fix this type-wrangling nonsense
+        let requested_dataset_names: Vec<&str> =
+            requested_dataset_names.iter().map(|s| s.as_str()).collect();
         // Use the names of the requested samples to load partial metadata
-        ctx.load_metadata_for_datasets(&requested_dataset_names);
+        ctx.load_metadata_for_datasets(requested_dataset_names.as_slice());
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(parsed_uoa) {
+        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&parsed_uoa) {
             u.clone()
         } else {
             return Err(MdError::Msg("No record type for uoa.".to_string()));
@@ -437,8 +415,8 @@ impl AbacusRequest {
 
         let mut rqs = Vec::new();
         for p in parsed_request_samples {
-            let name = p["name"].as_str().unwrap();
-            let Some(ipums_ds) = md.cloned_dataset_from_name(name) else {
+            let name = p.name;
+            let Some(ipums_ds) = md.cloned_dataset_from_name(&name) else {
                 return Err(MdError::Msg(format!(
                     "No metadata for dataset named {}",
                     &name
@@ -452,33 +430,19 @@ impl AbacusRequest {
 
         let mut rqv = Vec::new();
         for v in parsed_request_variables {
-            let name = v["mnemonic"].as_str() else {
-                return Err(MdError::Msg(
-                    "Missing mnemonic on request variable.".to_string(),
-                ));
-            };
+            let name = v.mnemonic;
+            let variable_mnemonic = v.variable_mnemonic;
 
-            let Some(variable_mnemonic) = v["variable_mnemonic"].as_str() else {
-                return Err(MdError::Msg(
-                    "Missing variable_mnemonic in RequestVariable.".to_string(),
-                ));
-            };
-
-            let Some(ipums_var) = md.cloned_variable_from_name(variable_mnemonic) else {
+            let Some(ipums_var) = md.cloned_variable_from_name(&variable_mnemonic) else {
                 return Err(MdError::Msg(format!(
                     "No variable named '{}' in loaded metadata.",
                     variable_mnemonic
                 )));
             };
 
-            let use_general = if v["general_detailed_selection"].is_null() {
-                false
-            } else {
-                if let Some(gendet) = v["general_detail_selection"].as_str() {
-                    gendet == "G"
-                } else {
-                    false
-                }
+            let use_general = match v.general_detailed_selection {
+                None => false,
+                Some(gendet) => gendet == "G",
             };
 
             let mut request_var = RequestVariable::from_ipums_variable(&ipums_var, use_general)?;

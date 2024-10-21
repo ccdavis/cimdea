@@ -8,14 +8,14 @@ use crate::mderror::MdError;
 
 #[derive(Deserialize, Serialize)]
 pub struct AbacusRequest {
-    product: String,
-    data_root: String,
-    uoa: String,
-    output_format: String,
-    subpopulation: Vec<RequestVariable>,
-    category_bins: BTreeMap<String, Vec<CategoryBin>>,
-    request_samples: Vec<RequestSample>,
-    request_variables: Vec<RequestVariable>,
+    pub product: String,
+    pub data_root: Option<String>,
+    pub uoa: String,
+    pub output_format: String,
+    pub subpopulation: Vec<RequestVariable>,
+    pub category_bins: BTreeMap<String, Vec<CategoryBin>>,
+    pub request_samples: Vec<RequestSample>,
+    pub request_variables: Vec<RequestVariable>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -76,27 +76,27 @@ struct CategoryBinRaw {
 
 #[derive(Deserialize, Serialize)]
 pub struct RequestVariable {
-    variable_mnemonic: String,
-    mnemonic: String,
-    general_detailed_selection: String,
-    attached_variable_pointer: (),
-    case_selection: bool,
-    request_case_selections: Vec<RequestCaseSelection>,
-    extract_start: usize,
-    extract_width: usize,
+    pub variable_mnemonic: String,
+    pub mnemonic: String,
+    pub general_detailed_selection: Option<String>,
+    pub attached_variable_pointer: (),
+    pub case_selection: bool,
+    pub request_case_selections: Vec<RequestCaseSelection>,
+    pub extract_start: usize,
+    pub extract_width: usize,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct RequestSample {
-    name: String,
-    custom_sampling_ratio: Option<String>,
-    first_household_sampled: Option<usize>,
+    pub name: String,
+    pub custom_sampling_ratio: Option<String>,
+    pub first_household_sampled: Option<usize>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct RequestCaseSelection {
-    low_code: String,
-    high_code: String,
+    pub low_code: String,
+    pub high_code: String,
 }
 
 #[cfg(test)]
