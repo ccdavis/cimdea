@@ -21,15 +21,29 @@ pub struct AbacusRequest {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(try_from = "CategoryBinRaw")]
 pub enum CategoryBin {
-    LessThan { value: i64, label: String },
-    Range { low: i64, high: i64, label: String },
-    MoreThan { value: i64, label: String },
+    LessThan {
+        value: i64,
+        code: u64,
+        label: String,
+    },
+    Range {
+        low: i64,
+        high: i64,
+        code: u64,
+        label: String,
+    },
+    MoreThan {
+        value: i64,
+        code: u64,
+        label: String,
+    },
 }
 
 impl TryFrom<CategoryBinRaw> for CategoryBin {
     type Error = MdError;
 
     fn try_from(value: CategoryBinRaw) -> Result<Self, Self::Error> {
+        let code = value.code;
         let label = &value.value_label;
         match (value.low, value.high) {
             (Some(low), Some(high)) if high < low => Err(MdError::Msg(format!(
@@ -39,14 +53,17 @@ impl TryFrom<CategoryBinRaw> for CategoryBin {
             (Some(low), Some(high)) => Ok(Self::Range {
                 low,
                 high,
+                code,
                 label: label.to_owned(),
             }),
             (None, Some(high)) => Ok(Self::LessThan {
                 value: high,
+                code,
                 label: label.to_owned(),
             }),
             (Some(low), None) => Ok(Self::MoreThan {
                 value: low,
+                code,
                 label: label.to_owned(),
             }),
             (None, None) => Err(MdError::Msg(
@@ -68,7 +85,7 @@ impl CategoryBin {
 
 #[derive(Deserialize, Serialize)]
 struct CategoryBinRaw {
-    code: usize,
+    code: u64,
     value_label: String,
     low: Option<i64>,
     high: Option<i64>,
