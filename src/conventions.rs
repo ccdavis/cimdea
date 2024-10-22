@@ -308,20 +308,28 @@ impl DatasetsForVariable {
 
 impl MetadataEntities {
     #[allow(dead_code)]
-    fn connect_names(&mut self, dataset_name: &str, variable_name: &str) {
+    fn connect_names(&mut self, dataset_name: &str, variable_name: &str) -> Result<(), MdError> {
         let dataset_id = self.datasets_by_name.get(dataset_name);
         let variable_id = self.variables_by_name.get(variable_name);
         if variable_id.is_none() {
-            panic!("Internal method connect() should never be called with non-existent metadata names.");
+            let msg = format!(
+                "method connect_names() called with variable name {variable_name}, which is not in metadata"
+            );
+            return Err(MdError::NotInMetadata(msg));
         }
 
         if dataset_id.is_none() {
-            panic!("Internal method connect() should never be called with non-existent metadata names.");
+            let msg = format!(
+                "method connect_names() called with dataset name {dataset_name}, which is not in metadata"
+            );
+            return Err(MdError::NotInMetadata(msg));
         }
 
         if let (Some(did), Some(vid)) = (dataset_id, variable_id) {
             self.connect(*did, *vid);
         };
+
+        Ok(())
     }
 
     fn connect(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {

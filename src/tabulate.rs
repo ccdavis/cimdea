@@ -99,18 +99,20 @@ impl OutputColumn {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> Result<usize, MdError> {
         match self {
-            Self::Constructed { ref width, .. } => *width,
+            Self::Constructed { ref width, .. } => Ok(*width),
             Self::RequestVar(ref v) => {
                 if !v.is_general {
                     if let Some((_, wid)) = v.variable.formatting {
-                        wid
+                        Ok(wid)
                     } else {
-                        panic!("Width from metadata Variable required.");
+                        Err(MdError::InvalidMetadata(
+                            "width from metadata variable required".to_string(),
+                        ))
                     }
                 } else {
-                    v.variable.general_width
+                    Ok(v.variable.general_width)
                 }
             }
         }
@@ -180,7 +182,7 @@ impl Table {
         let mut widths = Vec::new();
         for (_column, var) in self.heading.iter().enumerate() {
             let name_width = var.name().len();
-            let width = var.width();
+            let width = var.width().unwrap();
             if name_width < width {
                 widths.push(width);
             } else {

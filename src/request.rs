@@ -89,7 +89,7 @@ impl RequestVariable {
                 let base: i32 = 10;
                 base.pow(exponent).try_into().unwrap()
             } else {
-                return Err(MdError::Msg(format!(
+                return Err(MdError::InvalidMetadata(format!(
                     "Bad metadata, general width can't be larger than detailed width on {}",
                     &var.name
                 )));
