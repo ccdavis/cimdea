@@ -106,4 +106,38 @@ mod test {
             "Should error out when adding a member with a parent type that doesn't exist."
         );
     }
+
+    #[test]
+    fn test_record_hierarchy_member_add_child_no_children_yet() {
+        let mut member = RecordHierarchyMember {
+            name: "H".to_string(),
+            children: None,
+            parent: None,
+        };
+
+        member.add_child("P");
+
+        let children = member
+            .children
+            .expect("should create a new set when adding the first child");
+        assert!(
+            children.contains("P"),
+            "P should be added to the new set of children"
+        );
+    }
+
+    #[test]
+    fn test_record_hierarchy_member_add_child_multiple() {
+        let children = HashSet::from(["I".to_string(), "X".to_string()]);
+        let mut member = RecordHierarchyMember {
+            name: "P".to_string(),
+            children: Some(children),
+            parent: Some("H".to_string()),
+        };
+
+        member.add_child("D");
+        let children = member.children.expect("should have a set of children");
+        let expected = HashSet::from(["I".to_string(), "X".to_string(), "D".to_string()]);
+        assert_eq!(expected, children);
+    }
 }
