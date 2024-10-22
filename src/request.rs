@@ -244,10 +244,18 @@ fn validated_unit_of_analysis(
     let unit_rectype = match ctx.settings.record_types.get(&uoa) {
         Some(urt) => urt.clone(),
         None => {
-            let rectype_names = ctx.settings.record_types.keys().cloned();
-            let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'",
-            &uoa,
-            rectype_names);
+            let mut rectype_names = ctx
+                .settings
+                .record_types
+                .keys()
+                .map(|k| k.as_str())
+                .collect::<Vec<_>>();
+            rectype_names.sort();
+            let rectype_names = rectype_names.join(", ");
+            let msg = format!(
+                "Record type '{uoa}' not available for use as unit of analysis; \
+                 the record type is not present in the current context with record types {rectype_names}"
+            );
             return Err(MdError::Msg(msg));
         }
     };
