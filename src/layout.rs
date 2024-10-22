@@ -175,15 +175,10 @@ impl DatasetLayout {
             .map(|s| s.to_uppercase())
             .collect::<Vec<String>>();
 
-        for rectype in self.layouts.keys() {
-            filtered_layouts.insert(
-                rectype.clone(),
-                self.layouts
-                    .get(rectype)
-                    .unwrap()
-                    .filtered(&upcased_selections),
-            );
+        for (rectype, layout) in self.layouts.iter() {
+            filtered_layouts.insert(rectype.clone(), layout.filtered(&upcased_selections));
         }
+
         Ok(DatasetLayout {
             layouts: filtered_layouts,
         })
