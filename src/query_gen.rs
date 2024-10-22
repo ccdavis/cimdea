@@ -17,6 +17,7 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
+use crate::request::context_from_names_helper;
 use sql_builder::{prelude::Bind, SqlBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -508,6 +509,25 @@ mod test {
     use crate::request::SimpleRequest;
 
     #[test]
+    fn test_bucketing() {
+        let data_root = String::from("test/data_root");
+        let ctx = context_from_names_helper(
+            "usa", 
+            &["us2015b"], 
+            &["AGE", "MARST", "GQ", "YEAR"], 
+            None,
+            Some(data_root))
+            .expect("Should be able to construct this test context.");
+
+        let tab_builder =
+            TabBuilder::new(&ctx, "us2015b", &DataPlatform::Duckdb, &InputType::Parquet)
+                .expect("TabBuilder new() for testing should never error out.");
+
+
+    }
+
+
+    #[test]
     fn test_new_condition() {
         let data_root = String::from("test/data_root");
         let (ctx, _) = SimpleRequest::from_names(
@@ -575,7 +595,7 @@ mod test {
 
         let gq_var = ctx
             .get_md_variable_by_name("GQ")
-            .expect("'GQ' variable required fortests.");
+            .expect("'GQ' variable required for tests.");
 
         let cond1 = Condition::new(
             &age_var,
