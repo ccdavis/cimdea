@@ -65,7 +65,12 @@ fn main() {
                 if table_number > 0 {
                     println!(",");
                 }
-                println!("{}", table.output(table_format.clone()));
+                println!(
+                    "{}",
+                    table
+                        .output(table_format.clone())
+                        .expect("error while writing output")
+                );
             }
             println!("\n]\n");
         }

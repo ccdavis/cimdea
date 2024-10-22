@@ -129,12 +129,12 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn output(&self, format: TableFormat) -> String {
+    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
         match format {
             TableFormat::Html | TableFormat::Csv => {
                 todo!("Output format {:?} not implemented yet.", format)
             }
-            TableFormat::Json => self.format_as_json().unwrap(),
+            TableFormat::Json => self.format_as_json(),
             TableFormat::TextTable => self.format_as_text(),
         }
     }
@@ -148,9 +148,9 @@ impl Table {
         }
     }
 
-    pub fn format_as_text(&self) -> String {
+    pub fn format_as_text(&self) -> Result<String, MdError> {
         let mut out = String::new();
-        let widths = self.column_widths();
+        let widths = self.column_widths()?;
         for (column, _v) in self.heading.iter().enumerate() {
             let name = self.heading[column].name();
             let column_header = format!("| {n:>w$} ", n = &name, w = widths[column]);
@@ -159,7 +159,7 @@ impl Table {
         out.push_str("|\n");
         out.push_str(&format!(
             "|{:}|",
-            str::repeat(&"-", self.text_table_width() - 2)
+            str::repeat(&"-", self.text_table_width()? - 2)
         ));
         out.push_str("\n");
 
@@ -171,18 +171,18 @@ impl Table {
             }
             out.push_str("|\n");
         }
-        return out;
+        Ok(out)
     }
 
-    pub fn text_table_width(&self) -> usize {
-        1 + 3 * self.heading.len() + self.column_widths().iter().sum::<usize>()
+    pub fn text_table_width(&self) -> Result<usize, MdError> {
+        Ok(1 + 3 * self.heading.len() + self.column_widths()?.iter().sum::<usize>())
     }
 
-    fn column_widths(&self) -> Vec<usize> {
+    fn column_widths(&self) -> Result<Vec<usize>, MdError> {
         let mut widths = Vec::new();
         for (_column, var) in self.heading.iter().enumerate() {
             let name_width = var.name().len();
-            let width = var.width().unwrap();
+            let width = var.width()?;
             if name_width < width {
                 widths.push(width);
             } else {
@@ -201,7 +201,7 @@ impl Table {
             }
             */
         }
-        widths
+        Ok(widths)
     }
 
     fn width_from_data(&self, column: usize) -> Option<usize> {
@@ -330,7 +330,11 @@ mod test {
         if let Ok(tables) = result {
             assert_eq!(1, tables.len());
             for t in tables {
-                println!("{}", t.format_as_text());
+                println!(
+                    "{}",
+                    t.format_as_text()
+                        .expect("should be able to format as text")
+                );
                 assert_eq!(18, t.rows.len());
                 assert_eq!(4, t.rows[0].len());
             }

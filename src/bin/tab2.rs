@@ -50,7 +50,12 @@ fn main() {
         Ok((context, rq)) => match tabulate::tabulate(&context, rq) {
             Ok(tables) => {
                 for table in tables {
-                    println!("{}", table.output(table_format.clone()));
+                    println!(
+                        "{}",
+                        table
+                            .output(table_format.clone())
+                            .expect("error while writing output")
+                    );
                 }
             }
             Err(e) => {
