@@ -42,12 +42,11 @@ pub struct RecordHierarchyMember {
 
 impl RecordHierarchyMember {
     pub fn add_child(&mut self, rectype: &str) {
-        if self.children.is_none() {
-            self.children = Some(HashSet::new());
-        }
-        self.children.as_mut().unwrap().insert(rectype.to_string());
+        let children = self.children.get_or_insert_with(|| HashSet::new());
+        children.insert(rectype.to_string());
     }
 }
+
 #[derive(Clone, Debug)]
 pub struct RecordHierarchy {
     pub root: String,
