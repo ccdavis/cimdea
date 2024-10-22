@@ -84,7 +84,7 @@ impl RequestVariable {
         let general_divisor: usize = if let Some((_, w)) = var.formatting {
             if w == var.general_width {
                 1
-            } else if w < var.general_width {
+            } else if var.general_width < w {
                 let exponent: u32 = (w - var.general_width).try_into().unwrap();
                 let base: i32 = 10;
                 base.pow(exponent).try_into().unwrap()
