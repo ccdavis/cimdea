@@ -234,7 +234,10 @@ pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
     todo!("Implement");
 }
 
-fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -> RecordType {
+fn validated_unit_of_analysis(
+    ctx: &Context,
+    unit_of_analysis: Option<String>,
+) -> Result<RecordType, MdError> {
     let uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.value.clone());
 
     // Check that uoa is present for the current context
@@ -248,7 +251,7 @@ fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -
             panic!("{}", msg);
         }
     };
-    unit_rectype
+    Ok(unit_rectype)
 }
 
 /// The Abacus Request type contains variables to tabulate, variables used for conditions and datasets.
@@ -334,7 +337,7 @@ impl DataRequest for AbacusRequest {
             .map(|d| RequestSample::from_ipums_dataset(d))
             .collect();
 
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
         Ok((
             ctx,
             Self {
@@ -504,7 +507,7 @@ impl DataRequest for SimpleRequest {
             optional_product_root,
             optional_data_root,
         )?;
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
         Ok((
             ctx,
             Self {
@@ -608,7 +611,8 @@ impl DataRequest for SimpleRequest {
         let output_format = OutputFormat::CSV;
 
         let unit_of_analysis = None;
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+        let unit_rectype =
+            validated_unit_of_analysis(&ctx, unit_of_analysis).expect("invalid unit of analysis");
 
         Ok(Self {
             product: product.to_string(),
