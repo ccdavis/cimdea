@@ -210,7 +210,7 @@ where
     D: Deserializer<'de>,
 {
     let maybe_gendet = Option::deserialize(deserializer)?;
-    Ok(maybe_gendet.unwrap_or(GeneralDetailedSelection::default()))
+    Ok(maybe_gendet.unwrap_or_default())
 }
 
 #[cfg(test)]
