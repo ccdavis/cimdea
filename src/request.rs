@@ -248,7 +248,7 @@ fn validated_unit_of_analysis(
             let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'",
             &uoa,
             rectype_names);
-            panic!("{}", msg);
+            return Err(MdError::Msg(msg));
         }
     };
     Ok(unit_rectype)
@@ -701,5 +701,29 @@ mod test {
             _ => (),
         }
         assert!(abacus_request.is_ok());
+    }
+
+    /// It's an error if the given unit of analysis is not present as a record
+    /// type in the context.
+    #[test]
+    fn test_validated_unit_of_analysis_unknown_rectype_error() {
+        let context =
+            Context::from_ipums_collection_name("usa", None, Some("test/data_root".to_string()));
+        let uoa = "Z";
+        assert!(
+            !context.settings.record_types.contains_key(uoa),
+            "Z should not be a default record type for USA"
+        );
+        let result = validated_unit_of_analysis(&context, Some(uoa.to_string()));
+        match result {
+            Ok(record_type) => {
+                panic!("expected an error, got back an Ok with RecordType {record_type:?}")
+            }
+            Err(err) => {
+                assert!(err
+                    .to_string()
+                    .contains("Record type 'Z' not available for use as unit of analysis"));
+            }
+        }
     }
 }
