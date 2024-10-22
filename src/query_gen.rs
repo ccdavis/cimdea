@@ -10,6 +10,7 @@
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
 use crate::conventions::Context;
+use crate::input_schema_tabulation::CategoryBin;
 use crate::ipums_metadata_model::{self, IpumsDataType};
 use crate::mderror::{self, MdError};
 use crate::request::CaseSelectLogic;
@@ -17,8 +18,6 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
-use crate::request::context_from_names_helper;
-use sql_builder::{prelude::Bind, SqlBuilder};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -95,8 +94,33 @@ impl TabBuilder {
         Ok(q)
     }
 
-    fn bucketed(&self, rq: &RequestVariable) -> String {
-        "".to_string()
+    fn bucket(&self, rq: &RequestVariable) -> Result<String, MdError> {
+        let Some(ref bins) = rq.category_bins else {
+            return Err(MdError::Msg("No category bins available.".to_string()));
+        };
+        let mut sql = "case\n".to_string();
+        let cases = bins
+            .iter()
+            .map(|b| match b {
+                CategoryBin::LessThan { value, code, .. } => {
+                    format!("\twhen {} <= {} then '{:03}'", rq.name, value, code)
+                }
+                CategoryBin::MoreThan { value, code, .. } => {
+                    format!("\twhen {} >= {} then '{:03}'", rq.name, value, code)
+                }
+                CategoryBin::Range {
+                    low, high, code, ..
+                } => format!(
+                    "\twhen {} >= {} and {} <= {} then '{:03}'",
+                    rq.name, low, rq.name, high, code
+                ),
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        sql.push_str(&cases);
+        sql.push_str("\nelse 'OTHER' end ");
+        sql.push_str(&format!("as {}_bucketed", &rq.name));
+        Ok(sql)
     }
 
     fn build_select_clause(
@@ -129,7 +153,7 @@ impl TabBuilder {
             select_clause += &if !rq.is_general {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             } else if rq.category_bins.is_some() {
-                self.bucketed(&rq)
+                self.bucket(&rq)?
             } else {
                 format!(
                     ", {}/{} as {}",
@@ -472,60 +496,79 @@ pub fn tab_queries(
     Ok(queries)
 }
 
-pub fn frequency(
-    table_name: &str,
-    variable_name: &str,
-    weight: Option<String>,
-    divisor: Option<usize>,
-) -> String {
-    // frequency field will differ if we are weighting and if there's a divisor
-    let freq_field: String = if let Some(w) = weight {
-        if let Some(_d) = divisor {
-            format!("sum({} / :divisor:)", &w)
-        } else {
-            format!("sum({} )", &w)
-        }
-    } else {
-        "count(*)".to_string()
-    } + " as frequency";
-
-    let sql = SqlBuilder::select_from(table_name)
-        .field(variable_name)
-        .field(freq_field)
-        .group_by(variable_name)
-        .sql()
-        .unwrap();
-    if let Some(d) = divisor {
-        sql.bind_name(&"divisor", &d)
-    } else {
-        sql
-    }
-}
-
 mod test {
     #[cfg(test)]
     use super::*;
+    #[cfg(test)]
+    use crate::request::context_from_names_helper;
     #[cfg(test)]
     use crate::request::SimpleRequest;
 
     #[test]
     fn test_bucketing() {
         let data_root = String::from("test/data_root");
-        let ctx = context_from_names_helper(
-            "usa", 
-            &["us2015b"], 
-            &["AGE", "MARST", "GQ", "YEAR"], 
+        let (ctx, _, _) = context_from_names_helper(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR", "UHRSWORK"],
             None,
-            Some(data_root))
-            .expect("Should be able to construct this test context.");
+            Some(data_root),
+        )
+        .expect("Should be able to construct this test context.");
 
         let tab_builder =
             TabBuilder::new(&ctx, "us2015b", &DataPlatform::Duckdb, &InputType::Parquet)
                 .expect("TabBuilder new() for testing should never error out.");
 
+        let uhrswork = ctx
+            .get_md_variable_by_name("UHRSWORK")
+            .expect("Expected UHRSWORK to be in the test context.");
 
+        let mut uhrswork_rq = RequestVariable::from_ipums_variable(&uhrswork, false)
+            .expect("UHRSWORK should be in the test context.");
+
+        let mut bins = Vec::new();
+        bins.push(CategoryBin::LessThan {
+            value: 0,
+            code: 0,
+            label: "N/A".to_string(),
+        });
+        bins.push(CategoryBin::Range {
+            low: 1,
+            high: 14,
+            code: 1,
+            label: "1 to 14 hours worked per week".to_string(),
+        });
+
+        bins.push(CategoryBin::Range {
+            low: 15,
+            high: 34,
+            code: 2,
+            label: "15 to 34 hours worked per week".to_string(),
+        });
+
+        bins.push(CategoryBin::Range {
+            low: 35,
+            high: 99,
+            code: 3,
+            label: "35 or more hours worked per week".to_string(),
+        });
+
+        uhrswork_rq.category_bins = Some(bins);
+
+        let bucket_fragment_result = tab_builder.bucket(&uhrswork_rq);
+        assert!(bucket_fragment_result.is_ok());
+        if let Ok(sql) = bucket_fragment_result {
+            let correct = r"case
+	when UHRSWORK <= 0 then '000'
+	when UHRSWORK >= 1 and UHRSWORK <= 14 then '001'
+	when UHRSWORK >= 15 and UHRSWORK <= 34 then '002'
+	when UHRSWORK >= 35 and UHRSWORK <= 99 then '003'
+else 'OTHER' end as UHRSWORK_bucketed";
+
+            assert_eq!(correct, &sql);
+        }
     }
-
 
     #[test]
     fn test_new_condition() {
