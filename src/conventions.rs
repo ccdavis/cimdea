@@ -458,7 +458,7 @@ impl Context {
                 panic!("Cannot load any metadata without a data_root or full metadata available ad the product_root.");
             }
         } else {
-            panic!("Loading metadata from database not implemented.");
+            todo!("Loading metadata from database not implemented.");
         }
     }
 

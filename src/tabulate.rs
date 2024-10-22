@@ -132,7 +132,7 @@ impl Table {
     pub fn output(&self, format: TableFormat) -> String {
         match format {
             TableFormat::Html | TableFormat::Csv => {
-                panic!("Output format not implemented yet.")
+                todo!("Output format {:?} not implemented yet.", format)
             }
             TableFormat::Json => self.format_as_json(),
             TableFormat::TextTable => self.format_as_text(),

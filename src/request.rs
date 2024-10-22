@@ -362,7 +362,7 @@ impl DataRequest for AbacusRequest {
     }
 
     fn serialize_to_ipums_json(&self) -> String {
-        panic!("Not implemented.")
+        todo!("Serialization is not yet implemented.")
     }
 }
 
