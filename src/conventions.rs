@@ -374,7 +374,7 @@ impl Context {
             if let Some(var) = md.cloned_variable_from_name(name) {
                 Ok(var)
             } else {
-                Err(MdError::Msg(format!(
+                Err(MdError::NotInMetadata(format!(
                     "Variable '{}' not in loaded metadata.",
                     name
                 )))

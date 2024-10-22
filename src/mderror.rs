@@ -2,6 +2,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum MdError {
     IoError(std::io::Error),
+    NotInMetadata(String),
     ParsingError(String),
     Msg(String),
     // more needed
@@ -9,10 +10,13 @@ pub enum MdError {
 
 impl fmt::Display for MdError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use MdError::*;
+
         match self {
-            MdError::IoError(err) => write!(f, "I/O error: {err}"),
-            MdError::ParsingError(msg) => write!(f, "parsing error: {msg}"),
-            MdError::Msg(msg) => write!(f, "{msg}"),
+            IoError(err) => write!(f, "I/O error: {err}"),
+            NotInMetadata(msg) => write!(f, "metadata error: {msg}"),
+            ParsingError(msg) => write!(f, "parsing error: {msg}"),
+            Msg(msg) => write!(f, "{msg}"),
         }
     }
 }

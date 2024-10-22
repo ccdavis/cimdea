@@ -38,7 +38,7 @@ fn context_from_names_helper(
             if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
                 loaded_vars.push(md.variables_index[*id].clone());
             } else {
-                return Err(MdError::Msg(format!(
+                return Err(MdError::NotInMetadata(format!(
                     "Variable {} not in any loaded metadata.",
                     rv
                 )));
@@ -55,7 +55,7 @@ fn context_from_names_helper(
             if let Some(id) = md.datasets_by_name.get(*rd) {
                 loaded_datasets.push(md.datasets_index[*id].clone());
             } else {
-                return Err(MdError::Msg(format!(
+                return Err(MdError::NotInMetadata(format!(
                     "No dataset named {} found in metadata or layouts!",
                     rd
                 )));
@@ -256,7 +256,7 @@ fn validated_unit_of_analysis(
                 "Record type '{uoa}' not available for use as unit of analysis; \
                  the record type is not present in the current context with record types {rectype_names}"
             );
-            return Err(MdError::Msg(msg));
+            return Err(MdError::NotInMetadata(msg));
         }
     };
     Ok(unit_rectype)
@@ -404,7 +404,9 @@ impl AbacusRequest {
         let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
             u.clone()
         } else {
-            return Err(MdError::Msg("No record type for uoa.".to_string()));
+            return Err(MdError::NotInMetadata(
+                "No record type for uoa.".to_string(),
+            ));
         };
 
         let Some(ref md) = &ctx.settings.metadata else {
@@ -417,7 +419,7 @@ impl AbacusRequest {
         for p in request.request_samples {
             let name = p.name;
             let Some(ipums_ds) = md.cloned_dataset_from_name(&name) else {
-                return Err(MdError::Msg(format!(
+                return Err(MdError::NotInMetadata(format!(
                     "No metadata for dataset named {}",
                     &name
                 )));
@@ -434,7 +436,7 @@ impl AbacusRequest {
             let variable_mnemonic = v.variable_mnemonic;
 
             let Some(ipums_var) = md.cloned_variable_from_name(&variable_mnemonic) else {
-                return Err(MdError::Msg(format!(
+                return Err(MdError::NotInMetadata(format!(
                     "No variable named '{}' in loaded metadata.",
                     variable_mnemonic
                 )));

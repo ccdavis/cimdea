@@ -227,7 +227,7 @@ impl TabBuilder {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
-            Err(MdError::Msg(format!(
+            Err(MdError::NotInMetadata(format!(
                 "No record type '{}' in current context.",
                 rt
             )))
