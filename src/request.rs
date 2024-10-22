@@ -332,7 +332,57 @@ impl DataRequest for AbacusRequest {
     }
 
     fn print_codebook(&self) -> String {
-        todo!("Not implemented!");
+        let mut lines = Vec::new();
+        lines.push("Tabulation\n\n".to_string());
+
+        lines.push(format!("Datasets:"));
+        for s in self.get_request_samples(){
+            let label = s.sample.label.unwrap_or("".to_string());
+            let sample_pct = if let Some(sample_ratio) = s.sample.sample {
+                format!("{}",sample_ratio * 100.0)
+            } else {
+                "N/A".to_string()
+            };
+
+
+            lines.push(format!("{}: \"{}\" sample: {} ",&s.name, label, sample_pct));
+        }
+
+        lines.push("\n\nVariables:".to_string());
+
+        for v in self.get_request_variables(){
+            let label = v.variable.label.unwrap_or("NO LABEL".to_string());
+            let general_detailed = if v.is_general {
+                "General".to_string()
+            } else {
+                "detailed".to_string()
+            };
+
+            lines.push(format!("{}\t\t{} -- {}",v.name, &label, &general_detailed));
+        }
+
+        lines.push("\n\nSubpopulation filters:\n".to_string());
+        if let Some(ref conditions) = self.get_conditions() {
+            if conditions.len() > 0 {
+                let logic = match self.case_select_logic() {
+                    CaseSelectLogic::And => " 'AND'",
+                    CaseSelectLogic::Or => " 'OR' ",
+                };
+                lines.push(format!("Logic across variables: {}\n",logic));
+
+                for c in conditions {
+                    let compare_to_list = c.compare_to.join(", ");
+                    lines.push(format!("{} : {} {}", &c.var.name, &c.comparison.name(), &compare_to_list));
+
+                }
+            }
+
+        }
+
+
+
+        lines.join("\n")
+
     }
 
     fn print_stata(&self) -> String {
@@ -676,8 +726,10 @@ impl DataRequest for SimpleRequest {
 }
 
 mod test {
+    #[cfg(test)]
     use std::fs;
 
+    #[cfg(test)]
     use super::*;
 
     #[test]

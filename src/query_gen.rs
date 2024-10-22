@@ -388,6 +388,21 @@ pub enum CompareOperation {
 }
 
 impl CompareOperation {
+
+    pub fn name(&self) -> String {
+        match self {
+            Self::Equal => "equal to",
+            Self::Less=> "less than",
+            Self::Between => "between",
+            Self::In => "in",
+            Self::Greater => "more than",
+            Self::GreaterEqual => "greater or equal to",
+            Self::LessEqual => "less than or equal to",
+            Self::NotEqual => "not equal to",
+        }.to_string()
+    }
+
+
     pub fn to_sql(&self, lhs: &str, rhs: &str) -> String {
         match self {
             Self::Equal => format!("{} = {}", lhs, rhs),
