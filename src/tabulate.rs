@@ -134,17 +134,17 @@ impl Table {
             TableFormat::Html | TableFormat::Csv => {
                 todo!("Output format {:?} not implemented yet.", format)
             }
-            TableFormat::Json => self.format_as_json(),
+            TableFormat::Json => self.format_as_json().unwrap(),
             TableFormat::TextTable => self.format_as_text(),
         }
     }
 
-    pub fn format_as_json(&self) -> String {
+    pub fn format_as_json(&self) -> Result<String, MdError> {
         match serde_json::to_string_pretty(&self) {
-            Ok(j) => j,
-            Err(e) => {
-                panic!("Cannot serialize result into json: {}", e);
-            }
+            Ok(j) => Ok(j),
+            Err(e) => Err(MdError::Msg(format!(
+                "Cannot serialize result into json: {e}"
+            ))),
         }
     }
 
