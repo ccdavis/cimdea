@@ -146,8 +146,7 @@ impl DatasetLayout {
 
         let mut all_vars = reader
             .records()
-            .filter(|r| r.is_ok())
-            .map(|r| r.unwrap())
+            .filter_map(|r| r.ok())
             .filter(|r| r.len() > 1)
             .map(|record| LayoutVar {
                 name: record[0].to_string(),
