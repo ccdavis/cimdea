@@ -738,4 +738,48 @@ mod test {
             }
         }
     }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_invalid_widths_error() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "RELATE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((100, 4)),
+            // This is invalid because it's greater than the width in the formatting
+            // field. This will cause the error later.
+            general_width: 5,
+            description: None,
+            category_bins: None,
+        };
+
+        let result = RequestVariable::from_ipums_variable(&variable, true);
+        assert!(result.is_err(), "expected an error but got {result:?}");
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_valid_general_width() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "RELATE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((100, 4)),
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv = RequestVariable::from_ipums_variable(&variable, true)
+            .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 100,
+            "expected a general divisor of 10^(4-2) = 10^2 = 100"
+        );
+    }
 }
