@@ -524,13 +524,15 @@ impl DataRequest for SimpleRequest {
     }
 
     fn get_request_variables(&self) -> Vec<RequestVariable> {
+        // Note the .expect() below: If we got here from the from_names() then
+        // if the metadata is broken (general detailed probably incorrect), we
+        // simply can't proceed.
         self.variables
             .iter()
-            .map(|v| 
-                // If we got here from the from_names() then if the metadata iis broken (general detailed probably incorrect,) 
-                // we simply can't proceed. 
+            .map(|v| {
                 RequestVariable::from_ipums_variable(v, self.use_general_variables)
-                .expect("Broken metadata."))
+                    .expect("Broken metadata.")
+            })
             .collect()
     }
 
