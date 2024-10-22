@@ -86,8 +86,8 @@ impl RequestVariable {
                 1
             } else if var.general_width < w {
                 let exponent: u32 = (w - var.general_width).try_into().unwrap();
-                let base: i32 = 10;
-                base.pow(exponent).try_into().unwrap()
+                let base: usize = 10;
+                base.pow(exponent)
             } else {
                 return Err(MdError::InvalidMetadata(format!(
                     "Bad metadata, general width can't be larger than detailed width on {}",
@@ -780,6 +780,52 @@ mod test {
         assert_eq!(
             rqv.general_divisor, 100,
             "expected a general divisor of 10^(4-2) = 10^2 = 100"
+        );
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_equal_widths() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv = RequestVariable::from_ipums_variable(&variable, true)
+            .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 1,
+            "expected a general divisor of 1 because the general and detailed widths are the same"
+        );
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_formatting() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: None,
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv = RequestVariable::from_ipums_variable(&variable, true)
+            .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 1,
+            "expected a general divisor of 1 because there was no detailed width provided"
         );
     }
 }
