@@ -11,11 +11,13 @@ use crate::mderror::MdError;
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
+use crate::request::AbacusRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
 use duckdb::{Connection, Result};
 
 use serde::Serialize;
+
 
 #[derive(Clone, Debug)]
 pub enum TableFormat {
@@ -294,8 +296,34 @@ mod test {
     #[cfg(test)]
     use std::time::*;
 
+    #[cfg(test)]
+    use std::fs;
+
     #[test]
-    fn test_tabulation() {
+    fn test_complex_tabulation() {
+        let tabtime = Instant::now();
+        let data_root = String::from("test/data_root");
+        let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
+            .expect("Error reading test fixture in test/requests");
+
+        let (ctx, rq) = AbacusRequest::from_json(&json_request)
+        .expect("Error loading test context and deserializing test request.");
+
+    println!("Codebook: {}", rq.print_codebook());
+
+    let result = tabulate(&ctx, rq);
+    if let Err(ref e) = result {
+        eprintln!("Error setting up test: {:?}",e);
+    }
+    println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
+    assert!(result.is_ok());
+
+
+
+    }
+
+    #[test]
+    fn test_basic_tabulation() {
         let start = Instant::now();
 
         let data_root = String::from("test/data_root");
