@@ -5,7 +5,9 @@
 //! they can be useful for getting basic metadata for the dataset.
 
 use crate::ipums_metadata_model::IpumsDataType;
+use crate::mderror::MdError;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
 use std::str;
 
@@ -128,22 +130,7 @@ impl DatasetLayout {
         Self { layouts }
     }
 
-    pub fn from_layout_file(filename: &Path) -> Self {
-        let rdr = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .delimiter(b' ')
-            .comment(Some(b'#'))
-            .from_path(filename);
-
-        let mut reader = match rdr {
-            Err(msg) => panic!(
-                "Cannot create CSV reader on {}, error was {}.",
-                filename.display(),
-                &msg
-            ),
-            Ok(r) => r,
-        };
-
+    fn try_from_layout_reader<R: Read>(mut reader: csv::Reader<R>) -> Result<Self, MdError> {
         let mut all_vars = reader
             .records()
             .filter_map(|r| r.ok())
@@ -163,7 +150,26 @@ impl DatasetLayout {
         // a known schema order that is easy to match with other files or
         // data sources with different natural orderings.
         all_vars.sort_by(|a, b| b.name.cmp(&a.name));
-        DatasetLayout::from_layout_vars(all_vars)
+        Ok(DatasetLayout::from_layout_vars(all_vars))
+    }
+
+    pub fn from_layout_file(filename: &Path) -> Self {
+        let rdr = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .delimiter(b' ')
+            .comment(Some(b'#'))
+            .from_path(filename);
+
+        let reader = match rdr {
+            Err(msg) => panic!(
+                "Cannot create CSV reader on {}, error was {}.",
+                filename.display(),
+                &msg
+            ),
+            Ok(r) => r,
+        };
+
+        DatasetLayout::try_from_layout_reader(reader).unwrap()
     }
 
     // Return a new DatasetLayout containing only the requested variables or an error message.
@@ -182,5 +188,31 @@ impl DatasetLayout {
         Ok(DatasetLayout {
             layouts: filtered_layouts,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::io::Cursor;
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_variables_sorted_by_name() {
+        let layout_data = b"RECTYPE H 1 1 string\n\
+        CITY H 60 4 integer\n\
+        CITYPOP H 64 7 integer\n";
+        let cursor = Cursor::new(layout_data);
+
+        let reader = csv::ReaderBuilder::new()
+            .has_headers(false)
+            .delimiter(b' ')
+            .from_reader(cursor);
+        let layout = DatasetLayout::try_from_layout_reader(reader)
+            .expect("should parse into a DatasetLayout");
+
+        let p_layout = &layout.layouts["H"];
+        let variable_names: Vec<_> = p_layout.vars.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(variable_names, vec!["CITY", "CITYPOP", "RECTYPE"]);
     }
 }
