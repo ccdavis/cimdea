@@ -345,23 +345,20 @@ impl MetadataEntities {
     }
 
     pub fn add_dataset_variable(&mut self, dataset: IpumsDataset, variable: IpumsVariable) {
-        let dataset_name = &dataset.name.clone();
-        let variable_name = &variable.name.clone();
-
-        let dataset_id: IpumsDatasetId = if self.datasets_by_name.contains_key(dataset_name) {
-            *self.datasets_by_name.get(dataset_name).unwrap()
-        } else {
-            self.create_dataset(dataset)
+        let dataset_id = match self.datasets_by_name.get(&dataset.name) {
+            None => self.create_dataset(dataset),
+            Some(dataset_id) => *dataset_id,
         };
 
-        let variable_id: IpumsVariableId = if self.variables_by_name.contains_key(variable_name) {
-            *self.variables_by_name.get(variable_name).unwrap()
-        } else {
-            self.create_variable(variable)
+        let variable_id = match self.variables_by_name.get(&variable.name) {
+            None => self.create_variable(variable),
+            Some(variable_id) => *variable_id,
         };
+
         self.connect(dataset_id, variable_id);
     }
 }
+
 /// This is the mutable state  created and passed around holding the loaded metadata if any
 /// and the rest of the information needed to add paths to the data tables used in queries
 /// and data file paths, and where the metadata can be found.
