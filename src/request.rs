@@ -611,7 +611,9 @@ impl DataRequest for SimpleRequest {
             }
             checked_vars
         } else {
-            panic!("Metadata for context not yet set up.");
+            return Err(MdError::Msg(
+                "Metadata for context not yet set up.".to_string(),
+            ));
         };
 
         let datasets = if let Some(ref md) = ctx.settings.metadata {
@@ -627,7 +629,9 @@ impl DataRequest for SimpleRequest {
             }
             checked_samples
         } else {
-            panic!("Metadata for context not yet set up.");
+            return Err(MdError::Msg(
+                "Metadata for context not yet set up.".to_string(),
+            ));
         };
 
         let output_format = OutputFormat::CSV;
@@ -755,17 +759,11 @@ mod test {
             !context.settings.record_types.contains_key(uoa),
             "Z should not be a default record type for USA"
         );
-        let result = validated_unit_of_analysis(&context, Some(uoa.to_string()));
-        match result {
-            Ok(record_type) => {
-                panic!("expected an error, got back an Ok with RecordType {record_type:?}")
-            }
-            Err(err) => {
-                assert!(err
-                    .to_string()
-                    .contains("Record type 'Z' not available for use as unit of analysis"));
-            }
-        }
+        let err = validated_unit_of_analysis(&context, Some(uoa.to_string()))
+            .expect_err("expected an error because Z is not a valid record type");
+        assert!(err
+            .to_string()
+            .contains("Record type 'Z' not available for use as unit of analysis"));
     }
 
     #[test]
