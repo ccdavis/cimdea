@@ -334,10 +334,10 @@ impl DataRequest for AbacusRequest {
             optional_product_root,
             optional_data_root.clone(),
         )?;
-        let request_variables: Result<Vec<RequestVariable>, MdError> = variables
+        let request_variables = variables
             .iter()
             .map(|v| RequestVariable::from_ipums_variable(v, false))
-            .collect::<Result<Vec<RequestVariable>, MdError>>();
+            .collect::<Result<Vec<RequestVariable>, MdError>>()?;
 
         let request_samples = datasets
             .iter()
@@ -350,7 +350,7 @@ impl DataRequest for AbacusRequest {
             Self {
                 product: product.to_string(),
                 request_samples,
-                request_variables: request_variables.unwrap(),
+                request_variables,
                 unit_rectype,
                 output_format: OutputFormat::CSV,
                 subpopulation: Vec::new(),
@@ -699,6 +699,24 @@ mod test {
         assert_eq!(4, rq.variables.len());
         assert_eq!(rq.product, "usa");
         assert_eq!(1, rq.datasets.len());
+    }
+
+    #[test]
+    fn test_abacus_request_from_names() {
+        let data_root = String::from("test/data_root");
+        let (_ctx, abacus_request) = AbacusRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect("should be able to construct an AbacusRequest from the given names");
+
+        assert_eq!(abacus_request.request_variables.len(), 4);
+        assert_eq!(abacus_request.product, "usa");
+        assert_eq!(abacus_request.request_samples.len(), 1);
     }
 
     #[test]
