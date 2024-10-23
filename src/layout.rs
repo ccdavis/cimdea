@@ -22,7 +22,7 @@ pub struct LayoutVar {
     pub data_type: IpumsDataType,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RecordLayout {
     pub vars: Vec<LayoutVar>,
 }
@@ -76,7 +76,7 @@ impl RecordLayout {
 }
 
 // Layouts for all record types in a file
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DatasetLayout {
     layouts: HashMap<String, RecordLayout>,
 }
@@ -197,22 +197,78 @@ mod tests {
 
     use std::io::Cursor;
 
+    fn csv_reader_from_bytes(layout_data: &[u8]) -> csv::Reader<Cursor<&[u8]>> {
+        let cursor = Cursor::new(layout_data);
+        csv::ReaderBuilder::new()
+            .has_headers(false)
+            .delimiter(b' ')
+            .from_reader(cursor)
+    }
+
     #[test]
     fn test_dataset_layout_try_from_layout_reader_variables_sorted_by_name() {
         let layout_data = b"RECTYPE H 1 1 string\n\
         CITY H 60 4 integer\n\
         CITYPOP H 64 7 integer\n";
-        let cursor = Cursor::new(layout_data);
+        let reader = csv_reader_from_bytes(layout_data);
 
-        let reader = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .delimiter(b' ')
-            .from_reader(cursor);
         let layout = DatasetLayout::try_from_layout_reader(reader)
             .expect("should parse into a DatasetLayout");
 
-        let p_layout = &layout.layouts["H"];
-        let variable_names: Vec<_> = p_layout.vars.iter().map(|v| v.name.as_str()).collect();
+        let h_layout = &layout.layouts["H"];
+        let variable_names: Vec<_> = h_layout.vars.iter().map(|v| v.name.as_str()).collect();
         assert_eq!(variable_names, vec!["CITY", "CITYPOP", "RECTYPE"]);
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_non_integer_start_error() {
+        let layout_data = b"RECTYPE H a 1 string\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_non_integer_width_error() {
+        let layout_data = b"RECTYPE H 1 a string\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_missing_fields_error() {
+        let layout_data = b"RECTYPE H\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    /// Variables are split into RecordLayouts by record type.
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_multiple_rectypes() {
+        let layout_data = b"YEAR H 2 4 integer\n\
+        AGE P 58 3 integer\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let layout = DatasetLayout::try_from_layout_reader(reader)
+            .expect("should parse into a DatasetLayout");
+
+        let h_layout = &layout.layouts["H"];
+        let p_layout = &layout.layouts["P"];
+
+        assert_eq!(h_layout.vars[0].name, "YEAR");
+        assert_eq!(p_layout.vars[0].name, "AGE");
     }
 }
