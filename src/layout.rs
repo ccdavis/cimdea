@@ -201,9 +201,9 @@ impl DatasetLayout {
         DatasetLayout::try_from_layout_reader(reader)
     }
 
-    // Return a new DatasetLayout containing only the requested variables or an error message.
+    // Return a new DatasetLayout containing only the requested variables or an error.
     // Doing it this way so that we can retain the full layout for reuse.
-    pub fn select_only(&self, selections: Vec<String>) -> Result<DatasetLayout, String> {
+    pub fn select_only(&self, selections: Vec<String>) -> Result<DatasetLayout, MdError> {
         let mut filtered_layouts: HashMap<String, RecordLayout> = HashMap::new();
         let upcased_selections = selections
             .iter()

@@ -109,23 +109,29 @@ impl RequestVariable {
         })
     }
 
-    pub fn detailed_width(&self) -> Result<usize, String> {
+    pub fn detailed_width(&self) -> Result<usize, MdError> {
         if let Some((_, w)) = self.variable.formatting {
             Ok(w)
         } else {
-            Err(format!("No width metadata available for {}", self.name))
+            Err(MdError::Msg(format!(
+                "No width metadata available for {}",
+                self.name
+            )))
         }
     }
 
-    pub fn general_width(&self) -> Result<usize, String> {
+    pub fn general_width(&self) -> Result<usize, MdError> {
         if self.is_general {
             Ok(self.variable.general_width)
         } else {
-            Err(format!("General width not available for {}", self.name))
+            Err(MdError::Msg(format!(
+                "General width not available for {}",
+                self.name
+            )))
         }
     }
 
-    pub fn requested_width(&self) -> Result<usize, String> {
+    pub fn requested_width(&self) -> Result<usize, MdError> {
         if self.is_general {
             self.general_width()
         } else {
@@ -172,7 +178,7 @@ pub trait DataRequest {
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String>
+    ) -> Result<Self, MdError>
     where
         Self: std::marker::Sized;
 
@@ -230,7 +236,7 @@ impl InputType {
 }
 
 // The key point is you can take an impl of a DataRequest and do something with it.
-pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
+pub fn perform_request(rq: impl DataRequest) -> Result<(), MdError> {
     todo!("Implement");
 }
 
@@ -302,7 +308,7 @@ impl DataRequest for AbacusRequest {
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String>
+    ) -> Result<Self, MdError>
     where
         Self: std::marker::Sized,
     {
@@ -561,10 +567,15 @@ impl DataRequest for SimpleRequest {
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, MdError> {
         let parsed: serde_json::Value = match serde_json::from_str(json_request) {
             Ok(parsed) => parsed,
-            Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
+            Err(e) => {
+                return Err(MdError::Msg(format!(
+                    "Error deserializing request: '{}'",
+                    e
+                )))
+            }
         };
 
         let product = parsed["product"].as_str().expect("No 'product' in request");
@@ -595,7 +606,7 @@ impl DataRequest for SimpleRequest {
                     checked_vars.push(var_value);
                 } else {
                     let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
-                    return Err(msg);
+                    return Err(MdError::NotInMetadata(msg));
                 }
             }
             checked_vars
@@ -611,7 +622,7 @@ impl DataRequest for SimpleRequest {
                     checked_samples.push(ipums_ds);
                 } else {
                     let msg = format!("No dataset '{}' in metadata.", ds_name);
-                    return Err(msg);
+                    return Err(MdError::NotInMetadata(msg));
                 }
             }
             checked_samples

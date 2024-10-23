@@ -13,7 +13,7 @@ use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
-use duckdb::{Connection, Result};
+use duckdb::Connection;
 
 use serde::Serialize;
 
@@ -26,13 +26,13 @@ pub enum TableFormat {
 }
 
 impl TableFormat {
-    pub fn from_str(name: &str) -> Result<Self, String> {
+    pub fn from_str(name: &str) -> Result<Self, MdError> {
         let tf = match name.to_ascii_lowercase().as_str() {
             "csv" => Self::Csv,
             "json" => Self::Json,
             "text" => Self::TextTable,
             "html" => Self::Html,
-            _ => return Err("unknown format name.".to_string()),
+            _ => return Err(MdError::Msg("unknown format name.".to_string())),
         };
         Ok(tf)
     }
