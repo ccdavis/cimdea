@@ -165,9 +165,15 @@ mod tests {
         use super::*;
         let hflr = Hflr::try_new("test/data_root/layouts/us2015b.layout.txt", None)
             .expect("should be able to create Hflr from layout file");
-        let person_layout = hflr.layout.for_rectype("P");
+        let person_layout = hflr
+            .layout
+            .for_rectype("P")
+            .expect("should have layout for P record type");
         assert_eq!(628, person_layout.vars.len());
-        let hh_layout = hflr.layout.for_rectype("H");
+        let hh_layout = hflr
+            .layout
+            .for_rectype("H")
+            .expect("should have layout for H record type");
         assert_eq!(469, hh_layout.vars.len());
     }
 
@@ -181,9 +187,15 @@ mod tests {
             Some(selections),
         )
         .expect("should be able to create Hflr from layout file");
-        let person_layout = hflr.layout.for_rectype("P");
+        let person_layout = hflr
+            .layout
+            .for_rectype("P")
+            .expect("should have layout for P record type");
         assert_eq!(1, person_layout.vars().len());
-        let hh_layout = hflr.layout.for_rectype("H");
+        let hh_layout = hflr
+            .layout
+            .for_rectype("H")
+            .expect("should have layout for H record type");
 
         assert_eq!(2, hh_layout.vars().len());
     }

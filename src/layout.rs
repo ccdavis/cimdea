@@ -89,24 +89,21 @@ impl DatasetLayout {
     pub fn all_variables(&self) -> Vec<LayoutVar> {
         self.record_types()
             .iter()
-            .flat_map(|rt| self.for_rectype(rt).vars.clone())
+            .flat_map(|rt| self.for_rectype(rt).unwrap().vars.clone())
             .collect()
     }
 
     pub fn find_variables(&self, names: &[String]) -> Vec<LayoutVar> {
         self.record_types()
             .iter()
-            .flat_map(|rt| self.for_rectype(rt).filtered(names).vars)
+            .flat_map(|rt| self.for_rectype(rt).unwrap().filtered(names).vars)
             .collect()
     }
 
-    pub fn for_rectype(&self, rt: &str) -> &RecordLayout {
-        match self.layouts.get(rt) {
-            None => {
-                panic!("No records of type {} in layout.", rt);
-            }
-            Some(vars) => vars,
-        }
+    /// Returns the RecordLayout for the given record type, or None if there is
+    /// no layout for that record type.
+    pub fn for_rectype(&self, rt: &str) -> Option<&RecordLayout> {
+        self.layouts.get(rt)
     }
 
     // If you have a Vec of mixed record type LayoutVars, perhaps read in
