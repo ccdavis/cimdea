@@ -459,13 +459,14 @@ impl Context {
     }
 
     /// When called, the context should be already set to read from layouts or full metadata
-    pub fn load_metadata_for_datasets(&mut self, datasets: &[&str]) {
+    pub fn load_metadata_for_datasets(&mut self, datasets: &[&str]) -> Result<(), MdError> {
         if !self.enable_full_metadata {
             if let Some(ref data_root) = self.data_root {
                 self.settings
                     .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root);
+                Ok(())
             } else {
-                panic!("Cannot load any metadata without a data_root or full metadata available ad the product_root.");
+                Err(MdError::Msg("Cannot load any metadata without a data_root or full metadata available ad the product_root.".to_string()))
             }
         } else {
             todo!("Loading metadata from database not implemented.");

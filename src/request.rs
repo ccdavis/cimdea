@@ -29,7 +29,7 @@ fn context_from_names_helper(
 ) -> Result<(conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>), MdError> {
     let mut ctx =
         conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
-    ctx.load_metadata_for_datasets(requested_datasets);
+    ctx.load_metadata_for_datasets(requested_datasets)?;
 
     // Get variables from selections
     let variables = if let Some(ref md) = ctx.settings.metadata {
@@ -403,7 +403,7 @@ impl AbacusRequest {
             .collect();
 
         // Use the names of the requested samples to load partial metadata
-        ctx.load_metadata_for_datasets(requested_dataset_names.as_slice());
+        ctx.load_metadata_for_datasets(requested_dataset_names.as_slice())?;
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
         let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
@@ -673,7 +673,8 @@ mod test {
             conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
 
         // Load the mentioned datasets and all their associated variables into metadata
-        ctx.load_metadata_for_datasets(&["us2016c", "us2014d"]);
+        ctx.load_metadata_for_datasets(&["us2016c", "us2014d"])
+            .expect("should be able to load metadata for datasets");
         if let Some(ref md) = ctx.settings.metadata {
             println!("loaded {} variables.", md.variables_index.len());
             println!("{:?}", md.variables_by_name.get("YEAR"));
