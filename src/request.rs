@@ -288,8 +288,7 @@ impl DataRequest for AbacusRequest {
         let conditions = self
             .subpopulation
             .iter()
-            .filter(|rv| rv.case_selection.is_some())
-            .map(|rv_c| rv_c.clone().case_selection.unwrap())
+            .filter_map(|rv| rv.case_selection.clone())
             .collect::<Vec<Condition>>();
         if conditions.len() > 0 {
             Some(conditions)
