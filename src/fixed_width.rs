@@ -2,6 +2,7 @@
 //!
 //!  The 'HFLR" type models the "Hierarchical Fixed-Length Record" data IPUMS uses.
 use crate::layout;
+use crate::mderror::MdError;
 //use duckdb::arrow::datatypes::ToByteSlice;
 use ascii;
 use std::path;
@@ -26,48 +27,45 @@ impl Hflr {
         }
     }
 
-    pub fn new(filename: &str, selection_filter: Option<Vec<String>>) -> Self {
+    pub fn try_new(filename: &str, selection_filter: Option<Vec<String>>) -> Result<Self, MdError> {
         let l = layout::DatasetLayout::try_from_layout_file(path::Path::new(filename)).unwrap();
         // Decide how to handle problems with the selection_filter
         match selection_filter {
-            None => Self {
+            None => Ok(Self {
                 _filename: Some(filename.to_string()),
                 layout: l,
                 rectype_start: None,
                 rectype_width: None,
-            },
+            }),
             Some(selections) => match l.select_only(selections) {
-                Ok(new_layout) => Self {
+                Ok(new_layout) => Ok(Self {
                     _filename: Some(filename.to_string()),
                     layout: new_layout,
                     rectype_start: None,
                     rectype_width: None,
-                },
-                Err(msg) => {
-                    eprintln!("Can't create layout for file {} because {}", filename, &msg);
-                    std::process::exit(1);
-                }
+                }),
+                Err(msg) => Err(MdError::Msg(format!(
+                    "Can't create layout for file {filename} because {msg}"
+                ))),
             },
         }
     } // fn
 } // impl
 
-pub fn dataset_from_path(fw_data_filename: &str) -> String {
+fn dataset_from_path(fw_data_filename: &str) -> Result<String, MdError> {
     let fw_data_path = path::Path::new(fw_data_filename);
     if let Some(filename) = fw_data_path.file_name() {
         if let Some((left, _)) = filename.to_string_lossy().rsplit_once('_') {
-            left.to_string()
+            Ok(left.to_string())
         } else {
-            panic!(
-                "File name '{}' has no '_' to delimit the dataset name.",
-                fw_data_filename
-            );
+            Err(MdError::Msg(format!(
+                "File name '{fw_data_filename}' has no '_' to delimit the dataset name.",
+            )))
         }
     } else {
-        panic!(
-            "Can't get dataset from a path with no filename in it. Path was {}",
-            fw_data_filename
-        );
+        Err(MdError::Msg(format!(
+            "Can't get dataset from a path with no filename in it. Path was {fw_data_filename}",
+        )))
     }
 }
 
@@ -76,8 +74,8 @@ pub fn dataset_from_path(fw_data_filename: &str) -> String {
 // return it if it exists. If nothing is in ../current/layouts/
 // then check the directory where the data file is, to account for
 // the -l DCP mode.
-pub fn layout_file_for(fw_file: &str) -> String {
-    let dataset = dataset_from_path(fw_file);
+pub fn layout_file_for(fw_file: &str) -> Result<String, MdError> {
+    let dataset = dataset_from_path(fw_file)?;
     let layout_filename = dataset + ".layout.txt";
 
     let fw_data_file = path::Path::new(fw_file);
@@ -86,7 +84,7 @@ pub fn layout_file_for(fw_file: &str) -> String {
     }
     let fw_data_path = fw_data_file
         .parent()
-        .unwrap_or_else(|| panic!("Can't read directory  of {}", fw_file));
+        .ok_or_else(|| MdError::Msg(format!("Can't read directory of {fw_file}")))?;
 
     if TRACE {
         println!("parent layout path {}", fw_data_path.display());
@@ -96,16 +94,15 @@ pub fn layout_file_for(fw_file: &str) -> String {
     if !layout_file.exists() {
         let local_layout_file = fw_data_path.join(layout_filename);
         if !local_layout_file.exists() {
-            eprintln!(
-                "ERROR: Couldn't find layout file '{}' for data in '{}'.",
+            return Err(MdError::Msg(format!(
+                "Couldn't find layout file '{}' for data in '{}'.",
                 &layout_file.display(),
                 &fw_data_file.display()
-            );
-            std::process::exit(1);
+            )));
         }
-        local_layout_file.into_os_string().into_string().unwrap()
+        Ok(local_layout_file.into_os_string().into_string().unwrap())
     } else {
-        layout_file.into_os_string().into_string().unwrap()
+        Ok(layout_file.into_os_string().into_string().unwrap())
     }
 }
 
@@ -166,7 +163,8 @@ mod tests {
     #[test]
     fn test_hflr() {
         use super::*;
-        let hflr = Hflr::new("test/data_root/layouts/us2015b.layout.txt", None);
+        let hflr = Hflr::try_new("test/data_root/layouts/us2015b.layout.txt", None)
+            .expect("should be able to create Hflr from layout file");
         let person_layout = hflr.layout.for_rectype("P");
         assert_eq!(628, person_layout.vars.len());
         let hh_layout = hflr.layout.for_rectype("H");
@@ -178,10 +176,11 @@ mod tests {
     fn test_with_variable_selections() {
         use super::*;
         let selections = vec!["AGE".to_string(), "GQ".to_string(), "SERIAL".to_string()];
-        let hflr = Hflr::new(
+        let hflr = Hflr::try_new(
             "test/data_root/layouts/us2015b.layout.txt",
             Some(selections),
-        );
+        )
+        .expect("should be able to create Hflr from layout file");
         let person_layout = hflr.layout.for_rectype("P");
         assert_eq!(1, person_layout.vars().len());
         let hh_layout = hflr.layout.for_rectype("H");
