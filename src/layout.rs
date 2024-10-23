@@ -180,7 +180,7 @@ impl DatasetLayout {
         Ok(DatasetLayout::from_layout_vars(all_vars))
     }
 
-    pub fn from_layout_file(filename: &Path) -> Self {
+    pub fn try_from_layout_file(filename: &Path) -> Result<Self, MdError> {
         let rdr = csv::ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b' ')
@@ -188,15 +188,17 @@ impl DatasetLayout {
             .from_path(filename);
 
         let reader = match rdr {
-            Err(msg) => panic!(
-                "Cannot create CSV reader on {}, error was {}.",
-                filename.display(),
-                &msg
-            ),
+            Err(msg) => {
+                return Err(MdError::Msg(format!(
+                    "Cannot create CSV reader on {}, error was {}.",
+                    filename.display(),
+                    &msg
+                )))
+            }
             Ok(r) => r,
         };
 
-        DatasetLayout::try_from_layout_reader(reader).unwrap()
+        DatasetLayout::try_from_layout_reader(reader)
     }
 
     // Return a new DatasetLayout containing only the requested variables or an error message.
@@ -233,9 +235,10 @@ mod tests {
     }
 
     #[test]
-    fn test_dataset_layout_from_layout_file() {
+    fn test_dataset_layout_try_from_layout_file() {
         let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
-        let layout = DatasetLayout::from_layout_file(layout_file);
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
 
         let h_vars = layout.layouts["H"].vars.len();
         let p_vars = layout.layouts["P"].vars.len();
@@ -246,12 +249,12 @@ mod tests {
         );
     }
 
-    #[should_panic]
     #[test]
-    fn test_dataset_layout_from_layout_file_no_such_file_error() {
+    fn test_dataset_layout_try_from_layout_file_no_such_file_error() {
         // This is not a real layout file
         let layout_file = Path::new("test/data_root/layouts/us0000a.layout.txt");
-        let layout = DatasetLayout::from_layout_file(layout_file);
+        let result = DatasetLayout::try_from_layout_file(layout_file);
+        assert!(result.is_err(), "expected an error but got {result:?}");
     }
 
     #[test]

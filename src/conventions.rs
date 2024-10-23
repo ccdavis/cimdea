@@ -127,9 +127,10 @@ impl MicroDataCollection {
         for (index_ds, ds) in datasets.iter().enumerate() {
             let ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
             let layouts_path = data_root.to_path_buf().join("layouts");
-            let layout = layout::DatasetLayout::from_layout_file(
+            let layout = layout::DatasetLayout::try_from_layout_file(
                 &layouts_path.join(format!("{}.layout.txt", ds)),
-            );
+            )
+            .unwrap();
             for (index_v, var) in layout.all_variables().iter().enumerate() {
                 let ipums_var = IpumsVariable::from((var, index_v));
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);

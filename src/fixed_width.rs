@@ -27,7 +27,7 @@ impl Hflr {
     }
 
     pub fn new(filename: &str, selection_filter: Option<Vec<String>>) -> Self {
-        let l = layout::DatasetLayout::from_layout_file(filename.to_owned());
+        let l = layout::DatasetLayout::try_from_layout_file(filename.to_owned()).unwrap();
         // Decide how to handle problems with the selection_filter
         match selection_filter {
             None => Self {
