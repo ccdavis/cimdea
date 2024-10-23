@@ -254,7 +254,7 @@ impl DataSource {
         dataset: &str,
         input_format: &InputType,
     ) -> Result<HashMap<String, DataSource>, MdError> {
-        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
+        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format)?;
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
             let table_alias = ctx.settings.default_table_name(dataset, rt)?;

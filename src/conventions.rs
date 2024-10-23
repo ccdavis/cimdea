@@ -404,7 +404,7 @@ impl Context {
         &self,
         dataset_name: &str,
         data_format: &InputType,
-    ) -> HashMap<String, PathBuf> {
+    ) -> Result<HashMap<String, PathBuf>, MdError> {
         let extension = match data_format {
             InputType::Csv => "csv",
             InputType::Parquet => "parquet",
@@ -412,11 +412,10 @@ impl Context {
             InputType::NativeDb => "",
         };
 
-        // TODO return errors properly
         let data_path = if let Some(ref data_root) = self.data_root {
             PathBuf::from(data_root)
         } else {
-            panic!("No data root set.");
+            return Err(MdError::Msg("No data root set.".to_string()));
         };
 
         let mut all_paths = HashMap::new();
@@ -433,7 +432,9 @@ impl Context {
                         let full_path = parent_dir.join(full_filename);
                         all_paths.insert(rt.to_string(), full_path);
                     } else {
-                        panic!("InputType of data should have a sub directory name.");
+                        return Err(MdError::Msg(
+                            "InputType of data should have a sub directory name.".to_string(),
+                        ));
                     }
                 }
             }
@@ -454,7 +455,7 @@ impl Context {
                 all_paths.insert("".to_string(), full_path);
             }
         } // match
-        all_paths
+        Ok(all_paths)
     }
 
     /// When called, the context should be already set to read from layouts or full metadata
@@ -574,7 +575,9 @@ mod test {
     pub fn test_paths_for_dataset_names() {
         let data_root = Some(String::from("test/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
-        let paths_by_rectype = usa_ctx.paths_from_dataset_name("us2015b", &InputType::Parquet);
+        let paths_by_rectype = usa_ctx
+            .paths_from_dataset_name("us2015b", &InputType::Parquet)
+            .expect("should be able to get paths from dataset name");
         let person_path = paths_by_rectype.get("P");
         let household_path = paths_by_rectype.get("H");
         assert!(person_path.is_some(), "should have a person type path");
