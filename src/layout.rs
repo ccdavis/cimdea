@@ -233,6 +233,28 @@ mod tests {
     }
 
     #[test]
+    fn test_dataset_layout_from_layout_file() {
+        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::from_layout_file(layout_file);
+
+        let h_vars = layout.layouts["H"].vars.len();
+        let p_vars = layout.layouts["P"].vars.len();
+        assert_eq!(
+            h_vars + p_vars,
+            339,
+            "there should be 339 total variables in the layout (6 lines are ignored due to comments)"
+        );
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_dataset_layout_from_layout_file_no_such_file_error() {
+        // This is not a real layout file
+        let layout_file = Path::new("test/data_root/layouts/us0000a.layout.txt");
+        let layout = DatasetLayout::from_layout_file(layout_file);
+    }
+
+    #[test]
     fn test_dataset_layout_try_from_layout_reader_variables_sorted_by_name() {
         let layout_data = b"RECTYPE H 1 1 string\n\
         CITY H 60 4 integer\n\
