@@ -82,18 +82,22 @@ impl MicroDataCollection {
     // where we can refer to data files as tables but need a alias to use in the rest of the query, like:
     // select count(*) from '/data/us2015b/us2015b_usa.P.parquet' as us2015b_person, '/data/us2015b/us2015b_usa.H.parquet' as us2015b_household
     //  where us2015b_household.SERIAL = us2015b_usa_person.SERIALP and us2015b_household.GQ = 3 and us2015b_person.AGE < 25;
-    pub fn default_table_name(&self, dataset_name: &str, record_type_abbrev: &str) -> String {
+    pub fn default_table_name(
+        &self,
+        dataset_name: &str,
+        record_type_abbrev: &str,
+    ) -> Result<String, MdError> {
         if let Some(ref rt) = self.record_types.get(record_type_abbrev) {
-            format!(
+            Ok(format!(
                 "{}_{}",
                 &self.base_filename_for_dataset(dataset_name),
                 &rt.name.to_ascii_lowercase()
-            )
+            ))
         } else {
-            panic!(
+            Err(MdError::Msg(format!(
                 "Can't create table name since {} is not a valid record type abbrevation.",
                 record_type_abbrev
-            );
+            )))
         }
     }
 
@@ -435,7 +439,11 @@ impl Context {
             }
             InputType::NativeDb => {
                 for rt in self.settings.record_types.keys() {
-                    let table: PathBuf = self.settings.default_table_name(dataset_name, rt).into();
+                    let table: PathBuf = self
+                        .settings
+                        .default_table_name(dataset_name, rt)
+                        .unwrap()
+                        .into();
                     all_paths.insert(rt.to_string(), table);
                 }
             }
@@ -582,14 +590,16 @@ mod test {
     #[test]
     fn test_micro_data_collection_default_table_name() {
         let collection = defaults::defaults_for("usa");
-        let table_name = collection.default_table_name("us2021a", "P");
+        let table_name = collection
+            .default_table_name("us2021a", "P")
+            .expect("should get a table name back because P is a valid record type");
         assert_eq!(table_name, "us2021a_usa_person");
     }
 
-    #[should_panic]
     #[test]
     fn test_micro_data_collection_default_table_name_unknown_rectype_error() {
         let collection = defaults::defaults_for("usa");
-        collection.default_table_name("us2021a", "Z");
+        let result = collection.default_table_name("us2021a", "Z");
+        assert!(result.is_err(), "expected an error but got {result:?}");
     }
 }

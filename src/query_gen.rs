@@ -257,7 +257,7 @@ impl DataSource {
         let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
-            let table_alias = ctx.settings.default_table_name(dataset, rt);
+            let table_alias = ctx.settings.default_table_name(dataset, rt)?;
             let p = paths_by_rectypes.get(rt).cloned();
             let ds = DataSource::new(table_alias, p)?;
             data_sources.insert(rt.to_string(), ds);
