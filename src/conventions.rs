@@ -510,7 +510,7 @@ impl Context {
             name: name.to_string(),
             product_root: Some(product_root),
             data_root: Some(data_root),
-            settings: defaults::defaults_for(name),
+            settings: defaults::defaults_for(name).unwrap(),
             allow_full_metadata,
             enable_full_metadata: false,
         }
@@ -593,7 +593,8 @@ mod test {
 
     #[test]
     fn test_micro_data_collection_default_table_name() {
-        let collection = defaults::defaults_for("usa");
+        let collection =
+            defaults::defaults_for("usa").expect("should be able to get defaults for USA");
         let table_name = collection
             .default_table_name("us2021a", "P")
             .expect("should get a table name back because P is a valid record type");
@@ -602,7 +603,8 @@ mod test {
 
     #[test]
     fn test_micro_data_collection_default_table_name_unknown_rectype_error() {
-        let collection = defaults::defaults_for("usa");
+        let collection =
+            defaults::defaults_for("usa").expect("should be able to get defaults for USA");
         let result = collection.default_table_name("us2021a", "Z");
         assert!(result.is_err(), "expected an error but got {result:?}");
     }
