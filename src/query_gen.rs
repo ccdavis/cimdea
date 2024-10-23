@@ -311,7 +311,7 @@ impl DataSource {
                 Self::Parquet { name, .. } => name.to_owned(),
                 Self::Csv { name, .. } => name.to_owned(),
                 Self::NativeTable { name } => {
-                    panic!("No native table type for '{}' in DataFusion.", &name)
+                    todo!("No native table type for '{}' in DataFusion yet.", &name)
                 }
             },
         }
