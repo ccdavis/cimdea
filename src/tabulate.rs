@@ -196,7 +196,7 @@ impl Table {
                         widths.push(name_width);
                     }
                 } else {
-                    panic!("Can't determine column width of data.");
+                    return Err(MdError::Msg("Can't determine column width of data.".to_string()));
                 }
             }
             */
