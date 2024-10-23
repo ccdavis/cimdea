@@ -518,13 +518,23 @@ impl AbacusRequest {
 
             let mut request_var = RequestVariable::from_ipums_variable(&ipums_var, use_general)?;
 
-            // TODO add category bins
+            // The category_bins can also come from the IpumsVariable as it's properly part of metadata. However in the request
+            // for Abacus we pass category bins on each request for all request variables that need them.
+            if let Some(bins) = request.category_bins.get(&request_var.variable_name()) {
+                request_var.category_bins = Some(*bins).clone();
+            };
+
 
             rqv.push(request_var);
         }
 
         let mut subpop = Vec::new();
-        for s in request.subpopulation {}
+        for s in &request.subpopulation {
+            subpop.push(s.clone());
+        }
+
+
+
 
         Ok((
             ctx,
