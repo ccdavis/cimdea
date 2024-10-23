@@ -149,7 +149,7 @@ impl DatasetLayout {
         // faster to process, defaulting vars to alphabetical order ensures
         // a known schema order that is easy to match with other files or
         // data sources with different natural orderings.
-        all_vars.sort_by(|a, b| b.name.cmp(&a.name));
+        all_vars.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(DatasetLayout::from_layout_vars(all_vars))
     }
 
