@@ -27,7 +27,7 @@ impl Hflr {
     }
 
     pub fn new(filename: &str, selection_filter: Option<Vec<String>>) -> Self {
-        let l = layout::DatasetLayout::try_from_layout_file(filename.to_owned()).unwrap();
+        let l = layout::DatasetLayout::try_from_layout_file(path::Path::new(filename)).unwrap();
         // Decide how to handle problems with the selection_filter
         match selection_filter {
             None => Self {
@@ -143,9 +143,8 @@ pub fn make_zero_padded_numeric(code: &[u8]) -> Vec<u8> {
     new_code
 }
 
+#[cfg(test)]
 mod tests {
-
-
     #[test]
     fn test_make_zero_padded_numeric() {
         use super::*;
@@ -167,7 +166,7 @@ mod tests {
     #[test]
     fn test_hflr() {
         use super::*;
-        let hflr = Hflr::new("test_data/us2015b.layout.txt", None);
+        let hflr = Hflr::new("test/data_root/layouts/us2015b.layout.txt", None);
         let person_layout = hflr.layout.for_rectype("P");
         assert_eq!(628, person_layout.vars.len());
         let hh_layout = hflr.layout.for_rectype("H");
@@ -179,7 +178,10 @@ mod tests {
     fn test_with_variable_selections() {
         use super::*;
         let selections = vec!["AGE".to_string(), "GQ".to_string(), "SERIAL".to_string()];
-        let hflr = Hflr::new("test_data/us2015b.layout.txt", Some(selections));
+        let hflr = Hflr::new(
+            "test/data_root/layouts/us2015b.layout.txt",
+            Some(selections),
+        );
         let person_layout = hflr.layout.for_rectype("P");
         assert_eq!(1, person_layout.vars().len());
         let hh_layout = hflr.layout.for_rectype("H");
