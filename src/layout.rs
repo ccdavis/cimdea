@@ -135,15 +135,42 @@ impl DatasetLayout {
             .records()
             .filter_map(|r| r.ok())
             .filter(|r| r.len() > 1)
-            .map(|record| LayoutVar {
-                name: record[0].to_string(),
-                rectype: record[1].to_string(),
-                start: record[2].parse().unwrap(),
-                width: record[3].parse().unwrap(),
-                data_type: IpumsDataType::from(&record[4]),
-                col: 0,
+            .map(|record| {
+                if record.len() < 5 {
+                    let fields = record.iter().collect::<Vec<_>>().join(" ");
+                    return Err(MdError::ParsingError(format!(
+                        "not enough fields in layout record '{fields}'"
+                    )));
+                }
+                let name = record[0].to_string();
+                let start_str = &record[2];
+                let start: usize = start_str.parse().map_err(|err| {
+                    let msg = format!(
+                        "could not parse layout start '{start_str}' for variable \
+                         '{name}' as a non-negative integer: {err}"
+                    );
+                    MdError::ParsingError(msg)
+                })?;
+
+                let width_str = &record[3];
+                let width: usize = width_str.parse().map_err(|err| {
+                    let msg = format!(
+                        "could not parse layout width '{width_str}' for variable \
+                            '{name}' as a non-negative integer: {err}"
+                    );
+                    MdError::ParsingError(msg)
+                })?;
+
+                Ok(LayoutVar {
+                    name,
+                    rectype: record[1].to_string(),
+                    start,
+                    width,
+                    data_type: IpumsDataType::from(&record[4]),
+                    col: 0,
+                })
             })
-            .collect::<Vec<LayoutVar>>();
+            .collect::<Result<Vec<LayoutVar>, MdError>>()?;
 
         // While sorting in 'start' order would yield an order that's slightly
         // faster to process, defaulting vars to alphabetical order ensures
