@@ -578,4 +578,18 @@ mod test {
             );
         }
     }
+
+    #[test]
+    fn test_micro_data_collection_default_table_name() {
+        let collection = defaults::defaults_for("usa");
+        let table_name = collection.default_table_name("us2021a", "P");
+        assert_eq!(table_name, "us2021a_usa_person");
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_micro_data_collection_default_table_name_unknown_rectype_error() {
+        let collection = defaults::defaults_for("usa");
+        collection.default_table_name("us2021a", "Z");
+    }
 }
