@@ -31,7 +31,7 @@ use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
 use crate::layout;
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::request::InputType;
 
 use std::collections::HashMap;
@@ -82,18 +82,22 @@ impl MicroDataCollection {
     // where we can refer to data files as tables but need a alias to use in the rest of the query, like:
     // select count(*) from '/data/us2015b/us2015b_usa.P.parquet' as us2015b_person, '/data/us2015b/us2015b_usa.H.parquet' as us2015b_household
     //  where us2015b_household.SERIAL = us2015b_usa_person.SERIALP and us2015b_household.GQ = 3 and us2015b_person.AGE < 25;
-    pub fn default_table_name(&self, dataset_name: &str, record_type_abbrev: &str) -> String {
+    pub fn default_table_name(
+        &self,
+        dataset_name: &str,
+        record_type_abbrev: &str,
+    ) -> Result<String, MdError> {
         if let Some(ref rt) = self.record_types.get(record_type_abbrev) {
-            format!(
+            Ok(format!(
                 "{}_{}",
                 &self.base_filename_for_dataset(dataset_name),
                 &rt.name.to_ascii_lowercase()
-            )
+            ))
         } else {
-            panic!(
+            Err(MdError::Msg(format!(
                 "Can't create table name since {} is not a valid record type abbrevation.",
                 record_type_abbrev
-            );
+            )))
         }
     }
 
@@ -122,20 +126,21 @@ impl MicroDataCollection {
         &mut self,
         datasets: &[&str],
         data_root: &Path,
-    ) {
+    ) -> Result<(), MdError> {
         let mut md = MetadataEntities::new();
         for (index_ds, ds) in datasets.iter().enumerate() {
             let ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
             let layouts_path = data_root.to_path_buf().join("layouts");
-            let layout = layout::DatasetLayout::from_layout_file(
+            let layout = layout::DatasetLayout::try_from_layout_file(
                 &layouts_path.join(format!("{}.layout.txt", ds)),
-            );
+            )?;
             for (index_v, var) in layout.all_variables().iter().enumerate() {
                 let ipums_var = IpumsVariable::from((var, index_v));
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
             }
         }
         self.metadata = Some(md);
+        Ok(())
     }
 
     /// Uses default product_root to find metadata database and load all metadata for given datasets.
@@ -308,20 +313,28 @@ impl DatasetsForVariable {
 
 impl MetadataEntities {
     #[allow(dead_code)]
-    fn connect_names(&mut self, dataset_name: &str, variable_name: &str) {
+    fn connect_names(&mut self, dataset_name: &str, variable_name: &str) -> Result<(), MdError> {
         let dataset_id = self.datasets_by_name.get(dataset_name);
         let variable_id = self.variables_by_name.get(variable_name);
         if variable_id.is_none() {
-            panic!("Internal method connect() should never be called with non-existent metadata names.");
+            let err = metadata_error!(
+                "method connect_names() called with variable name {variable_name}, which is not in metadata"
+            );
+            return Err(err);
         }
 
         if dataset_id.is_none() {
-            panic!("Internal method connect() should never be called with non-existent metadata names.");
+            let err = metadata_error!(
+                "method connect_names() called with dataset name {dataset_name}, which is not in metadata"
+            );
+            return Err(err);
         }
 
         if let (Some(did), Some(vid)) = (dataset_id, variable_id) {
             self.connect(*did, *vid);
         };
+
+        Ok(())
     }
 
     fn connect(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
@@ -332,23 +345,20 @@ impl MetadataEntities {
     }
 
     pub fn add_dataset_variable(&mut self, dataset: IpumsDataset, variable: IpumsVariable) {
-        let dataset_name = &dataset.name.clone();
-        let variable_name = &variable.name.clone();
-
-        let dataset_id: IpumsDatasetId = if self.datasets_by_name.contains_key(dataset_name) {
-            *self.datasets_by_name.get(dataset_name).unwrap()
-        } else {
-            self.create_dataset(dataset)
+        let dataset_id = match self.datasets_by_name.get(&dataset.name) {
+            None => self.create_dataset(dataset),
+            Some(dataset_id) => *dataset_id,
         };
 
-        let variable_id: IpumsVariableId = if self.variables_by_name.contains_key(variable_name) {
-            *self.variables_by_name.get(variable_name).unwrap()
-        } else {
-            self.create_variable(variable)
+        let variable_id = match self.variables_by_name.get(&variable.name) {
+            None => self.create_variable(variable),
+            Some(variable_id) => *variable_id,
         };
+
         self.connect(dataset_id, variable_id);
     }
 }
+
 /// This is the mutable state  created and passed around holding the loaded metadata if any
 /// and the rest of the information needed to add paths to the data tables used in queries
 /// and data file paths, and where the metadata can be found.
@@ -374,14 +384,11 @@ impl Context {
             if let Some(var) = md.cloned_variable_from_name(name) {
                 Ok(var)
             } else {
-                Err(MdError::Msg(format!(
-                    "Variable '{}' not in loaded metadata.",
-                    name
-                )))
+                Err(metadata_error!("Variable '{name}' not in loaded metadata.",))
             }
         } else {
-            Err(MdError::Msg(
-                "No metadata loaded. Can't get variable.".to_string(),
+            Err(metadata_error!(
+                "No metadata loaded. Can't get variable '{name}'."
             ))
         }
     }
@@ -391,7 +398,7 @@ impl Context {
         &self,
         dataset_name: &str,
         data_format: &InputType,
-    ) -> HashMap<String, PathBuf> {
+    ) -> Result<HashMap<String, PathBuf>, MdError> {
         let extension = match data_format {
             InputType::Csv => "csv",
             InputType::Parquet => "parquet",
@@ -399,11 +406,10 @@ impl Context {
             InputType::NativeDb => "",
         };
 
-        // TODO return errors properly
         let data_path = if let Some(ref data_root) = self.data_root {
             PathBuf::from(data_root)
         } else {
-            panic!("No data root set.");
+            return Err(MdError::Msg("No data root set.".to_string()));
         };
 
         let mut all_paths = HashMap::new();
@@ -420,13 +426,15 @@ impl Context {
                         let full_path = parent_dir.join(full_filename);
                         all_paths.insert(rt.to_string(), full_path);
                     } else {
-                        panic!("InputType of data should have a sub directory name.");
+                        return Err(MdError::Msg(
+                            "InputType of data should have a sub directory name.".to_string(),
+                        ));
                     }
                 }
             }
             InputType::NativeDb => {
                 for rt in self.settings.record_types.keys() {
-                    let table: PathBuf = self.settings.default_table_name(dataset_name, rt).into();
+                    let table: PathBuf = self.settings.default_table_name(dataset_name, rt)?.into();
                     all_paths.insert(rt.to_string(), table);
                 }
             }
@@ -437,20 +445,20 @@ impl Context {
                 all_paths.insert("".to_string(), full_path);
             }
         } // match
-        all_paths
+        Ok(all_paths)
     }
 
     /// When called, the context should be already set to read from layouts or full metadata
-    pub fn load_metadata_for_datasets(&mut self, datasets: &[&str]) {
+    pub fn load_metadata_for_datasets(&mut self, datasets: &[&str]) -> Result<(), MdError> {
         if !self.enable_full_metadata {
             if let Some(ref data_root) = self.data_root {
                 self.settings
-                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root);
+                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root)
             } else {
-                panic!("Cannot load any metadata without a data_root or full metadata available ad the product_root.");
+                Err(metadata_error!("Cannot load any metadata without a data_root or full metadata available ad the product_root."))
             }
         } else {
-            panic!("Loading metadata from database not implemented.");
+            todo!("Loading metadata from database not implemented.");
         }
     }
 
@@ -469,11 +477,13 @@ impl Context {
 
     /// Based on name, use default data root and product root and initialize with defaults
     /// Optional data root and product root will be used if provided.
+    ///
+    /// Returns an error if the given name isn't the name of a recognized product.
     pub fn from_ipums_collection_name(
         name: &str,
         other_product_root: Option<String>,
         other_data_root: Option<String>,
-    ) -> Self {
+    ) -> Result<Self, MdError> {
         let product_root = if let Some(prod_root) = other_product_root {
             PathBuf::from(prod_root)
         } else {
@@ -487,14 +497,17 @@ impl Context {
                 .join("output_data")
                 .join("current")
         };
-        Self {
+
+        let settings = defaults::defaults_for(name)?;
+
+        Ok(Self {
             name: name.to_string(),
             product_root: Some(product_root),
             data_root: Some(data_root),
-            settings: defaults::defaults_for(name),
+            settings,
             allow_full_metadata,
             enable_full_metadata: false,
-        }
+        })
     }
 
     /*
@@ -526,7 +539,8 @@ mod test {
     pub fn test_context() {
         // Look in test directory
         let data_root = Some(String::from("test/data_root"));
-        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
 
         if let Some(ref prod_root) = usa_ctx.product_root {
             if prod_root.exists() {
@@ -556,8 +570,11 @@ mod test {
     #[test]
     pub fn test_paths_for_dataset_names() {
         let data_root = Some(String::from("test/data_root"));
-        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
-        let paths_by_rectype = usa_ctx.paths_from_dataset_name("us2015b", &InputType::Parquet);
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
+        let paths_by_rectype = usa_ctx
+            .paths_from_dataset_name("us2015b", &InputType::Parquet)
+            .expect("should be able to get paths from dataset name");
         let person_path = paths_by_rectype.get("P");
         let household_path = paths_by_rectype.get("H");
         assert!(person_path.is_some(), "should have a person type path");
@@ -568,5 +585,23 @@ mod test {
                 &p.to_string_lossy()
             );
         }
+    }
+
+    #[test]
+    fn test_micro_data_collection_default_table_name() {
+        let collection =
+            defaults::defaults_for("usa").expect("should be able to get defaults for USA");
+        let table_name = collection
+            .default_table_name("us2021a", "P")
+            .expect("should get a table name back because P is a valid record type");
+        assert_eq!(table_name, "us2021a_usa_person");
+    }
+
+    #[test]
+    fn test_micro_data_collection_default_table_name_unknown_rectype_error() {
+        let collection =
+            defaults::defaults_for("usa").expect("should be able to get defaults for USA");
+        let result = collection.default_table_name("us2021a", "Z");
+        assert!(result.is_err(), "expected an error but got {result:?}");
     }
 }

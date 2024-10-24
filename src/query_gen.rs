@@ -10,14 +10,17 @@
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
 use crate::conventions::Context;
+
 use crate::input_schema_tabulation::{self, CategoryBin};
 use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
-use crate::mderror::{self, MdError};
 use crate::request::CaseSelectLogic;
+
+use crate::mderror::{metadata_error, parsing_error, MdError};
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
 use crate::request::RequestVariable;
+
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -55,7 +58,15 @@ impl TabBuilder {
         uoa: &str,
         all_rectypes: &HashSet<String>,
     ) -> Result<String, MdError> {
-        let lhs = &self.data_sources.get(uoa).unwrap();
+        let lhs = match self.data_sources.get(uoa) {
+            Some(lhs) => lhs,
+            None => {
+                return Err(MdError::Msg(format!(
+                    "no data source for unit of analysis '{uoa}'"
+                )));
+            }
+        };
+
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
 
@@ -275,10 +286,7 @@ impl TabBuilder {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
-            Err(MdError::Msg(format!(
-                "No record type '{}' in current context.",
-                rt
-            )))
+            Err(metadata_error!("No record type '{rt}' in current context.",))
         }
     }
 }
@@ -302,10 +310,10 @@ impl DataSource {
         dataset: &str,
         input_format: &InputType,
     ) -> Result<HashMap<String, DataSource>, MdError> {
-        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
+        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format)?;
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
-            let table_alias = ctx.settings.default_table_name(dataset, rt);
+            let table_alias = ctx.settings.default_table_name(dataset, rt)?;
             let p = paths_by_rectypes.get(rt).cloned();
             let ds = DataSource::new(table_alias, p)?;
             data_sources.insert(rt.to_string(), ds);
@@ -359,7 +367,7 @@ impl DataSource {
                 Self::Parquet { name, .. } => name.to_owned(),
                 Self::Csv { name, .. } => name.to_owned(),
                 Self::NativeTable { name } => {
-                    panic!("No native table type for '{}' in DataFusion.", &name)
+                    todo!("No native table type for '{}' in DataFusion yet.", &name)
                 }
             },
         }
@@ -528,7 +536,9 @@ impl Condition {
     // A helper method to generate part of an SQL  'where' clause.
     pub fn to_sql(&self) -> String {
         if self.compare_to.len() == 1 {
-            let value = self.compare_to.get(0).unwrap();
+            // We just checked the length of compare_to, so this is safe from
+            // panics
+            let value = &self.compare_to[0];
             self.comparison.to_sql(&self.var.name, &self.lit(&value))
         } else {
             let lit_values: Vec<String> = self.compare_to.iter().map(|v| self.lit(v)).collect();

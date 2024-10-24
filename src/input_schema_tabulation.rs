@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::mderror::MdError;
+use crate::mderror::{parsing_error, MdError};
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct AbacusRequest {
@@ -181,15 +181,14 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
 
     fn try_from(value: RequestCaseSelectionRaw) -> Result<Self, Self::Error> {
         let Ok(low_code) = value.low_code.parse() else {
-            return Err(MdError::ParsingError(
-                "request_case_selections: cannot parse low_code as an unsigned integer".to_string(),
+            return Err(parsing_error!(
+                "request_case_selections: cannot parse low_code as an unsigned integer",
             ));
         };
 
         let Ok(high_code) = value.high_code.parse() else {
-            return Err(MdError::ParsingError(
+            return Err(parsing_error!(
                 "request_case_selections: cannot parse high_code as an unsigned integer"
-                    .to_string(),
             ));
         };
 
@@ -238,7 +237,7 @@ where
     D: Deserializer<'de>,
 {
     let maybe_gendet = Option::deserialize(deserializer)?;
-    Ok(maybe_gendet.unwrap_or(GeneralDetailedSelection::default()))
+    Ok(maybe_gendet.unwrap_or_default())
 }
 
 #[cfg(test)]

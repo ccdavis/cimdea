@@ -6,6 +6,7 @@
 
 use crate::conventions::*;
 use crate::ipums_data_model::*;
+use crate::mderror::MdError;
 use std::collections::HashMap;
 
 fn household() -> RecordType {
@@ -61,7 +62,7 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
 /// Get them like
 /// ```
 /// use cimdea::defaults::defaults_for;
-/// let current_settings = defaults_for("usa");
+/// let current_settings = defaults_for("usa").unwrap();
 /// ```
 ///
 ///
@@ -70,11 +71,34 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
 /// Right now we only set defaults programmatically but in future this should set some additional
 /// properties particular to products or stuff loaded in from
 // an external configuration.
-pub fn defaults_for(product: &str) -> MicroDataCollection {
+pub fn defaults_for(product: &str) -> Result<MicroDataCollection, MdError> {
     match product.to_lowercase().as_ref() {
-        "usa" => default_settings_named("USA"),
-        "cps" => default_settings_named("cps"),
-        "ipumsi" => default_settings_named("ipumsi"),
-        _ => panic!("Product not supported"),
+        "usa" => Ok(default_settings_named("USA")),
+        "cps" => Ok(default_settings_named("cps")),
+        "ipumsi" => Ok(default_settings_named("ipumsi")),
+        _ => Err(MdError::Msg(format!("Product '{product}' not supported"))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_defaults_for_usa() {
+        let result = defaults_for("usa");
+        assert!(
+            result.is_ok(),
+            "should be able to get defaults for product USA"
+        );
+    }
+
+    #[test]
+    fn test_defaults_for_unknown_product() {
+        let result = defaults_for("????");
+        assert!(
+            result.is_err(),
+            "there should not be any defaults for product '????'"
+        );
     }
 }
