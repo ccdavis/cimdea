@@ -5,6 +5,7 @@ use crate::layout;
 use crate::mderror::MdError;
 //use duckdb::arrow::datatypes::ToByteSlice;
 use ascii;
+use std::ffi::OsString;
 use std::path;
 
 const TRACE: bool = false;
@@ -28,7 +29,7 @@ impl Hflr {
     }
 
     pub fn try_new(filename: &str, selection_filter: Option<Vec<String>>) -> Result<Self, MdError> {
-        let l = layout::DatasetLayout::try_from_layout_file(path::Path::new(filename)).unwrap();
+        let l = layout::DatasetLayout::try_from_layout_file(path::Path::new(filename))?;
         // Decide how to handle problems with the selection_filter
         match selection_filter {
             None => Ok(Self {
@@ -74,7 +75,7 @@ fn dataset_from_path(fw_data_filename: &str) -> Result<String, MdError> {
 // return it if it exists. If nothing is in ../current/layouts/
 // then check the directory where the data file is, to account for
 // the -l DCP mode.
-pub fn layout_file_for(fw_file: &str) -> Result<String, MdError> {
+pub fn layout_file_for(fw_file: &str) -> Result<OsString, MdError> {
     let dataset = dataset_from_path(fw_file)?;
     let layout_filename = dataset + ".layout.txt";
 
@@ -100,9 +101,9 @@ pub fn layout_file_for(fw_file: &str) -> Result<String, MdError> {
                 &fw_data_file.display()
             )));
         }
-        Ok(local_layout_file.into_os_string().into_string().unwrap())
+        Ok(local_layout_file.into_os_string())
     } else {
-        Ok(layout_file.into_os_string().into_string().unwrap())
+        Ok(layout_file.into_os_string())
     }
 }
 
@@ -178,7 +179,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_with_variable_selections() {
         use super::*;
         let selections = vec!["AGE".to_string(), "GQ".to_string(), "SERIAL".to_string()];
