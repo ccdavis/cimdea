@@ -28,7 +28,7 @@ fn context_from_names_helper(
     optional_data_root: Option<String>,
 ) -> Result<(conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>), MdError> {
     let mut ctx =
-        conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
+        conventions::Context::from_ipums_collection_name(product, None, optional_data_root)?;
     ctx.load_metadata_for_datasets(requested_datasets)?;
 
     // Get variables from selections
@@ -394,7 +394,7 @@ impl AbacusRequest {
             &request.product,
             None,
             request.data_root.clone(),
-        );
+        )?;
 
         let requested_dataset_names: Vec<_> = request
             .request_samples
@@ -674,7 +674,8 @@ mod test {
     pub fn test_deserialize_into_simple_request() {
         let data_root = String::from("test/data_root");
         let mut ctx =
-            conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
+            conventions::Context::from_ipums_collection_name("usa", None, Some(data_root))
+                .expect("should be able to load context for USA");
 
         // Load the mentioned datasets and all their associated variables into metadata
         ctx.load_metadata_for_datasets(&["us2016c", "us2014d"])
@@ -753,7 +754,8 @@ mod test {
     #[test]
     fn test_validated_unit_of_analysis_unknown_rectype_error() {
         let context =
-            Context::from_ipums_collection_name("usa", None, Some("test/data_root".to_string()));
+            Context::from_ipums_collection_name("usa", None, Some("test/data_root".to_string()))
+                .expect("should be able to load context for USA");
         let uoa = "Z";
         assert!(
             !context.settings.record_types.contains_key(uoa),

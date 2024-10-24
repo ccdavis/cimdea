@@ -437,11 +437,7 @@ impl Context {
             }
             InputType::NativeDb => {
                 for rt in self.settings.record_types.keys() {
-                    let table: PathBuf = self
-                        .settings
-                        .default_table_name(dataset_name, rt)
-                        .unwrap()
-                        .into();
+                    let table: PathBuf = self.settings.default_table_name(dataset_name, rt)?.into();
                     all_paths.insert(rt.to_string(), table);
                 }
             }
@@ -484,11 +480,13 @@ impl Context {
 
     /// Based on name, use default data root and product root and initialize with defaults
     /// Optional data root and product root will be used if provided.
+    ///
+    /// Returns an error if the given name isn't the name of a recognized product.
     pub fn from_ipums_collection_name(
         name: &str,
         other_product_root: Option<String>,
         other_data_root: Option<String>,
-    ) -> Self {
+    ) -> Result<Self, MdError> {
         let product_root = if let Some(prod_root) = other_product_root {
             PathBuf::from(prod_root)
         } else {
@@ -502,14 +500,17 @@ impl Context {
                 .join("output_data")
                 .join("current")
         };
-        Self {
+
+        let settings = defaults::defaults_for(name)?;
+
+        Ok(Self {
             name: name.to_string(),
             product_root: Some(product_root),
             data_root: Some(data_root),
-            settings: defaults::defaults_for(name).unwrap(),
+            settings,
             allow_full_metadata,
             enable_full_metadata: false,
-        }
+        })
     }
 
     /*
@@ -541,7 +542,8 @@ mod test {
     pub fn test_context() {
         // Look in test directory
         let data_root = Some(String::from("test/data_root"));
-        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
 
         if let Some(ref prod_root) = usa_ctx.product_root {
             if prod_root.exists() {
@@ -571,7 +573,8 @@ mod test {
     #[test]
     pub fn test_paths_for_dataset_names() {
         let data_root = Some(String::from("test/data_root"));
-        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root);
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
         let paths_by_rectype = usa_ctx
             .paths_from_dataset_name("us2015b", &InputType::Parquet)
             .expect("should be able to get paths from dataset name");
