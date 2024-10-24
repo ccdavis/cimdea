@@ -10,8 +10,8 @@
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
 use crate::conventions::Context;
-use crate::input_schema_tabulation::CategoryBin;
-use crate::ipums_metadata_model::{self, IpumsDataType};
+use crate::input_schema_tabulation::{self, CategoryBin};
+use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
 use crate::mderror::{self, MdError};
 use crate::request::CaseSelectLogic;
 use crate::request::DataRequest;
@@ -141,7 +141,7 @@ impl TabBuilder {
 
         for rq in request_variables {
             // A request variable can be 'general' or 'bucketed' but not both.
-            if rq.is_general && rq.category_bins.is_some() {
+            if rq.is_general() && rq.category_bins.is_some() {
                 if rq.category_bins.as_ref().unwrap().len() > 0 {
                     let msg = format!(
                         "The variable {} can't be both a general variable and use category bins.",
@@ -150,7 +150,7 @@ impl TabBuilder {
                     return Err(MdError::Msg(msg));
                 }
             }
-            select_clause += &if !rq.is_general {
+            select_clause += &if !rq.is_general() {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             } else if rq.category_bins.is_some() {
                 self.bucket(&rq)?
@@ -388,20 +388,19 @@ pub enum CompareOperation {
 }
 
 impl CompareOperation {
-
     pub fn name(&self) -> String {
         match self {
             Self::Equal => "equal to",
-            Self::Less=> "less than",
+            Self::Less => "less than",
             Self::Between => "between",
             Self::In => "in",
             Self::Greater => "more than",
             Self::GreaterEqual => "greater or equal to",
             Self::LessEqual => "less than or equal to",
             Self::NotEqual => "not equal to",
-        }.to_string()
+        }
+        .to_string()
     }
-
 
     pub fn to_sql(&self, lhs: &str, rhs: &str) -> String {
         match self {
@@ -465,6 +464,58 @@ impl Condition {
             compare_to,
             data_type,
         })
+    }
+
+    pub fn from_request_case_selections(
+        var: &IpumsVariable,
+        rcs: &[input_schema_tabulation::RequestCaseSelection],
+    ) -> Result<Option<Self>, MdError> {
+        let data_type = if let Some(ref dt) = var.data_type {
+            dt.clone()
+        } else {
+            IpumsDataType::Integer
+        };
+        if rcs.len() == 1 {
+            if rcs[0].low_code == rcs[0].high_code {
+                Ok(Some(Self {
+                    var: var.clone(),
+                    data_type,
+                    comparison: CompareOperation::Equal,
+                    compare_to: vec![format!("{}", rcs[0].low_code)],
+                }))
+            } else {
+                Ok(Some(Self {
+                    var: var.clone(),
+                    data_type,
+                    comparison: CompareOperation::Between,
+                    compare_to: vec![
+                        format!("{}", rcs[0].low_code),
+                        format!("{}", rcs[0].high_code),
+                    ],
+                }))
+            }
+        } else if rcs.len() > 1 {
+            let mut values = Vec::new();
+            for v in rcs {
+                if v.low_code != v.high_code {
+                    // This is acase we don't expect from the client and don't currently handle
+                    let msg = format!("Can't accept a list of requested case selections where low code doesn't match high code: {} {},{}",
+                        var.name, v.low_code, v.high_code);
+                    return Err(MdError::Msg(msg));
+                } else {
+                    values.push(format!("{}", v.low_code));
+                }
+            }
+            Ok(Some(Self {
+                var: var.clone(),
+                comparison: CompareOperation::In,
+                compare_to: values,
+                data_type,
+            }))
+        } else {
+            // Empty request case selection can be fine
+            Ok(None)
+        }
     }
 
     fn lit(&self, v: &str) -> String {
@@ -539,8 +590,11 @@ mod test {
             .get_md_variable_by_name("UHRSWORK")
             .expect("Expected UHRSWORK to be in the test context.");
 
-        let mut uhrswork_rq = RequestVariable::from_ipums_variable(&uhrswork, false)
-            .expect("UHRSWORK should be in the test context.");
+        let mut uhrswork_rq = RequestVariable::from_ipums_variable(
+            &uhrswork,
+            input_schema_tabulation::GeneralDetailedSelection::Detailed,
+        )
+        .expect("UHRSWORK should be in the test context.");
 
         let mut bins = Vec::new();
         bins.push(CategoryBin::LessThan {

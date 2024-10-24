@@ -10,14 +10,13 @@ use crate::ipums_metadata_model::IpumsDataType;
 use crate::mderror::MdError;
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
-use crate::request::DataRequest;
 use crate::request::AbacusRequest;
+use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
 use duckdb::{Connection, Result};
 
 use serde::Serialize;
-
 
 #[derive(Clone, Debug)]
 pub enum TableFormat {
@@ -105,7 +104,7 @@ impl OutputColumn {
         match self {
             Self::Constructed { ref width, .. } => *width,
             Self::RequestVar(ref v) => {
-                if !v.is_general {
+                if !v.is_general() {
                     if let Some((_, wid)) = v.variable.formatting {
                         wid
                     } else {
@@ -307,19 +306,16 @@ mod test {
             .expect("Error reading test fixture in test/requests");
 
         let (ctx, rq) = AbacusRequest::from_json(&json_request)
-        .expect("Error loading test context and deserializing test request.");
+            .expect("Error loading test context and deserializing test request.");
 
-    println!("Codebook: {}", rq.print_codebook());
+        println!("Codebook: {}", rq.print_codebook());
 
-    let result = tabulate(&ctx, rq);
-    if let Err(ref e) = result {
-        eprintln!("Error setting up test: {:?}",e);
-    }
-    println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
-    assert!(result.is_ok());
-
-
-
+        let result = tabulate(&ctx, rq);
+        if let Err(ref e) = result {
+            eprintln!("Error setting up test: {:?}", e);
+        }
+        println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
+        assert!(result.is_ok());
     }
 
     #[test]

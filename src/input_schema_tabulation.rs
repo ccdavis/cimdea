@@ -18,7 +18,7 @@ pub struct AbacusRequest {
     pub request_variables: Vec<RequestVariable>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(try_from = "CategoryBinRaw", into = "CategoryBinRaw")]
 pub enum CategoryBin {
     LessThan {
@@ -37,6 +37,34 @@ pub enum CategoryBin {
         code: u64,
         label: String,
     },
+}
+
+impl Clone for CategoryBin {
+    fn clone(&self) -> Self {
+        match self {
+            Self::LessThan { code, value, label } => Self::LessThan {
+                code: *code,
+                value: *value,
+                label: label.to_string(),
+            },
+            Self::Range {
+                code,
+                label,
+                high,
+                low,
+            } => Self::Range {
+                code: *code,
+                low: *low,
+                high: *high,
+                label: label.to_string(),
+            },
+            Self::MoreThan { code, value, label } => Self::MoreThan {
+                code: *code,
+                value: *value,
+                label: label.to_string(),
+            },
+        }
+    }
 }
 
 impl TryFrom<CategoryBinRaw> for CategoryBin {
@@ -191,7 +219,7 @@ impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum GeneralDetailedSelection {
     #[serde(rename = "G")]
     General,
