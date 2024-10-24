@@ -49,7 +49,7 @@ impl From<duckdb::Error> for MdError {
 /// string, you can use `parse_error!` to get the same result with a little less
 /// typing. The arguments are those you would pass to the format! macro.
 ///
-/// `let err = parsing_error!("something wrong with variable {}", variable)`;
+/// `let err = parsing_error!("something wrong with variable {}", variable);`
 macro_rules! parsing_error {
     ($($arg:tt)*) => {
         $crate::mderror::MdError::ParsingError(format!($($arg)*))

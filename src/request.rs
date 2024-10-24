@@ -582,34 +582,39 @@ impl DataRequest for SimpleRequest {
             }
         };
 
-        let product = match parsed["product"].as_str() {
-            Some(product) => product,
-            None => return Err(parsing_error!("no 'product' in request")),
+        let Some(product) = parsed["product"].as_str() else {
+            return Err(parsing_error!("no 'product' in request"));
         };
 
-        let details = parsed["details"]
-            .as_object()
-            .expect("No 'details' in request.");
+        let Some(details) = parsed["details"].as_object() else {
+            return Err(parsing_error!("no 'details' in request"));
+        };
 
-        let request_samples = details["request_samples"]
-            .as_array()
-            .expect("Expected request_samples array.");
-        let request_variables = details["request_variables"]
-            .as_array()
-            .expect("Expected a request_variables array.");
-        let output_format = details["output_format"]
-            .as_str()
-            .expect("No 'output_format' in request.");
+        let Some(request_samples) = details["request_samples"].as_array() else {
+            return Err(parsing_error!("expected 'request_samples' array"));
+        };
 
-        let case_select_logic = details["case_select_logic"]
-            .as_str()
-            .expect("No case_select_logic in request.");
+        let Some(request_variables) = details["request_variables"].as_array() else {
+            return Err(parsing_error!("expected a request_variables array"));
+        };
+
+        let Some(output_format) = details["output_format"].as_str() else {
+            return Err(parsing_error!("no 'output_format' in request"));
+        };
+
+        let Some(case_select_logic) = details["case_select_logic"].as_str() else {
+            return Err(parsing_error!("no 'case_select_logic' in request"));
+        };
+
         let variables = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_vars = Vec::new();
-            for v in request_variables.iter() {
-                let variable_mnemonic = v["variable_mnemonic"]
-                    .as_str()
-                    .expect("No 'variable_mnemonic'");
+            for (index, v) in request_variables.iter().enumerate() {
+                let Some(variable_mnemonic) = v["variable_mnemonic"].as_str() else {
+                    return Err(parsing_error!(
+                        "no 'variable_mnemonic' for request variable {index}"
+                    ));
+                };
+
                 if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic) {
                     checked_vars.push(var_value);
                 } else {
@@ -626,8 +631,11 @@ impl DataRequest for SimpleRequest {
 
         let datasets = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_samples = Vec::new();
-            for d in request_samples.iter() {
-                let ds_name = d["name"].as_str().expect("missing sample 'name'.");
+            for (index, d) in request_samples.iter().enumerate() {
+                let Some(ds_name) = d["name"].as_str() else {
+                    return Err(parsing_error!("no 'name' for request sample {index}"));
+                };
+
                 if let Some(ipums_ds) = md.cloned_dataset_from_name(ds_name) {
                     checked_samples.push(ipums_ds);
                 } else {
@@ -645,8 +653,7 @@ impl DataRequest for SimpleRequest {
         let output_format = OutputFormat::CSV;
 
         let unit_of_analysis = None;
-        let unit_rectype =
-            validated_unit_of_analysis(&ctx, unit_of_analysis).expect("invalid unit of analysis");
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
 
         Ok(Self {
             product: product.to_string(),
