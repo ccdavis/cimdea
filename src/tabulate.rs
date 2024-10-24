@@ -230,20 +230,10 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
 
     let mut tables: Vec<Table> = Vec::new();
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
-    let conn = match Connection::open_in_memory() {
-        Ok(c) => c,
-        Err(e) => return Err(MdError::Msg(format!("{}", e))),
-    };
+    let conn = Connection::open_in_memory()?;
     for q in sql_queries {
-        let mut stmt = match conn.prepare(&q) {
-            Ok(results) => results,
-            Err(e) => return Err(MdError::Msg(format!("{}", e))),
-        };
-
-        let mut rows = match stmt.query([]) {
-            Ok(r) => r,
-            Err(e) => return Err(MdError::Msg(format!("{}", e))),
-        };
+        let mut stmt = conn.prepare(&q)?;
+        let mut rows = stmt.query([])?;
 
         let mut output = Table {
             heading: Vec::new(),
