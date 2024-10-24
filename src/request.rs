@@ -85,13 +85,17 @@ impl RequestVariable {
             if w == var.general_width {
                 1
             } else if var.general_width < w {
+                // We could avoid this unwrap() by using u32s instead of usizes
+                // during parsing and metadata loading. But as it is, this is
+                // technically a fallible conversion. It's not likely to fail
+                // with normal metadata; we'd need to overflow a u32.
                 let exponent: u32 = (w - var.general_width).try_into().unwrap();
                 let base: usize = 10;
                 base.pow(exponent)
             } else {
                 return Err(MdError::InvalidMetadata(format!(
-                    "Bad metadata, general width can't be larger than detailed width on {}",
-                    &var.name
+                    "variable {} has general width {}, which is larger than its detailed width {}",
+                    var.general_width, w, &var.name
                 )));
             }
         } else {
