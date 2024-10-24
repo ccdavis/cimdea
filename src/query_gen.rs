@@ -11,7 +11,7 @@
 //! SQL.
 use crate::conventions::Context;
 use crate::ipums_metadata_model::{self, IpumsDataType};
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
@@ -54,7 +54,15 @@ impl TabBuilder {
         uoa: &str,
         all_rectypes: &HashSet<String>,
     ) -> Result<String, MdError> {
-        let lhs = &self.data_sources.get(uoa).unwrap();
+        let lhs = match self.data_sources.get(uoa) {
+            Some(lhs) => lhs,
+            None => {
+                return Err(MdError::Msg(format!(
+                    "no data source for unit of analysis '{uoa}'"
+                )));
+            }
+        };
+
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
 
@@ -227,10 +235,7 @@ impl TabBuilder {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
-            Err(MdError::Msg(format!(
-                "No record type '{}' in current context.",
-                rt
-            )))
+            Err(metadata_error!("No record type '{rt}' in current context.",))
         }
     }
 }
@@ -254,10 +259,10 @@ impl DataSource {
         dataset: &str,
         input_format: &InputType,
     ) -> Result<HashMap<String, DataSource>, MdError> {
-        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format);
+        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format)?;
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
-            let table_alias = ctx.settings.default_table_name(dataset, rt);
+            let table_alias = ctx.settings.default_table_name(dataset, rt)?;
             let p = paths_by_rectypes.get(rt).cloned();
             let ds = DataSource::new(table_alias, p)?;
             data_sources.insert(rt.to_string(), ds);
@@ -311,7 +316,7 @@ impl DataSource {
                 Self::Parquet { name, .. } => name.to_owned(),
                 Self::Csv { name, .. } => name.to_owned(),
                 Self::NativeTable { name } => {
-                    panic!("No native table type for '{}' in DataFusion.", &name)
+                    todo!("No native table type for '{}' in DataFusion yet.", &name)
                 }
             },
         }
@@ -414,7 +419,9 @@ impl Condition {
     // A helper method to generate part of an SQL  'where' clause.
     pub fn to_sql(&self) -> String {
         if self.compare_to.len() == 1 {
-            let value = self.compare_to.get(0).unwrap();
+            // We just checked the length of compare_to, so this is safe from
+            // panics
+            let value = &self.compare_to[0];
             self.comparison.to_sql(&self.var.name, &self.lit(&value))
         } else {
             let lit_values: Vec<String> = self.compare_to.iter().map(|v| self.lit(v)).collect();
@@ -453,7 +460,7 @@ pub fn frequency(
     variable_name: &str,
     weight: Option<String>,
     divisor: Option<usize>,
-) -> String {
+) -> Result<String, MdError> {
     // frequency field will differ if we are weighting and if there's a divisor
     let freq_field: String = if let Some(w) = weight {
         if let Some(_d) = divisor {
@@ -465,16 +472,23 @@ pub fn frequency(
         "count(*)".to_string()
     } + " as frequency";
 
-    let sql = SqlBuilder::select_from(table_name)
+    let sql_result = SqlBuilder::select_from(table_name)
         .field(variable_name)
         .field(freq_field)
         .group_by(variable_name)
-        .sql()
-        .unwrap();
+        .sql();
+
+    let sql = match sql_result {
+        Ok(sql) => sql,
+        Err(err) => {
+            return Err(MdError::InvalidSQLSyntax(err.to_string()));
+        }
+    };
+
     if let Some(d) = divisor {
-        sql.bind_name(&"divisor", &d)
+        Ok(sql.bind_name(&"divisor", &d))
     } else {
-        sql
+        Ok(sql)
     }
 }
 

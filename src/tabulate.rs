@@ -7,14 +7,15 @@
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
-use duckdb::{Connection, Result};
+use duckdb::Connection;
 
+use serde::ser::Error;
 use serde::Serialize;
 
 #[derive(Clone, Debug)]
@@ -26,13 +27,13 @@ pub enum TableFormat {
 }
 
 impl TableFormat {
-    pub fn from_str(name: &str) -> Result<Self, String> {
+    pub fn from_str(name: &str) -> Result<Self, MdError> {
         let tf = match name.to_ascii_lowercase().as_str() {
             "csv" => Self::Csv,
             "json" => Self::Json,
             "text" => Self::TextTable,
             "html" => Self::Html,
-            _ => return Err("unknown format name.".to_string()),
+            _ => return Err(MdError::Msg("unknown format name.".to_string())),
         };
         Ok(tf)
     }
@@ -74,17 +75,18 @@ impl Serialize for OutputColumn {
             Self::RequestVar(ref v) => {
                 let mut ser =
                     serializer.serialize_struct_variant("OutputColumn", 1, "RequestVar", 3)?;
+                let width = v.requested_width().map_err(S::Error::custom)?;
+                let data_type = match v.variable.data_type {
+                    Some(ref data_type) => data_type.to_string(),
+                    None => {
+                        let err = metadata_error!("missing data type for variable {}", v.name);
+                        return Err(S::Error::custom(err));
+                    }
+                };
+
                 ser.serialize_field("name", &v.name)?;
-                ser.serialize_field("width", &v.requested_width().expect("Width not available."))?;
-                ser.serialize_field(
-                    "data_type",
-                    &format!(
-                        "{}",
-                        &v.variable.data_type.clone().expect(
-                            "Variables must have data types to allow serializing of table data."
-                        )
-                    ),
-                )?;
+                ser.serialize_field("width", &width)?;
+                ser.serialize_field("data_type", &data_type)?;
                 ser.end()
             }
         }
@@ -99,18 +101,18 @@ impl OutputColumn {
         }
     }
 
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> Result<usize, MdError> {
         match self {
-            Self::Constructed { ref width, .. } => *width,
+            Self::Constructed { ref width, .. } => Ok(*width),
             Self::RequestVar(ref v) => {
                 if !v.is_general {
                     if let Some((_, wid)) = v.variable.formatting {
-                        wid
+                        Ok(wid)
                     } else {
-                        panic!("Width from metadata Variable required.");
+                        Err(metadata_error!("width from metadata variable required"))
                     }
                 } else {
-                    v.variable.general_width
+                    Ok(v.variable.general_width)
                 }
             }
         }
@@ -127,28 +129,28 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn output(&self, format: TableFormat) -> String {
+    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
         match format {
             TableFormat::Html | TableFormat::Csv => {
-                panic!("Output format not implemented yet.")
+                todo!("Output format {:?} not implemented yet.", format)
             }
             TableFormat::Json => self.format_as_json(),
             TableFormat::TextTable => self.format_as_text(),
         }
     }
 
-    pub fn format_as_json(&self) -> String {
+    pub fn format_as_json(&self) -> Result<String, MdError> {
         match serde_json::to_string_pretty(&self) {
-            Ok(j) => j,
-            Err(e) => {
-                panic!("Cannot serialize result into json: {}", e);
-            }
+            Ok(j) => Ok(j),
+            Err(e) => Err(MdError::Msg(format!(
+                "Cannot serialize result into json: {e}"
+            ))),
         }
     }
 
-    pub fn format_as_text(&self) -> String {
+    pub fn format_as_text(&self) -> Result<String, MdError> {
         let mut out = String::new();
-        let widths = self.column_widths();
+        let widths = self.column_widths()?;
         for (column, _v) in self.heading.iter().enumerate() {
             let name = self.heading[column].name();
             let column_header = format!("| {n:>w$} ", n = &name, w = widths[column]);
@@ -157,7 +159,7 @@ impl Table {
         out.push_str("|\n");
         out.push_str(&format!(
             "|{:}|",
-            str::repeat(&"-", self.text_table_width() - 2)
+            str::repeat(&"-", self.text_table_width()? - 2)
         ));
         out.push_str("\n");
 
@@ -169,18 +171,18 @@ impl Table {
             }
             out.push_str("|\n");
         }
-        return out;
+        Ok(out)
     }
 
-    pub fn text_table_width(&self) -> usize {
-        1 + 3 * self.heading.len() + self.column_widths().iter().sum::<usize>()
+    pub fn text_table_width(&self) -> Result<usize, MdError> {
+        Ok(1 + 3 * self.heading.len() + self.column_widths()?.iter().sum::<usize>())
     }
 
-    fn column_widths(&self) -> Vec<usize> {
+    fn column_widths(&self) -> Result<Vec<usize>, MdError> {
         let mut widths = Vec::new();
         for (_column, var) in self.heading.iter().enumerate() {
             let name_width = var.name().len();
-            let width = var.width();
+            let width = var.width()?;
             if name_width < width {
                 widths.push(width);
             } else {
@@ -194,12 +196,12 @@ impl Table {
                         widths.push(name_width);
                     }
                 } else {
-                    panic!("Can't determine column width of data.");
+                    return Err(MdError::Msg("Can't determine column width of data.".to_string()));
                 }
             }
             */
         }
-        widths
+        Ok(widths)
     }
 
     fn width_from_data(&self, column: usize) -> Option<usize> {
@@ -228,20 +230,10 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
 
     let mut tables: Vec<Table> = Vec::new();
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
-    let conn = match Connection::open_in_memory() {
-        Ok(c) => c,
-        Err(e) => return Err(MdError::Msg(format!("{}", e))),
-    };
+    let conn = Connection::open_in_memory()?;
     for q in sql_queries {
-        let mut stmt = match conn.prepare(&q) {
-            Ok(results) => results,
-            Err(e) => return Err(MdError::Msg(format!("{}", e))),
-        };
-
-        let mut rows = match stmt.query([]) {
-            Ok(r) => r,
-            Err(e) => return Err(MdError::Msg(format!("{}", e))),
-        };
+        let mut stmt = conn.prepare(&q)?;
+        let mut rows = stmt.query([])?;
 
         let mut output = Table {
             heading: Vec::new(),
@@ -259,7 +251,7 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
         });
         output.heading.extend(requested_output_columns.clone());
 
-        while let Some(row) = rows.next().expect("Error reading row.") {
+        while let Some(row) = rows.next()? {
             let mut this_row = Vec::new();
             // Must do this here on row rather than getting column_names() from
             // stmt.column_names() because of a bug in the DuckDB API -- it
@@ -328,7 +320,11 @@ mod test {
         if let Ok(tables) = result {
             assert_eq!(1, tables.len());
             for t in tables {
-                println!("{}", t.format_as_text());
+                println!(
+                    "{}",
+                    t.format_as_text()
+                        .expect("should be able to format as text")
+                );
                 assert_eq!(18, t.rows.len());
                 assert_eq!(4, t.rows[0].len());
             }

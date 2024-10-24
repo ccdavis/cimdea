@@ -2,6 +2,7 @@
 
 pub mod conventions;
 pub mod defaults;
+pub mod fixed_width;
 pub mod input_schema_tabulation;
 pub mod ipums_data_model;
 pub mod ipums_metadata_model;
