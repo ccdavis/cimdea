@@ -15,6 +15,7 @@ use crate::request::InputType;
 use crate::request::RequestVariable;
 use duckdb::Connection;
 
+use serde::ser::Error;
 use serde::Serialize;
 
 #[derive(Clone, Debug)]
@@ -74,17 +75,19 @@ impl Serialize for OutputColumn {
             Self::RequestVar(ref v) => {
                 let mut ser =
                     serializer.serialize_struct_variant("OutputColumn", 1, "RequestVar", 3)?;
+                let width = v.requested_width().map_err(S::Error::custom)?;
+                let data_type = match v.variable.data_type {
+                    Some(ref data_type) => data_type.to_string(),
+                    None => {
+                        let err =
+                            MdError::Msg(format!("missing data type for variable {}", v.name));
+                        return Err(S::Error::custom(err));
+                    }
+                };
+
                 ser.serialize_field("name", &v.name)?;
-                ser.serialize_field("width", &v.requested_width().expect("Width not available."))?;
-                ser.serialize_field(
-                    "data_type",
-                    &format!(
-                        "{}",
-                        &v.variable.data_type.clone().expect(
-                            "Variables must have data types to allow serializing of table data."
-                        )
-                    ),
-                )?;
+                ser.serialize_field("width", &width)?;
+                ser.serialize_field("data_type", &data_type)?;
                 ser.end()
             }
         }
