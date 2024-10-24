@@ -87,9 +87,9 @@ impl DatasetLayout {
     }
 
     pub fn all_variables(&self) -> Vec<LayoutVar> {
-        self.record_types()
-            .iter()
-            .flat_map(|rt| self.for_rectype(rt).unwrap().vars.clone())
+        self.layouts
+            .values()
+            .flat_map(|record_layout| record_layout.vars.clone())
             .collect()
     }
 
@@ -242,7 +242,7 @@ mod tests {
         assert_eq!(
             h_vars + p_vars,
             339,
-            "there should be 339 total variables in the layout (6 lines are ignored due to comments)"
+            "there should be 339 total P and H variables in the layout"
         );
     }
 
@@ -319,5 +319,25 @@ mod tests {
 
         assert_eq!(h_layout.vars[0].name, "YEAR");
         assert_eq!(p_layout.vars[0].name, "AGE");
+    }
+
+    #[test]
+    fn test_dataset_layout_all_variables() {
+        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
+
+        let all_vars = layout.all_variables();
+        let all_var_names: Vec<_> = all_vars.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(all_vars.len(), 345, "there should be 339 total variables");
+        assert!(all_var_names.contains(&"AGE"), "should have P variable AGE");
+        assert!(
+            all_var_names.contains(&"METRO"),
+            "should have H variable METRO"
+        );
+        assert!(
+            all_var_names.contains(&"CORE_VERS_RELEASE_NUMBER"),
+            "should have # variable CORE_VERS_RELEASE_NUMBER"
+        );
     }
 }
