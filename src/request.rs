@@ -14,7 +14,7 @@ use crate::{
     input_schema_tabulation,
     input_schema_tabulation::{CategoryBin, GeneralDetailedSelection},
     ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
-    mderror::MdError,
+    mderror::{parsing_error, MdError},
     query_gen::Condition,
 };
 
@@ -582,7 +582,11 @@ impl DataRequest for SimpleRequest {
             }
         };
 
-        let product = parsed["product"].as_str().expect("No 'product' in request");
+        let product = match parsed["product"].as_str() {
+            Some(product) => product,
+            None => return Err(parsing_error!("no 'product' in request")),
+        };
+
         let details = parsed["details"]
             .as_object()
             .expect("No 'details' in request.");
