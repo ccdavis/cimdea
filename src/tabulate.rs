@@ -264,7 +264,7 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
         });
         output.heading.extend(requested_output_columns.clone());
 
-        while let Some(row) = rows.next().expect("Error reading row.") {
+        while let Some(row) = rows.next()? {
             let mut this_row = Vec::new();
             // Must do this here on row rather than getting column_names() from
             // stmt.column_names() because of a bug in the DuckDB API -- it
