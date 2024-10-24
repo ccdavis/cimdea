@@ -126,21 +126,21 @@ impl MicroDataCollection {
         &mut self,
         datasets: &[&str],
         data_root: &Path,
-    ) {
+    ) -> Result<(), MdError> {
         let mut md = MetadataEntities::new();
         for (index_ds, ds) in datasets.iter().enumerate() {
             let ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
             let layouts_path = data_root.to_path_buf().join("layouts");
             let layout = layout::DatasetLayout::try_from_layout_file(
                 &layouts_path.join(format!("{}.layout.txt", ds)),
-            )
-            .unwrap();
+            )?;
             for (index_v, var) in layout.all_variables().iter().enumerate() {
                 let ipums_var = IpumsVariable::from((var, index_v));
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
             }
         }
         self.metadata = Some(md);
+        Ok(())
     }
 
     /// Uses default product_root to find metadata database and load all metadata for given datasets.
@@ -460,8 +460,7 @@ impl Context {
         if !self.enable_full_metadata {
             if let Some(ref data_root) = self.data_root {
                 self.settings
-                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root);
-                Ok(())
+                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root)
             } else {
                 Err(MdError::Msg("Cannot load any metadata without a data_root or full metadata available ad the product_root.".to_string()))
             }
