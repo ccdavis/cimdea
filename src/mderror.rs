@@ -7,6 +7,7 @@ pub enum MdError {
     NotInMetadata(String),
     // The metadata itself doesn't make sense
     InvalidMetadata(String),
+    InvalidSQLSyntax(String),
     // There was an error while parsing the input JSON
     ParsingError(String),
     DuckDBError(duckdb::Error),
@@ -22,6 +23,7 @@ impl fmt::Display for MdError {
             IoError(err) => write!(f, "I/O error: {err}"),
             NotInMetadata(msg) => write!(f, "metadata error: {msg}"),
             InvalidMetadata(msg) => write!(f, "invalid metadata: {msg}"),
+            InvalidSQLSyntax(msg) => write!(f, "SQL syntax error: {msg}"),
             ParsingError(msg) => write!(f, "parsing error: {msg}"),
             DuckDBError(err) => write!(f, "DuckDB error: {err}"),
             Msg(msg) => write!(f, "{msg}"),

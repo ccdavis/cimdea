@@ -54,7 +54,15 @@ impl TabBuilder {
         uoa: &str,
         all_rectypes: &HashSet<String>,
     ) -> Result<String, MdError> {
-        let lhs = &self.data_sources.get(uoa).unwrap();
+        let lhs = match self.data_sources.get(uoa) {
+            Some(lhs) => lhs,
+            None => {
+                return Err(MdError::Msg(format!(
+                    "no data source for unit of analysis '{uoa}'"
+                )));
+            }
+        };
+
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
 
@@ -414,7 +422,9 @@ impl Condition {
     // A helper method to generate part of an SQL  'where' clause.
     pub fn to_sql(&self) -> String {
         if self.compare_to.len() == 1 {
-            let value = self.compare_to.get(0).unwrap();
+            // We just checked the length of compare_to, so this is safe from
+            // panics
+            let value = &self.compare_to[0];
             self.comparison.to_sql(&self.var.name, &self.lit(&value))
         } else {
             let lit_values: Vec<String> = self.compare_to.iter().map(|v| self.lit(v)).collect();
@@ -453,7 +463,7 @@ pub fn frequency(
     variable_name: &str,
     weight: Option<String>,
     divisor: Option<usize>,
-) -> String {
+) -> Result<String, MdError> {
     // frequency field will differ if we are weighting and if there's a divisor
     let freq_field: String = if let Some(w) = weight {
         if let Some(_d) = divisor {
@@ -465,16 +475,23 @@ pub fn frequency(
         "count(*)".to_string()
     } + " as frequency";
 
-    let sql = SqlBuilder::select_from(table_name)
+    let sql_result = SqlBuilder::select_from(table_name)
         .field(variable_name)
         .field(freq_field)
         .group_by(variable_name)
-        .sql()
-        .unwrap();
+        .sql();
+
+    let sql = match sql_result {
+        Ok(sql) => sql,
+        Err(err) => {
+            return Err(MdError::InvalidSQLSyntax(err.to_string()));
+        }
+    };
+
     if let Some(d) = divisor {
-        sql.bind_name(&"divisor", &d)
+        Ok(sql.bind_name(&"divisor", &d))
     } else {
-        sql
+        Ok(sql)
     }
 }
 
