@@ -11,7 +11,7 @@
 //! SQL.
 use crate::conventions::Context;
 use crate::ipums_metadata_model::{self, IpumsDataType};
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestSample;
@@ -235,10 +235,7 @@ impl TabBuilder {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
-            Err(MdError::NotInMetadata(format!(
-                "No record type '{}' in current context.",
-                rt
-            )))
+            Err(metadata_error!("No record type '{rt}' in current context.",))
         }
     }
 }

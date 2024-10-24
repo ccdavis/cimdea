@@ -31,7 +31,7 @@ use crate::defaults;
 use crate::ipums_data_model::*;
 use crate::ipums_metadata_model::*;
 use crate::layout;
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::request::InputType;
 
 use std::collections::HashMap;
@@ -317,17 +317,17 @@ impl MetadataEntities {
         let dataset_id = self.datasets_by_name.get(dataset_name);
         let variable_id = self.variables_by_name.get(variable_name);
         if variable_id.is_none() {
-            let msg = format!(
+            let err = metadata_error!(
                 "method connect_names() called with variable name {variable_name}, which is not in metadata"
             );
-            return Err(MdError::NotInMetadata(msg));
+            return Err(err);
         }
 
         if dataset_id.is_none() {
-            let msg = format!(
+            let err = metadata_error!(
                 "method connect_names() called with dataset name {dataset_name}, which is not in metadata"
             );
-            return Err(MdError::NotInMetadata(msg));
+            return Err(err);
         }
 
         if let (Some(did), Some(vid)) = (dataset_id, variable_id) {
@@ -384,14 +384,11 @@ impl Context {
             if let Some(var) = md.cloned_variable_from_name(name) {
                 Ok(var)
             } else {
-                Err(MdError::NotInMetadata(format!(
-                    "Variable '{}' not in loaded metadata.",
-                    name
-                )))
+                Err(metadata_error!("Variable '{name}' not in loaded metadata.",))
             }
         } else {
-            Err(MdError::Msg(
-                "No metadata loaded. Can't get variable.".to_string(),
+            Err(metadata_error!(
+                "No metadata loaded. Can't get variable '{name}'."
             ))
         }
     }
@@ -458,7 +455,7 @@ impl Context {
                 self.settings
                     .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root)
             } else {
-                Err(MdError::Msg("Cannot load any metadata without a data_root or full metadata available ad the product_root.".to_string()))
+                Err(metadata_error!("Cannot load any metadata without a data_root or full metadata available ad the product_root."))
             }
         } else {
             todo!("Loading metadata from database not implemented.");

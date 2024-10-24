@@ -7,7 +7,7 @@
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
-use crate::mderror::MdError;
+use crate::mderror::{metadata_error, MdError};
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
@@ -79,8 +79,7 @@ impl Serialize for OutputColumn {
                 let data_type = match v.variable.data_type {
                     Some(ref data_type) => data_type.to_string(),
                     None => {
-                        let err =
-                            MdError::Msg(format!("missing data type for variable {}", v.name));
+                        let err = metadata_error!("missing data type for variable {}", v.name);
                         return Err(S::Error::custom(err));
                     }
                 };
@@ -110,9 +109,7 @@ impl OutputColumn {
                     if let Some((_, wid)) = v.variable.formatting {
                         Ok(wid)
                     } else {
-                        Err(MdError::InvalidMetadata(
-                            "width from metadata variable required".to_string(),
-                        ))
+                        Err(metadata_error!("width from metadata variable required"))
                     }
                 } else {
                     Ok(v.variable.general_width)

@@ -14,7 +14,7 @@ use crate::{
     input_schema_tabulation,
     input_schema_tabulation::{CategoryBin, GeneralDetailedSelection},
     ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
-    mderror::{parsing_error, MdError},
+    mderror::{metadata_error, parsing_error, MdError},
     query_gen::Condition,
 };
 
@@ -38,10 +38,7 @@ fn context_from_names_helper(
             if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
                 loaded_vars.push(md.variables_index[*id].clone());
             } else {
-                return Err(MdError::NotInMetadata(format!(
-                    "Variable {} not in any loaded metadata.",
-                    rv
-                )));
+                return Err(metadata_error!("Variable {rv} not in any loaded metadata."));
             }
         }
         loaded_vars
@@ -55,10 +52,9 @@ fn context_from_names_helper(
             if let Some(id) = md.datasets_by_name.get(*rd) {
                 loaded_datasets.push(md.datasets_index[*id].clone());
             } else {
-                return Err(MdError::NotInMetadata(format!(
-                    "No dataset named {} found in metadata or layouts!",
-                    rd
-                )));
+                return Err(metadata_error!(
+                    "No dataset named {rd} found in metadata or layouts!"
+                ));
             }
         }
         loaded_datasets
@@ -93,10 +89,12 @@ impl RequestVariable {
                 let base: usize = 10;
                 base.pow(exponent)
             } else {
-                return Err(MdError::InvalidMetadata(format!(
+                return Err(metadata_error!(
                     "variable {} has general width {}, which is larger than its detailed width {}",
-                    var.general_width, w, &var.name
-                )));
+                    var.name,
+                    var.general_width,
+                    w
+                ));
             }
         } else {
             1
@@ -117,10 +115,10 @@ impl RequestVariable {
         if let Some((_, w)) = self.variable.formatting {
             Ok(w)
         } else {
-            Err(MdError::Msg(format!(
+            Err(metadata_error!(
                 "No width metadata available for {}",
                 self.name
-            )))
+            ))
         }
     }
 
@@ -128,10 +126,10 @@ impl RequestVariable {
         if self.is_general {
             Ok(self.variable.general_width)
         } else {
-            Err(MdError::Msg(format!(
+            Err(metadata_error!(
                 "General width not available for {}",
                 self.name
-            )))
+            ))
         }
     }
 
@@ -262,11 +260,11 @@ fn validated_unit_of_analysis(
                 .collect::<Vec<_>>();
             rectype_names.sort();
             let rectype_names = rectype_names.join(", ");
-            let msg = format!(
+            let err = metadata_error!(
                 "Record type '{uoa}' not available for use as unit of analysis; \
                  the record type is not present in the current context with record types {rectype_names}"
             );
-            return Err(MdError::NotInMetadata(msg));
+            return Err(err);
         }
     };
     Ok(unit_rectype)
@@ -413,14 +411,12 @@ impl AbacusRequest {
         let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
             u.clone()
         } else {
-            return Err(MdError::NotInMetadata(
-                "No record type for uoa.".to_string(),
-            ));
+            return Err(metadata_error!("No record type for uoa."));
         };
 
         let Some(ref md) = &ctx.settings.metadata else {
-            return Err(MdError::Msg(
-                "Insufficient metadata loaded to deserialize request.".to_string(),
+            return Err(metadata_error!(
+                "Insufficient metadata loaded to deserialize request."
             ));
         };
 
@@ -428,10 +424,7 @@ impl AbacusRequest {
         for p in request.request_samples {
             let name = p.name;
             let Some(ipums_ds) = md.cloned_dataset_from_name(&name) else {
-                return Err(MdError::NotInMetadata(format!(
-                    "No metadata for dataset named {}",
-                    &name
-                )));
+                return Err(metadata_error!("No metadata for dataset named {name}"));
             };
             rqs.push(RequestSample {
                 name: name.to_string(),
@@ -445,10 +438,9 @@ impl AbacusRequest {
             let variable_mnemonic = v.variable_mnemonic;
 
             let Some(ipums_var) = md.cloned_variable_from_name(&variable_mnemonic) else {
-                return Err(MdError::NotInMetadata(format!(
-                    "No variable named '{}' in loaded metadata.",
-                    variable_mnemonic
-                )));
+                return Err(metadata_error!(
+                    "No variable named '{variable_mnemonic}' in loaded metadata."
+                ));
             };
 
             let use_general = matches!(
@@ -618,15 +610,14 @@ impl DataRequest for SimpleRequest {
                 if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic) {
                     checked_vars.push(var_value);
                 } else {
-                    let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
-                    return Err(MdError::NotInMetadata(msg));
+                    return Err(metadata_error!(
+                        "No variable '{variable_mnemonic}' in metadata."
+                    ));
                 }
             }
             checked_vars
         } else {
-            return Err(MdError::Msg(
-                "Metadata for context not yet set up.".to_string(),
-            ));
+            return Err(metadata_error!("Metadata for context not yet set up."));
         };
 
         let datasets = if let Some(ref md) = ctx.settings.metadata {
@@ -639,15 +630,12 @@ impl DataRequest for SimpleRequest {
                 if let Some(ipums_ds) = md.cloned_dataset_from_name(ds_name) {
                     checked_samples.push(ipums_ds);
                 } else {
-                    let msg = format!("No dataset '{}' in metadata.", ds_name);
-                    return Err(MdError::NotInMetadata(msg));
+                    return Err(metadata_error!("No dataset '{ds_name}' in metadata."));
                 }
             }
             checked_samples
         } else {
-            return Err(MdError::Msg(
-                "Metadata for context not yet set up.".to_string(),
-            ));
+            return Err(metadata_error!("Metadata for context not yet set up."));
         };
 
         let output_format = OutputFormat::CSV;

@@ -3,10 +3,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum MdError {
     IoError(std::io::Error),
-    // We've requested something in the metadata that is not there
-    NotInMetadata(String),
-    // The metadata itself doesn't make sense
-    InvalidMetadata(String),
+    MetadataError(String),
     InvalidSQLSyntax(String),
     // There was an error while parsing the input JSON
     ParsingError(String),
@@ -21,8 +18,7 @@ impl fmt::Display for MdError {
 
         match self {
             IoError(err) => write!(f, "I/O error: {err}"),
-            NotInMetadata(msg) => write!(f, "metadata error: {msg}"),
-            InvalidMetadata(msg) => write!(f, "invalid metadata: {msg}"),
+            MetadataError(msg) => write!(f, "metadata error: {msg}"),
             InvalidSQLSyntax(msg) => write!(f, "SQL syntax error: {msg}"),
             ParsingError(msg) => write!(f, "parsing error: {msg}"),
             DuckDBError(err) => write!(f, "DuckDB error: {err}"),
@@ -59,6 +55,13 @@ macro_rules! parsing_error {
 }
 pub(crate) use parsing_error;
 
+macro_rules! metadata_error {
+    ($($arg:tt)*) => {
+        $crate::mderror::MdError::MetadataError(format!($($arg)*))
+    };
+}
+pub(crate) use metadata_error;
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -74,5 +77,21 @@ mod tests {
             err.to_string(),
             "parsing error: something wrong with variable AGE in dataset us2015a"
         );
+    }
+
+    #[test]
+    fn test_metadata_error_macro() {
+        let variable = "AGE";
+        let gen_width = 4;
+        let detailed_width = 3;
+
+        let err = metadata_error!(
+            "invalid widths for variable {}: general width is {} but detailed width is {}",
+            variable,
+            gen_width,
+            detailed_width,
+        );
+
+        assert_eq!(err.to_string(), "metadata error: invalid widths for variable AGE: general width is 4 but detailed width is 3");
     }
 }
