@@ -94,9 +94,9 @@ impl DatasetLayout {
     }
 
     pub fn find_variables(&self, names: &[String]) -> Vec<LayoutVar> {
-        self.record_types()
-            .iter()
-            .flat_map(|rt| self.for_rectype(rt).unwrap().filtered(names).vars)
+        self.layouts
+            .values()
+            .flat_map(|record_layout| record_layout.filtered(names).vars)
             .collect()
     }
 
@@ -221,6 +221,7 @@ impl DatasetLayout {
 mod tests {
     use super::*;
 
+    use std::collections::HashSet;
     use std::io::Cursor;
 
     fn csv_reader_from_bytes(layout_data: &[u8]) -> csv::Reader<Cursor<&[u8]>> {
@@ -339,5 +340,23 @@ mod tests {
             all_var_names.contains(&"CORE_VERS_RELEASE_NUMBER"),
             "should have # variable CORE_VERS_RELEASE_NUMBER"
         );
+    }
+
+    #[test]
+    fn test_dataset_layout_find_variables() {
+        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
+
+        let vars = layout.find_variables(&[
+            "METRO".to_string(),
+            "PERNUM".to_string(),
+            "AGE".to_string(),
+            "NOTAVAR".to_string(),
+        ]);
+        let var_names: HashSet<_> = vars.iter().map(|v| v.name.as_str()).collect();
+
+        // Any unrecognized variables (like NOTAVAR) should be left out
+        assert_eq!(var_names, ["AGE", "METRO", "PERNUM"].into());
     }
 }
