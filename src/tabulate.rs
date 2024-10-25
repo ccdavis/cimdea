@@ -19,6 +19,9 @@ use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
 
+const DEBUG: bool = true;
+
+
 #[derive(Clone, Debug)]
 pub enum TableFormat {
     Csv,
@@ -233,6 +236,7 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
     let conn = Connection::open_in_memory()?;
     for q in sql_queries {
+        if DEBUG { println!("{}", &q);}
         let mut stmt = conn.prepare(&q)?;
         let mut rows = stmt.query([])?;
 

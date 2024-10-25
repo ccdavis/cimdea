@@ -70,7 +70,7 @@ impl TabBuilder {
         let left_platform_specific_path = lhs.for_platform(&self.platform);
         let left_alias = lhs.table_name();
 
-        let mut q = format!("from {} as {}", left_platform_specific_path, left_alias);
+        let mut q = format!("{} as {}", left_platform_specific_path, left_alias);
 
         // TODO: Handle the remaining tables. Currently the connections between the joined tables are only
         // generated to connect any two tables where we have foreign and primary keys. Three or more
@@ -140,7 +140,7 @@ impl TabBuilder {
         weight_name: Option<String>,
         weight_divisor: Option<usize>,
     ) -> Result<String, MdError> {
-        let mut select_clause = "select count(*) as ct".to_string();
+        let mut select_clause = "count(*) as ct".to_string();
 
         if let Some(ref wt) = weight_name {
             select_clause += &format!(
@@ -242,9 +242,7 @@ impl TabBuilder {
             self.build_select_clause(&request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
-        // Build this from '.case_selection' on each RequestVariable or other conditions
-        let where_clause =
-            &self.build_where_clause(&conditions.unwrap_or(Vec::new()), case_select_logic)?;
+
 
         let vars_in_order = &request_variables
             .iter()
@@ -252,12 +250,22 @@ impl TabBuilder {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let group_by_clause = "group by ".to_string() + &vars_in_order;
-        let order_by_clause = "order by ".to_string() + &vars_in_order;
-        Ok(format!(
-            "{}\n{}\n{}\n{}\n{}",
-            &select_clause?, &from_clause, &where_clause, &group_by_clause, &order_by_clause
-        ))
+        let group_by_clause = vars_in_order;
+        let order_by_clause = vars_in_order;
+        if let Some(conds) = conditions {
+            let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
+            Ok(format!(
+                "select \n{}\nfrom {}\nwhere {}\ngroup by {}\norder by {}",
+                &select_clause?, &from_clause, &where_clause, &group_by_clause, &order_by_clause
+            ))
+        } else {
+            Ok(format!(
+                "select \n{}\nfrom {}\ngroup by {}\norder by {}",
+                &select_clause?, &from_clause, &group_by_clause, &order_by_clause
+            ))
+
+        }
+
     }
 
     fn get_connecting_foreign_key(
