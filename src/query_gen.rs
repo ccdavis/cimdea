@@ -200,7 +200,6 @@ impl TabBuilder {
         ctx: &Context,
         abacus_request: &impl DataRequest,
     ) -> Result<String, MdError> {
-
         let request_variables = abacus_request.get_request_variables();
         let conditions = abacus_request.get_conditions();
         let case_select_logic = abacus_request.case_select_logic();
@@ -244,7 +243,8 @@ impl TabBuilder {
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
         // Build this from '.case_selection' on each RequestVariable or other conditions
-        let where_clause = &self.build_where_clause(&conditions.unwrap_or(Vec::new()), case_select_logic)?;
+        let where_clause =
+            &self.build_where_clause(&conditions.unwrap_or(Vec::new()), case_select_logic)?;
 
         let vars_in_order = &request_variables
             .iter()
@@ -389,41 +389,60 @@ impl DataSource {
 // TODO not yet dealing with escaping string values
 #[derive(Clone, Debug)]
 pub enum CompareOperation {
-    Equal,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    NotEqual,
-    Between,
-    In,
+    Equal(String),
+    Less(String),
+    Greater(String),
+    LessEqual(String),
+    GreaterEqual(String),
+    NotEqual(String),
+    Between(String, String),
+    In(Vec<String>),
 }
 
 impl CompareOperation {
     pub fn name(&self) -> String {
         match self {
-            Self::Equal => "equal to",
-            Self::Less => "less than",
-            Self::Between => "between",
-            Self::In => "in",
-            Self::Greater => "more than",
-            Self::GreaterEqual => "greater or equal to",
-            Self::LessEqual => "less than or equal to",
-            Self::NotEqual => "not equal to",
+            Self::Equal(_) => "equal to",
+            Self::Less(_) => "less than",
+            Self::Between(_, _) => "between",
+            Self::In(_) => "in",
+            Self::Greater(_) => "more than",
+            Self::GreaterEqual(_) => "greater or equal to",
+            Self::LessEqual(_) => "less than or equal to",
+            Self::NotEqual(_) => "not equal to",
         }
         .to_string()
     }
 
-    pub fn to_sql(&self, lhs: &str, rhs: &str) -> String {
+    // Mostly to support printing codebooks
+    fn values(&self) -> Vec<String> {
         match self {
-            Self::Equal => format!("{} = {}", lhs, rhs),
-            Self::Less => format!("{} < {}", lhs, rhs),
-            Self::Greater => format!("{} > {}", lhs, rhs),
-            Self::LessEqual => format!("{} <= {}", lhs, rhs),
-            Self::GreaterEqual => format!("{} >= {}", lhs, rhs),
-            Self::NotEqual => format!("{} != {}", lhs, rhs),
-            Self::Between => format!("{} between {}", lhs, rhs),
-            Self::In => format!("{} in {}", lhs, rhs),
+            Self::Equal(rhs) => vec![rhs.to_string()],
+            Self::Less(rhs) => vec![rhs.to_string()],
+            Self::Greater(rhs) => vec![rhs.to_string()],
+            Self::LessEqual(rhs) => vec![rhs.to_string()],
+            Self::GreaterEqual(rhs) => vec![rhs.to_string()],
+            Self::NotEqual(rhs) => vec![rhs.to_string()],
+            Self::Between(rhsl, rhsr) => vec![rhsl.to_string(), rhsr.to_string()],
+            Self::In(rhs_list) => rhs_list.to_vec(),
+        }
+    }
+
+    // The human readable version of the comparison.
+    pub fn print(&self) -> String {
+        format!("{} {}", &self.name(), self.values().join(", "))
+    }
+
+    pub fn to_sql(&self, lhs: &str) -> String {
+        match self {
+            Self::Equal(rhs) => format!("{} = {}", lhs, &rhs),
+            Self::Less(rhs) => format!("{} < {}", lhs, &rhs),
+            Self::Greater(rhs) => format!("{} > {}", lhs, &rhs),
+            Self::LessEqual(rhs) => format!("{} <= {}", lhs, &rhs),
+            Self::GreaterEqual(rhs) => format!("{} >= {}", lhs, &rhs),
+            Self::NotEqual(rhs) => format!("{} != {}", lhs, &rhs),
+            Self::Between(rhsl, rhsr) => format!("{} between {} and {}", lhs, &rhsl, &rhsr),
+            Self::In(rhs_list) => format!("{} in ({})", lhs, &rhs_list.join(",")),
         }
     }
 }
@@ -431,16 +450,14 @@ impl CompareOperation {
 #[derive(Clone, Debug)]
 pub struct Condition {
     pub var: ipums_metadata_model::IpumsVariable,
-    pub comparison: CompareOperation,
-    pub compare_to: Vec<String>, // one or more values depending on context
+    pub comparison: Vec<CompareOperation>,
     pub data_type: IpumsDataType,
 }
 
 impl Condition {
     pub fn new(
         var: &ipums_metadata_model::IpumsVariable,
-        comparison: CompareOperation,
-        compare_to: Vec<String>,
+        comparison: &[CompareOperation],
     ) -> Result<Self, MdError> {
         let data_type = if let Some(ref dt) = var.data_type {
             dt.clone()
@@ -448,37 +465,16 @@ impl Condition {
             IpumsDataType::Integer
         };
 
-        // If there are multiple values the condition can only be checked with 'in' or 'between'
-        match comparison {
-            CompareOperation::Between | CompareOperation::In => {
-                if compare_to.len() < 2 {
-                    let m = format!("The Between or In comparison operations require two or more values: {}, {}", &var.name, compare_to.join(", "));
-                    return Err(MdError::Msg(m));
-                }
-            }
-            _ => {
-                if compare_to.len() > 1 {
-                    let m = format!(
-                        "The  <,=,>, <=, >=, != comparison operations only take one value: {}, {}",
-                        &var.name,
-                        compare_to.join(", ")
-                    );
-                    return Err(MdError::Msg(m));
-                }
-            }
-        }
-
         // TODO check with data type and compare_to for a  valid representation (parse  into i32 for example)
         // If values are string type add appropriate escaping and quotes (possibly)
         Ok(Self {
             var: var.clone(),
-            comparison,
-            compare_to,
+            comparison: comparison.to_vec(),
             data_type,
         })
     }
 
-    pub fn from_request_case_selections(
+    pub fn try_from_request_case_selections(
         var: &IpumsVariable,
         rcs: &[input_schema_tabulation::RequestCaseSelection],
     ) -> Result<Option<Self>, MdError> {
@@ -487,46 +483,26 @@ impl Condition {
         } else {
             IpumsDataType::Integer
         };
-        if rcs.len() == 1 {
-            if rcs[0].low_code == rcs[0].high_code {
-                Ok(Some(Self {
-                    var: var.clone(),
-                    data_type,
-                    comparison: CompareOperation::Equal,
-                    compare_to: vec![format!("{}", rcs[0].low_code)],
-                }))
-            } else {
-                Ok(Some(Self {
-                    var: var.clone(),
-                    data_type,
-                    comparison: CompareOperation::Between,
-                    compare_to: vec![
-                        format!("{}", rcs[0].low_code),
-                        format!("{}", rcs[0].high_code),
-                    ],
-                }))
-            }
-        } else if rcs.len() > 1 {
-            let mut values = Vec::new();
-            for v in rcs {
-                if v.low_code != v.high_code {
-                    // This is acase we don't expect from the client and don't currently handle
-                    let msg = format!("Can't accept a list of requested case selections where low code doesn't match high code: {} {},{}",
-                        var.name, v.low_code, v.high_code);
-                    return Err(MdError::Msg(msg));
+        let maybe_comparisons = rcs.iter()
+            .map(|cs| {
+                if cs.low_code < cs.high_code {
+                    Ok(CompareOperation::Between(format!("{}",cs.low_code), format!("{}",cs.high_code)))
+                } else if cs.low_code == cs.high_code {
+                    Ok(CompareOperation::Equal(format!("{}", cs.low_code)))
                 } else {
-                    values.push(format!("{}", v.low_code));
+                    Err(MdError::Msg((format!("Case selection low code must be lower or equal to high code on '{}': {}, {}", &var.name, cs.low_code, cs.high_code))))
                 }
-            }
+            })
+            .collect::<Result<Vec<CompareOperation>, MdError>>();
+        let comparisons = maybe_comparisons?;
+        if comparisons.len() == 0 {
+            Ok(None)
+        } else {
             Ok(Some(Self {
                 var: var.clone(),
-                comparison: CompareOperation::In,
-                compare_to: values,
+                comparison: comparisons,
                 data_type,
             }))
-        } else {
-            // Empty request case selection can be fine
-            Ok(None)
         }
     }
 
@@ -539,22 +515,11 @@ impl Condition {
 
     // A helper method to generate part of an SQL  'where' clause.
     pub fn to_sql(&self) -> String {
-        if self.compare_to.len() == 1 {
-            // We just checked the length of compare_to, so this is safe from
-            // panics
-            let value = &self.compare_to[0];
-            self.comparison.to_sql(&self.var.name, &self.lit(&value))
-        } else {
-            let lit_values: Vec<String> = self.compare_to.iter().map(|v| self.lit(v)).collect();
-
-            let rhs = match self.comparison {
-                CompareOperation::Between | CompareOperation::In => {
-                    format!("({})", &lit_values.join(","))
-                }
-                _ => format!("({})", lit_values.join(" or ")),
-            };
-            self.comparison.to_sql(&self.var.name, &rhs)
-        }
+        self.comparison
+            .iter()
+            .map(|c| format!("({})", c.to_sql(&self.var.name)))
+            .collect::<Vec<String>>()
+            .join(" or ") // by the definition of Condition, 'or' is, always correct.
     }
 }
 
@@ -674,24 +639,33 @@ else 'OTHER' end as UHRSWORK_bucketed";
 
         let cond1_age = Condition::new(
             &age_var,
-            CompareOperation::In,
-            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            &vec![CompareOperation::In(vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+            ])],
         );
 
         assert!(cond1_age.is_ok());
         let cond2_age = Condition::new(
             &age_var,
-            CompareOperation::Equal,
-            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            &vec![
+                CompareOperation::Equal("1".to_string()),
+                CompareOperation::Equal("2".to_string()),
+                CompareOperation::Equal("3".to_string()),
+            ],
         );
 
         assert!(cond2_age.is_err());
 
-        let cond3_age = Condition::new(&age_var, CompareOperation::Equal, vec!["1".to_string()]);
+        let cond3_age = Condition::new(&age_var, &vec![CompareOperation::Equal("1".to_string())]);
 
         assert!(cond3_age.is_ok());
 
-        let cond4_age = Condition::new(&age_var, CompareOperation::Between, vec!["1".to_string()]);
+        let cond4_age = Condition::new(
+            &age_var,
+            &vec![CompareOperation::Between("1".to_string(), "9".to_string())],
+        );
 
         assert!(cond4_age.is_err());
     }
@@ -725,8 +699,11 @@ else 'OTHER' end as UHRSWORK_bucketed";
 
         let cond1 = Condition::new(
             &age_var,
-            CompareOperation::In,
-            vec!["1".to_string(), "2".to_string(), "3".to_string()],
+            &vec![CompareOperation::In(vec![
+                "1".to_string(),
+                "2".to_string(),
+                "3".to_string(),
+            ])],
         )
         .expect("Condition should always be  constructed for testing.");
 
@@ -738,7 +715,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
         assert!(maybe_where_clause.is_ok());
         assert_eq!("(AGE in (1,2,3))", &maybe_where_clause.unwrap());
 
-        let cond2 = Condition::new(&gq_var, CompareOperation::Equal, vec!["1".to_string()])
+        let cond2 = Condition::new(&gq_var, &vec![CompareOperation::Equal("1".to_string())])
             .expect("Condition should always be  constructed for testing.");
 
         test_conditions.push(cond2);

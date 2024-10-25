@@ -103,8 +103,10 @@ impl RequestVariable {
         }
 
         if input_rq.case_selection {
-            rq.case_selection =
-                Condition::from_request_case_selections(&var, &input_rq.request_case_selections)?;
+            rq.case_selection = Condition::try_from_request_case_selections(
+                &var,
+                &input_rq.request_case_selections,
+            )?;
         } else {
             rq.case_selection = None;
         }
@@ -440,13 +442,12 @@ impl DataRequest for AbacusRequest {
                 lines.push(format!("Logic across variables: {}\n", logic));
 
                 for c in conditions {
-                    let compare_to_list = c.compare_to.join(", ");
-                    lines.push(format!(
-                        "{} : {} {}",
-                        &c.var.name,
-                        &c.comparison.name(),
-                        &compare_to_list
-                    ));
+                    let compare_to_list = c
+                        .comparison
+                        .iter()
+                        .map(|cs| cs.print())
+                        .collect::<Vec<String>>();
+                    lines.push(format!("{} : {}", &c.var.name, &compare_to_list.join("\n")));
                 }
             }
         }
@@ -477,7 +478,9 @@ impl DataRequest for AbacusRequest {
         )?;
         let request_variables = variables
             .iter()
-            .map(|v| RequestVariable::try_from_ipums_variable(v, GeneralDetailedSelection::Detailed))
+            .map(|v| {
+                RequestVariable::try_from_ipums_variable(v, GeneralDetailedSelection::Detailed)
+            })
             .collect::<Result<Vec<RequestVariable>, MdError>>()?;
 
         let request_samples = datasets
