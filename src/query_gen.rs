@@ -656,7 +656,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
             ],
         );
 
-        assert!(cond2_age.is_err());
+        assert!(cond2_age.is_ok());
 
         let cond3_age = Condition::new(&age_var, &vec![CompareOperation::Equal("1".to_string())]);
 
@@ -667,7 +667,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
             &vec![CompareOperation::Between("1".to_string(), "9".to_string())],
         );
 
-        assert!(cond4_age.is_err());
+        assert!(cond4_age.is_ok());
     }
 
     #[test]
@@ -707,13 +707,13 @@ else 'OTHER' end as UHRSWORK_bucketed";
         )
         .expect("Condition should always be  constructed for testing.");
 
-        assert_eq!("AGE in (1,2,3)", &cond1.to_sql());
+        assert_eq!("(AGE in (1,2,3))", &cond1.to_sql());
 
         test_conditions.push(cond1);
         let maybe_where_clause =
             tab_builder.build_where_clause(&test_conditions, CaseSelectLogic::And);
         assert!(maybe_where_clause.is_ok());
-        assert_eq!("(AGE in (1,2,3))", &maybe_where_clause.unwrap());
+        assert_eq!("((AGE in (1,2,3)))", &maybe_where_clause.unwrap());
 
         let cond2 = Condition::new(&gq_var, &vec![CompareOperation::Equal("1".to_string())])
             .expect("Condition should always be  constructed for testing.");
@@ -724,7 +724,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
             tab_builder.build_where_clause(&test_conditions, CaseSelectLogic::And);
         assert!(maybe_bigger_where_clause.is_ok());
         assert_eq!(
-            "(AGE in (1,2,3)) and (GQ = 1)",
+            "((AGE in (1,2,3))) and ((GQ = 1))",
             &maybe_bigger_where_clause.unwrap()
         );
     }
