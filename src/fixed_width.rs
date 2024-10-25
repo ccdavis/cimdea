@@ -114,22 +114,22 @@ pub fn left_pad_in_place(
     replace: ascii::AsciiChar,
     replace_with: ascii::AsciiChar,
 ) {
-    const negative_sign: u8 = b'-';
+    const NEGATIVE_SIGN: u8 = b'-';
 
     let mut pos = 0;
     loop {
         if code[pos] == replace {
             code[pos] = replace_with.as_byte();
         }
-        if pos > 0 && code[pos] == negative_sign {
-            code[0] = negative_sign;
+        if pos > 0 && code[pos] == NEGATIVE_SIGN {
+            code[0] = NEGATIVE_SIGN;
             code[pos] = replace_with.as_byte();
         }
         pos += 1;
         if pos == code.len() {
             break;
         }
-        if code[pos] != replace && code[pos] != negative_sign {
+        if code[pos] != replace && code[pos] != NEGATIVE_SIGN {
             break;
         }
     }

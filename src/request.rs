@@ -94,7 +94,7 @@ impl RequestVariable {
         input_rq: input_schema_tabulation::RequestVariable,
     ) -> Result<Self, MdError> {
         let var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
-        let mut rq = Self::from_ipums_variable(&var, input_rq.general_detailed_selection)?;
+        let mut rq = Self::try_from_ipums_variable(&var, input_rq.general_detailed_selection)?;
 
         // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
         // we pass Some() then we're asking to over-ride anything coming from context.
@@ -112,7 +112,7 @@ impl RequestVariable {
         Ok(rq)
     }
 
-    pub fn from_ipums_variable(
+    pub fn try_from_ipums_variable(
         var: &IpumsVariable,
         use_general: GeneralDetailedSelection,
     ) -> Result<Self, MdError> {
@@ -477,7 +477,7 @@ impl DataRequest for AbacusRequest {
         )?;
         let request_variables = variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v, GeneralDetailedSelection::Detailed))
+            .map(|v| RequestVariable::try_from_ipums_variable(v, GeneralDetailedSelection::Detailed))
             .collect::<Result<Vec<RequestVariable>, MdError>>()?;
 
         let request_samples = datasets
@@ -515,7 +515,7 @@ impl AbacusRequest {
     /// request_samples: [...],
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
-    pub fn from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
+    pub fn try_from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
         let request: input_schema_tabulation::AbacusRequest = match serde_json::from_str(input) {
             Ok(request) => request,
             Err(err) => {
@@ -673,7 +673,7 @@ impl DataRequest for SimpleRequest {
         self.variables
             .iter()
             .map(|v| {
-                RequestVariable::from_ipums_variable(v, self.use_general_variables.clone())
+                RequestVariable::try_from_ipums_variable(v, self.use_general_variables.clone())
                     .expect("Broken metadata.")
             })
             .collect()
@@ -878,7 +878,7 @@ mod test {
         let json_request = fs::read_to_string("test/requests/usa_abacus_request.json")
             .expect("Error reading test fixture in test/requests");
 
-        let abacus_request = AbacusRequest::from_json(&json_request);
+        let abacus_request = AbacusRequest::try_from_json(&json_request);
         match abacus_request {
             Err(ref e) => eprintln!("Error was '{}'", e),
             _ => (),
@@ -923,7 +923,7 @@ mod test {
         };
 
         let result =
-            RequestVariable::from_ipums_variable(&variable, GeneralDetailedSelection::General);
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General);
         assert!(result.is_err(), "expected an error but got {result:?}");
     }
 
@@ -943,7 +943,7 @@ mod test {
         };
 
         let rqv =
-            RequestVariable::from_ipums_variable(&variable, GeneralDetailedSelection::General)
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
                 .expect("should convert into a RequestVariable");
         assert_eq!(
             rqv.general_divisor, 100,
@@ -967,7 +967,7 @@ mod test {
         };
 
         let rqv =
-            RequestVariable::from_ipums_variable(&variable, GeneralDetailedSelection::General)
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
                 .expect("should convert into a RequestVariable");
         assert_eq!(
             rqv.general_divisor, 1,
@@ -991,7 +991,7 @@ mod test {
         };
 
         let rqv =
-            RequestVariable::from_ipums_variable(&variable, GeneralDetailedSelection::General)
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
                 .expect("should convert into a RequestVariable");
         assert_eq!(
             rqv.general_divisor, 1,

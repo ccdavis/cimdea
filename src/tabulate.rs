@@ -297,7 +297,7 @@ mod test {
         let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
             .expect("Error reading test fixture in test/requests");
 
-        let (ctx, rq) = AbacusRequest::from_json(&json_request)
+        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
             .expect("Error loading test context and deserializing test request.");
 
         println!("Codebook: {}", rq.print_codebook());

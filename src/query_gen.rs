@@ -198,9 +198,13 @@ impl TabBuilder {
     pub fn make_query(
         &self,
         ctx: &Context,
-        request_variables: &[RequestVariable],
-        request_sample: &RequestSample,
+        abacus_request: &impl DataRequest,
     ) -> Result<String, MdError> {
+
+        let request_variables = abacus_request.get_request_variables();
+        let conditions = abacus_request.get_conditions();
+        let case_select_logic = abacus_request.case_select_logic();
+
         if request_variables.len() == 0 {
             return Err(MdError::Msg(
                 "Must supply at least one request variable.".to_string(),
@@ -236,11 +240,11 @@ impl TabBuilder {
         let weight_divisor = ctx.settings.weight_divisor(&uoa);
 
         let select_clause =
-            self.build_select_clause(request_variables, weight_name, weight_divisor);
-        let from_clause = &self.build_from_clause(ctx, &request_sample.name, &uoa, &rectypes)?;
+            self.build_select_clause(&request_variables, weight_name, weight_divisor);
+        let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
         // Build this from '.case_selection' on each RequestVariable or other conditions
-        let mut where_clause = "".to_string();
+        let where_clause = &self.build_where_clause(&conditions.unwrap_or(Vec::new()), case_select_logic)?;
 
         let vars_in_order = &request_variables
             .iter()
@@ -566,7 +570,7 @@ pub fn tab_queries(
     let mut queries = Vec::new();
     for dataset in request.get_request_samples() {
         let tb = TabBuilder::new(ctx, &dataset.name, platform, input_format)?;
-        let q = tb.make_query(ctx, &request.get_request_variables(), &dataset)?;
+        let q = tb.make_query(ctx, &request)?;
         queries.push(q);
     }
     Ok(queries)
@@ -600,7 +604,7 @@ mod test {
             .get_md_variable_by_name("UHRSWORK")
             .expect("Expected UHRSWORK to be in the test context.");
 
-        let mut uhrswork_rq = RequestVariable::from_ipums_variable(
+        let mut uhrswork_rq = RequestVariable::try_from_ipums_variable(
             &uhrswork,
             input_schema_tabulation::GeneralDetailedSelection::Detailed,
         )
