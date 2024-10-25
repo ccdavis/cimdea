@@ -130,7 +130,7 @@ impl TabBuilder {
             .join("\n");
         sql.push_str(&cases);
         sql.push_str("\nelse 'OTHER' end ");
-        sql.push_str(&format!("as {}_bucketed", &rq.name));
+        sql.push_str(&format!(" as {}_bucketed", &rq.name));
         Ok(sql)
     }
 
@@ -161,15 +161,15 @@ impl TabBuilder {
                     return Err(MdError::Msg(msg));
                 }
             }
-            select_clause += &if !rq.is_general() {
-                format!(", {} as {}", &rq.variable.name, &rq.name)
-            } else if rq.category_bins.is_some() {
-                self.bucket(&rq)?
-            } else {
+            select_clause += &if rq.is_general() {
                 format!(
                     ", {}/{} as {}",
                     &rq.variable.name, &rq.general_divisor, &rq.name
                 )
+            } else if rq.category_bins.is_some() {
+                format!(", {} ", &self.bucket(&rq)?)
+            } else {
+                format!(", {} as {}", &rq.variable.name, &rq.name)
             };
         }
 
@@ -242,8 +242,6 @@ impl TabBuilder {
             self.build_select_clause(&request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
-
-
         let vars_in_order = &request_variables
             .iter()
             .map(|v| v.name.clone())
@@ -263,9 +261,7 @@ impl TabBuilder {
                 "select \n{}\nfrom {}\ngroup by {}\norder by {}",
                 &select_clause?, &from_clause, &group_by_clause, &order_by_clause
             ))
-
         }
-
     }
 
     fn get_connecting_foreign_key(

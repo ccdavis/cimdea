@@ -21,7 +21,6 @@ use serde::Serialize;
 
 const DEBUG: bool = true;
 
-
 #[derive(Clone, Debug)]
 pub enum TableFormat {
     Csv,
@@ -221,7 +220,7 @@ impl Table {
 }
 
 /// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
-/// the request.Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
+/// the request. Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
@@ -236,7 +235,9 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
     let conn = Connection::open_in_memory()?;
     for q in sql_queries {
-        if DEBUG { println!("{}", &q);}
+        if DEBUG {
+            println!("{}", &q);
+        }
         let mut stmt = conn.prepare(&q)?;
         let mut rows = stmt.query([])?;
 
@@ -312,6 +313,13 @@ mod test {
         }
         println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
         assert!(result.is_ok());
+        if let Ok(tables) = result {
+            for table in tables {
+                if let Ok(o) = table.output(TableFormat::TextTable) {
+                    println!("{}", &o);
+                }
+            }
+        }
     }
 
     #[test]
