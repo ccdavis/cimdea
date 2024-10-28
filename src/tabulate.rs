@@ -132,25 +132,6 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
-        match format {
-            TableFormat::Html | TableFormat::Csv => {
-                todo!("Output format {:?} not implemented yet.", format)
-            }
-            TableFormat::Json => self.format_as_json(),
-            TableFormat::TextTable => self.format_as_text(),
-        }
-    }
-
-    pub fn format_as_json(&self) -> Result<String, MdError> {
-        match serde_json::to_string_pretty(&self) {
-            Ok(j) => Ok(j),
-            Err(e) => Err(MdError::Msg(format!(
-                "Cannot serialize result into json: {e}"
-            ))),
-        }
-    }
-
     pub fn format_as_text(&self) -> Result<String, MdError> {
         let mut out = String::new();
         let widths = self.column_widths()?;
@@ -216,6 +197,36 @@ impl Table {
             rows: Vec::new(),
             heading: Vec::new(),
         }
+    }
+}
+
+pub struct Tabulation(pub Vec<Table>);
+
+impl Tabulation {
+    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
+        let output = match format {
+            TableFormat::Html | TableFormat::Csv => {
+                todo!("Output format {:?} not implemented yet.", format)
+            }
+            TableFormat::Json => match serde_json::to_string_pretty(&self.0) {
+                Ok(output) => output,
+                Err(err) => {
+                    return Err(MdError::Msg(format!(
+                        "Cannot serialize result into json: {err}"
+                    )));
+                }
+            },
+            TableFormat::TextTable => {
+                let mut output = String::new();
+                for table in &self.0 {
+                    let table_text = table.format_as_text()?;
+                    output.push_str(&format!("{table_text}\n"));
+                }
+                output
+            }
+        };
+
+        Ok(output)
     }
 }
 

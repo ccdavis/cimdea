@@ -1,10 +1,8 @@
 use std::io::{self, BufRead, Write};
 
 use cimdea::conventions::Context;
-use cimdea::mderror::MdError;
 use cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
-use cimdea::tabulate;
-use cimdea::tabulate::{Table, TableFormat};
+use cimdea::tabulate::{self, TableFormat, Tabulation};
 
 use clap::{Args, Parser, Subcommand};
 
@@ -29,22 +27,6 @@ fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
         }
         Ok((ctx, ar)) => (ctx, ar),
     }
-}
-
-fn write_tables(
-    writer: &mut dyn Write,
-    tables: Vec<Table>,
-    table_format: TableFormat,
-) -> Result<(), MdError> {
-    write!(writer, "[\n")?;
-    for (table_number, table) in tables.iter().enumerate() {
-        if table_number > 0 {
-            write!(writer, ",")?;
-        }
-        write!(writer, "{}", table.output(table_format)?)?;
-    }
-    write!(writer, "\n]\n")?;
-    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -131,7 +113,9 @@ fn main() {
                 Some(file) => Box::new(std::fs::File::create(file).unwrap()),
             };
 
-            write_tables(&mut writer, tables, args.format).expect("could not write output");
+            let tab = Tabulation(tables);
+            let output = tab.output(args.format).unwrap();
+            write!(writer, "{}\n", output).unwrap();
         }
         Err(e) => {
             eprintln!("Error trying to tabulate: {}", &e);
