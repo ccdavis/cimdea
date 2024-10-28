@@ -35,10 +35,15 @@ struct CliRequest {
     command: CliCommand,
 
     #[arg(short, long, default_value = "file")]
-    pub input: String,
+    input: String,
 
-    #[arg(short, long, default_value = "stdout")]
-    pub output: String,
+    /// The path to an output file [default: write to stdout]
+    #[arg(short, long, global = true)]
+    output: Option<String>,
+
+    /// The output format [default: text for tab, JSON for request]
+    #[arg(short, long, global = true)]
+    format: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
