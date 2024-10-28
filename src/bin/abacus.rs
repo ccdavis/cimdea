@@ -3,7 +3,7 @@ use std::io::{self, BufRead, Write};
 
 use cimdea::conventions::Context;
 use cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
-use cimdea::tabulate::{self, TableFormat, Tabulation};
+use cimdea::tabulate::{self, TableFormat};
 
 use clap::{Args, Parser, Subcommand};
 
@@ -107,36 +107,36 @@ fn main() {
         }
     };
 
-    match tabulate::tabulate(&context, request.as_ref()) {
-        Ok(tab) => {
-            let mut writer: Box<dyn Write> = match args.output {
-                None => Box::new(std::io::stdout()),
-                Some(file) => {
-                    let file = match File::create(file) {
-                        Ok(file) => file,
-                        Err(err) => {
-                            eprintln!("Error while creating output file: {err}");
-                            std::process::exit(1);
-                        }
-                    };
-                    Box::new(file)
-                }
-            };
+    let tab = match tabulate::tabulate(&context, request.as_ref()) {
+        Ok(tab) => tab,
+        Err(err) => {
+            eprintln!("Error trying to tabulate: {err}");
+            std::process::exit(1);
+        }
+    };
 
-            let output = match tab.output(args.format) {
-                Ok(output) => output,
-                Err(err) => {
-                    eprintln!("Error while formatting output: {err}");
-                    std::process::exit(1);
-                }
-            };
-            if let Err(err) = write!(writer, "{}\n", output) {
-                eprintln!("Error while writing output: {err}");
+    let output = match tab.output(args.format) {
+        Ok(output) => output,
+        Err(err) => {
+            eprintln!("Error while formatting output: {err}");
+            std::process::exit(1);
+        }
+    };
+
+    if let Some(file_name) = args.output {
+        let mut file = match File::create(file_name) {
+            Ok(file) => file,
+            Err(err) => {
+                eprintln!("Error while creating output file: {err}");
                 std::process::exit(1);
             }
+        };
+
+        if let Err(err) = writeln!(file, "{output}") {
+            eprintln!("Error while writing output: {err}");
+            std::process::exit(1);
         }
-        Err(e) => {
-            eprintln!("Error trying to tabulate: {}", &e);
-        }
+    } else {
+        println!("{output}");
     }
 }
