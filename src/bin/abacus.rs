@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{self, BufRead, Write};
 
-use cimdea::conventions::Context;
 use cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
 use cimdea::tabulate::{self, TableFormat};
 
@@ -10,14 +9,13 @@ use clap::{Args, Parser, Subcommand};
 fn get_from_stdin() -> String {
     let stdin = io::stdin();
     let lines = stdin.lock().lines();
-    let data = match lines.collect::<Result<Vec<String>, _>>() {
+    match lines.collect::<Result<Vec<String>, _>>() {
         Ok(lns) => lns.join("\n"),
         Err(ref e) => {
             eprintln!("Error reading from STDIN: '{}'", e);
             std::process::exit(1);
         }
-    };
-    data
+    }
 }
 
 #[derive(Parser, Debug)]
