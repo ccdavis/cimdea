@@ -48,7 +48,7 @@ fn main() {
         None,
         None,
     ) {
-        Ok((context, rq)) => match tabulate::tabulate(&context, rq) {
+        Ok((context, rq)) => match tabulate::tabulate(&context, &rq) {
             Ok(tables) => {
                 for table in tables {
                     println!(

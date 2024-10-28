@@ -1,7 +1,7 @@
 use std::io::{self, BufRead};
 
 use cimdea::conventions::Context;
-use cimdea::request::AbacusRequest;
+use cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
 use cimdea::tabulate;
 use cimdea::tabulate::TableFormat;
 
@@ -73,9 +73,12 @@ fn main() {
     let args = CliRequest::parse();
     let table_format = args.format;
 
-    let (context, request) = match args.command {
+    let (context, request): (_, Box<dyn DataRequest>) = match args.command {
         CliCommand::Request(request_args) => match request_args.input_file {
-            None => abacus_request_from_str(&get_from_stdin()),
+            None => {
+                let (context, request) = abacus_request_from_str(&get_from_stdin());
+                (context, Box::new(request))
+            }
             Some(file) => {
                 let json = match std::fs::read_to_string(&file) {
                     Ok(j) => j,
@@ -84,13 +87,30 @@ fn main() {
                         std::process::exit(1);
                     }
                 };
-                abacus_request_from_str(&json)
+                let (context, request) = abacus_request_from_str(&json);
+                (context, Box::new(request))
             }
         },
-        CliCommand::Tab(_) => todo!(),
+        CliCommand::Tab(tab_args) => {
+            let variables: Vec<_> = tab_args.variables.iter().map(|v| v.as_str()).collect();
+            match SimpleRequest::from_names(
+                &tab_args.product,
+                &[&tab_args.sample],
+                variables.as_slice(),
+                None,
+                None,
+                None,
+            ) {
+                Ok((context, request)) => (context, Box::new(request)),
+                Err(err) => {
+                    eprintln!("Error: {err}");
+                    std::process::exit(1);
+                }
+            }
+        }
     };
 
-    match tabulate::tabulate(&context, request) {
+    match tabulate::tabulate(&context, request.as_ref()) {
         Ok(tables) => {
             // Print a JSON array and separate table objects with ',' if more than one in
             // the output.

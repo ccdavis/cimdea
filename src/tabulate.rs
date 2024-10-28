@@ -224,8 +224,8 @@ impl Table {
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdError> {
-    let requested_output_columns = &rq
+pub fn tabulate(ctx: &Context, rq: &dyn DataRequest) -> Result<Vec<Table>, MdError> {
+    let requested_output_columns = rq
         .get_request_variables()
         .iter()
         .map(|v| OutputColumn::RequestVar(v.clone()))
@@ -313,7 +313,7 @@ mod test {
 
         let tabtime = Instant::now();
 
-        let result = tabulate(&ctx, rq);
+        let result = tabulate(&ctx, &rq);
         println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
         if let Err(ref e) = result {
             println!("{}", e);

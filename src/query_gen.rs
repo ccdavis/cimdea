@@ -442,7 +442,7 @@ impl Condition {
 // You can accomplish the same thing by combining the results of each query.
 pub fn tab_queries(
     ctx: &Context,
-    request: impl DataRequest,
+    request: &dyn DataRequest,
     input_format: &InputType,
     platform: &DataPlatform,
 ) -> Result<Vec<String>, MdError> {
@@ -608,7 +608,7 @@ mod test {
         )
         .unwrap();
 
-        let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
+        let queries = tab_queries(&ctx, &rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
             // print the error whatever it is.
             Err(ref e) => {
