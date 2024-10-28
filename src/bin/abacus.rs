@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::{self, BufRead, Write};
 
 use cimdea::conventions::Context;
@@ -107,15 +108,32 @@ fn main() {
     };
 
     match tabulate::tabulate(&context, request.as_ref()) {
-        Ok(tables) => {
+        Ok(tab) => {
             let mut writer: Box<dyn Write> = match args.output {
                 None => Box::new(std::io::stdout()),
-                Some(file) => Box::new(std::fs::File::create(file).unwrap()),
+                Some(file) => {
+                    let file = match File::create(file) {
+                        Ok(file) => file,
+                        Err(err) => {
+                            eprintln!("Error while creating output file: {err}");
+                            std::process::exit(1);
+                        }
+                    };
+                    Box::new(file)
+                }
             };
 
-            let tab = Tabulation(tables);
-            let output = tab.output(args.format).unwrap();
-            write!(writer, "{}\n", output).unwrap();
+            let output = match tab.output(args.format) {
+                Ok(output) => output,
+                Err(err) => {
+                    eprintln!("Error while formatting output: {err}");
+                    std::process::exit(1);
+                }
+            };
+            if let Err(err) = write!(writer, "{}\n", output) {
+                eprintln!("Error while writing output: {err}");
+                std::process::exit(1);
+            }
         }
         Err(e) => {
             eprintln!("Error trying to tabulate: {}", &e);

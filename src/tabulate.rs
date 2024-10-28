@@ -228,6 +228,10 @@ impl Tabulation {
 
         Ok(output)
     }
+
+    pub fn into_inner(self) -> Vec<Table> {
+        self.0
+    }
 }
 
 /// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
@@ -235,7 +239,7 @@ impl Tabulation {
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-pub fn tabulate(ctx: &Context, rq: &dyn DataRequest) -> Result<Vec<Table>, MdError> {
+pub fn tabulate(ctx: &Context, rq: &dyn DataRequest) -> Result<Tabulation, MdError> {
     let requested_output_columns = rq
         .get_request_variables()
         .iter()
@@ -289,7 +293,7 @@ pub fn tabulate(ctx: &Context, rq: &dyn DataRequest) -> Result<Vec<Table>, MdErr
         tables.push(output);
     }
 
-    Ok(tables)
+    Ok(Tabulation(tables))
 }
 
 mod test {
@@ -331,7 +335,8 @@ mod test {
         }
 
         assert!(result.is_ok(), "Should have tabulated.");
-        if let Ok(tables) = result {
+        if let Ok(tab) = result {
+            let tables = tab.into_inner();
             assert_eq!(1, tables.len());
             for t in tables {
                 println!(
