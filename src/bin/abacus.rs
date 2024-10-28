@@ -71,26 +71,23 @@ struct RequestArgs {
 
 fn main() {
     let args = CliRequest::parse();
-    let table_format = args.format;
 
     let (context, request): (_, Box<dyn DataRequest>) = match args.command {
-        CliCommand::Request(request_args) => match request_args.input_file {
-            None => {
-                let (context, request) = abacus_request_from_str(&get_from_stdin());
-                (context, Box::new(request))
-            }
-            Some(file) => {
-                let json = match std::fs::read_to_string(&file) {
+        CliCommand::Request(request_args) => {
+            let input = match request_args.input_file {
+                None => get_from_stdin(),
+                Some(file) => match std::fs::read_to_string(&file) {
                     Ok(j) => j,
                     Err(e) => {
                         eprintln!("Can't access Abacus request file: '{}'", e);
                         std::process::exit(1);
                     }
-                };
-                let (context, request) = abacus_request_from_str(&json);
-                (context, Box::new(request))
-            }
-        },
+                },
+            };
+
+            let (context, request) = abacus_request_from_str(&input);
+            (context, Box::new(request))
+        }
         CliCommand::Tab(tab_args) => {
             let variables: Vec<_> = tab_args.variables.iter().map(|v| v.as_str()).collect();
             match SimpleRequest::from_names(
@@ -103,7 +100,7 @@ fn main() {
             ) {
                 Ok((context, request)) => (context, Box::new(request)),
                 Err(err) => {
-                    eprintln!("Error: {err}");
+                    eprintln!("Error while setting up tabulation: {err}");
                     std::process::exit(1);
                 }
             }
@@ -122,7 +119,7 @@ fn main() {
                 println!(
                     "{}",
                     table
-                        .output(table_format.clone())
+                        .output(args.format)
                         .expect("error while writing output")
                 );
             }

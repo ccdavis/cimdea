@@ -19,7 +19,7 @@ use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub enum TableFormat {
     Csv,
     Html,
