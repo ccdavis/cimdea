@@ -20,16 +20,6 @@ fn get_from_stdin() -> String {
     data
 }
 
-fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
-    match AbacusRequest::from_json(rq) {
-        Err(e) => {
-            eprintln!("Error parsing input JSON: '{}'", &e);
-            std::process::exit(1);
-        }
-        Ok((ctx, ar)) => (ctx, ar),
-    }
-}
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct CliRequest {
@@ -72,25 +62,31 @@ struct RequestArgs {
 fn main() {
     let args = CliRequest::parse();
 
-    let (context, request): (_, Box<dyn DataRequest>) = match args.command {
+    let result = match args.command {
         CliCommand::Request(request_args) => {
             let input = match request_args.input_file {
                 None => get_from_stdin(),
                 Some(file) => match std::fs::read_to_string(&file) {
                     Ok(j) => j,
-                    Err(e) => {
-                        eprintln!("Can't access Abacus request file: '{}'", e);
+                    Err(err) => {
+                        eprintln!("Can't access Abacus request file: {err}");
                         std::process::exit(1);
                     }
                 },
             };
 
-            let (context, request) = abacus_request_from_str(&input);
-            (context, Box::new(request))
+            let (context, request) = match AbacusRequest::from_json(&input) {
+                Ok(data) => data,
+                Err(err) => {
+                    eprintln!("Error parsing input JSON: {err}");
+                    std::process::exit(1);
+                }
+            };
+            tabulate::tabulate(&context, &request)
         }
         CliCommand::Tab(tab_args) => {
             let variables: Vec<_> = tab_args.variables.iter().map(|v| v.as_str()).collect();
-            match SimpleRequest::from_names(
+            let (context, request) = match SimpleRequest::from_names(
                 &tab_args.product,
                 &[&tab_args.sample],
                 variables.as_slice(),
@@ -98,16 +94,17 @@ fn main() {
                 None,
                 None,
             ) {
-                Ok((context, request)) => (context, Box::new(request)),
+                Ok(data) => data,
                 Err(err) => {
                     eprintln!("Error while setting up tabulation: {err}");
                     std::process::exit(1);
                 }
-            }
+            };
+            tabulate::tabulate(&context, &request)
         }
     };
 
-    let tab = match tabulate::tabulate(&context, request.as_ref()) {
+    let tab = match result {
         Ok(tab) => tab,
         Err(err) => {
             eprintln!("Error trying to tabulate: {err}");
