@@ -1,9 +1,10 @@
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Write};
 
 use cimdea::conventions::Context;
+use cimdea::mderror::MdError;
 use cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
 use cimdea::tabulate;
-use cimdea::tabulate::TableFormat;
+use cimdea::tabulate::{Table, TableFormat};
 
 use clap::{Args, Parser, Subcommand};
 
@@ -28,6 +29,22 @@ fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
         }
         Ok((ctx, ar)) => (ctx, ar),
     }
+}
+
+fn write_tables(
+    writer: &mut dyn Write,
+    tables: Vec<Table>,
+    table_format: TableFormat,
+) -> Result<(), MdError> {
+    write!(writer, "[\n")?;
+    for (table_number, table) in tables.iter().enumerate() {
+        if table_number > 0 {
+            write!(writer, ",")?;
+        }
+        write!(writer, "{}", table.output(table_format)?)?;
+    }
+    write!(writer, "\n]\n")?;
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -109,21 +126,12 @@ fn main() {
 
     match tabulate::tabulate(&context, request.as_ref()) {
         Ok(tables) => {
-            // Print a JSON array and separate table objects with ',' if more than one in
-            // the output.
-            println!("[\n");
-            for (table_number, table) in tables.iter().enumerate() {
-                if table_number > 0 {
-                    println!(",");
-                }
-                println!(
-                    "{}",
-                    table
-                        .output(args.format)
-                        .expect("error while writing output")
-                );
-            }
-            println!("\n]\n");
+            let mut writer: Box<dyn Write> = match args.output {
+                None => Box::new(std::io::stdout()),
+                Some(file) => Box::new(std::fs::File::create(file).unwrap()),
+            };
+
+            write_tables(&mut writer, tables, args.format).expect("could not write output");
         }
         Err(e) => {
             eprintln!("Error trying to tabulate: {}", &e);
