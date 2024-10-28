@@ -200,6 +200,10 @@ impl RequestVariable {
     pub fn variable_name(&self) -> String {
         self.variable.name.clone()
     }
+
+    pub fn is_bucketed(&self) -> bool {
+        self.category_bins.is_some()
+    }
 }
 
 #[derive(Clone, Debug)]

@@ -152,7 +152,7 @@ impl TabBuilder {
 
         for rq in request_variables {
             // A request variable can be 'general' or 'bucketed' but not both.
-            if rq.is_general() && rq.category_bins.is_some() {
+            if rq.is_general() && rq.is_bucketed() {
                 if rq.category_bins.as_ref().unwrap().len() > 0 {
                     let msg = format!(
                         "The variable {} can't be both a general variable and use category bins.",
@@ -166,7 +166,7 @@ impl TabBuilder {
                     ", {}/{} as {}",
                     &rq.variable.name, &rq.general_divisor, &rq.name
                 )
-            } else if rq.category_bins.is_some() {
+            } else if rq.is_bucketed() {
                 format!(", {} ", &self.bucket(&rq)?)
             } else {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
@@ -244,7 +244,13 @@ impl TabBuilder {
 
         let vars_in_order = &request_variables
             .iter()
-            .map(|v| v.name.clone())
+            .map(|v| {
+                if v.is_bucketed() {
+                    format!("{}_bucketed", &v.name)
+                } else {
+                    v.name.to_string()
+                }
+            })
             .collect::<Vec<_>>()
             .join(", ");
 
