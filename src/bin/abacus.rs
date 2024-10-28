@@ -36,9 +36,6 @@ struct CliRequest {
     #[command(subcommand)]
     command: CliCommand,
 
-    #[arg(short, long, default_value = "file")]
-    input: String,
-
     /// The path to an output file [default: write to stdout]
     #[arg(short, long, global = true)]
     output: Option<String>,
@@ -74,22 +71,25 @@ struct RequestArgs {
 
 fn main() {
     let args = CliRequest::parse();
-    let input_value = &args.input.to_string();
+    let table_format = args.format;
 
-    let (context, request) = if input_value == "stdin" {
-        abacus_request_from_str(&get_from_stdin())
-    } else {
-        let json = match std::fs::read_to_string(&input_value) {
-            Ok(j) => j,
-            Err(e) => {
-                eprintln!("Can't access Abacus request file: '{}'", e);
-                std::process::exit(1);
+    let (context, request) = match args.command {
+        CliCommand::Request(request_args) => match request_args.input_file {
+            None => abacus_request_from_str(&get_from_stdin()),
+            Some(file) => {
+                let json = match std::fs::read_to_string(&file) {
+                    Ok(j) => j,
+                    Err(e) => {
+                        eprintln!("Can't access Abacus request file: '{}'", e);
+                        std::process::exit(1);
+                    }
+                };
+                abacus_request_from_str(&json)
             }
-        };
-        abacus_request_from_str(&json)
+        },
+        CliCommand::Tab(_) => todo!(),
     };
 
-    let table_format = args.format;
     match tabulate::tabulate(&context, request) {
         Ok(tables) => {
             // Print a JSON array and separate table objects with ',' if more than one in
