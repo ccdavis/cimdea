@@ -82,7 +82,7 @@ fn main() {
                     std::process::exit(1);
                 }
             };
-            tabulate::tabulate(&context, &request)
+            tabulate::tabulate(&context, request)
         }
         CliCommand::Tab(tab_args) => {
             let variables: Vec<_> = tab_args.variables.iter().map(|v| v.as_str()).collect();
@@ -100,7 +100,7 @@ fn main() {
                     std::process::exit(1);
                 }
             };
-            tabulate::tabulate(&context, &request)
+            tabulate::tabulate(&context, request)
         }
     };
 

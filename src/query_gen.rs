@@ -440,12 +440,15 @@ impl Condition {
 // Returns one query per dataset in the request; if you wanted to tabulate across
 // datasets that would be a different query that unions thetables of the same record type...
 // You can accomplish the same thing by combining the results of each query.
-pub fn tab_queries(
+pub fn tab_queries<R>(
     ctx: &Context,
-    request: &dyn DataRequest,
+    request: R,
     input_format: &InputType,
     platform: &DataPlatform,
-) -> Result<Vec<String>, MdError> {
+) -> Result<Vec<String>, MdError>
+where
+    R: DataRequest,
+{
     let mut queries = Vec::new();
     for dataset in request.get_request_samples() {
         let tb = TabBuilder::new(ctx, &dataset.name, platform, input_format)?;
@@ -608,7 +611,7 @@ mod test {
         )
         .unwrap();
 
-        let queries = tab_queries(&ctx, &rq, &InputType::Parquet, &DataPlatform::Duckdb);
+        let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
         match queries {
             // print the error whatever it is.
             Err(ref e) => {

@@ -239,7 +239,10 @@ impl Tabulation {
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-pub fn tabulate(ctx: &Context, rq: &dyn DataRequest) -> Result<Tabulation, MdError> {
+pub fn tabulate<R>(ctx: &Context, rq: R) -> Result<Tabulation, MdError>
+where
+    R: DataRequest,
+{
     let requested_output_columns = rq
         .get_request_variables()
         .iter()
@@ -328,7 +331,7 @@ mod test {
 
         let tabtime = Instant::now();
 
-        let result = tabulate(&ctx, &rq);
+        let result = tabulate(&ctx, rq);
         println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
         if let Err(ref e) = result {
             println!("{}", e);
