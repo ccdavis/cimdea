@@ -305,7 +305,7 @@ mod test {
         let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
             .expect("Error loading test context and deserializing test request.");
 
-        println!("Codebook: {}", rq.print_codebook());
+        //println!("Codebook: {}", rq.print_codebook());
 
         let result = tabulate(&ctx, rq);
         if let Err(ref e) = result {
@@ -314,10 +314,53 @@ mod test {
         println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
         assert!(result.is_ok());
         if let Ok(tables) = result {
+            assert_eq!(2, tables.len());
+
+            for (index, table) in tables.iter().enumerate() {
+                if let Ok(o) = table.output(TableFormat::TextTable) {
+                    println!("{}", &o);
+                }
+                // There are some category combinations  rare enough not to exist on every sample
+                if (index == 0) {
+                    assert_eq!(
+                        79,
+                        table.rows.len(),
+                        "6 marst X 15 incwage - a few combinations"
+                    );
+                }
+                if (index == 1) {
+                    assert_eq!(
+                        77,
+                        table.rows.len(),
+                        "6 marst X 15 incwage - a few combinations"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_subpopulation() {
+        let json_request =
+            fs::read_to_string("test/requests/single_condition_subpop_abacus_request.json")
+                .expect("Error reading test fixture in test/requests");
+
+        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
+            .expect("Error loading test context and deserializing test request.");
+
+        let result = tabulate(&ctx, rq);
+        if let Err(ref e) = result {
+            eprintln!("Error setting up test: {:?}", e);
+        }
+
+        assert!(result.is_ok());
+        if let Ok(tables) = result {
             for table in tables {
                 if let Ok(o) = table.output(TableFormat::TextTable) {
                     println!("{}", &o);
                 }
+                // Three categories of SCHOOL
+                assert_eq!(3, table.rows.len(), "Three SCHOOL categories");
             }
         }
     }
