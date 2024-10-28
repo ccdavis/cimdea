@@ -2,7 +2,7 @@ use cimdea::conventions::Context;
 use cimdea::request::AbacusRequest;
 use cimdea::tabulate;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::io::{self, BufRead};
 
 fn get_from_stdin() -> String {
@@ -31,11 +31,22 @@ fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct CliRequest {
+    #[command(subcommand)]
+    command: CliCommand,
+
     #[arg(short, long, default_value = "file")]
     pub input: String,
 
     #[arg(short, long, default_value = "stdout")]
     pub output: String,
+}
+
+#[derive(Debug, Subcommand)]
+enum CliCommand {
+    /// Compute a simple tabulation of one or more variables from an IPUMS output sample
+    Tab,
+    /// Given a JSON Abacus request, compute the tabulation it describes
+    Request,
 }
 
 fn main() {
