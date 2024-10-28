@@ -1,9 +1,11 @@
+use std::io::{self, BufRead};
+
 use cimdea::conventions::Context;
 use cimdea::request::AbacusRequest;
 use cimdea::tabulate;
+use cimdea::tabulate::TableFormat;
 
 use clap::{Args, Parser, Subcommand};
-use std::io::{self, BufRead};
 
 fn get_from_stdin() -> String {
     let stdin = io::stdin();
@@ -41,9 +43,9 @@ struct CliRequest {
     #[arg(short, long, global = true)]
     output: Option<String>,
 
-    /// The output format [default: text for tab, JSON for request]
-    #[arg(short, long, global = true)]
-    format: Option<String>,
+    /// The output format
+    #[arg(short, long, global = true, default_value = "text")]
+    format: TableFormat,
 }
 
 #[derive(Debug, Subcommand)]
@@ -87,7 +89,7 @@ fn main() {
         abacus_request_from_str(&json)
     };
 
-    let table_format = tabulate::TableFormat::Json;
+    let table_format = args.format;
     match tabulate::tabulate(&context, request) {
         Ok(tables) => {
             // Print a JSON array and separate table objects with ',' if more than one in

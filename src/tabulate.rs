@@ -4,6 +4,7 @@
 //! carry some metadata information with them to be used by formatters or even codebook
 //! generators.
 //!
+use std::str::FromStr;
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
@@ -13,12 +14,12 @@ use crate::query_gen::DataPlatform;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
-use duckdb::Connection;
 
+use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum TableFormat {
     Csv,
     Html,
@@ -26,8 +27,10 @@ pub enum TableFormat {
     TextTable,
 }
 
-impl TableFormat {
-    pub fn from_str(name: &str) -> Result<Self, MdError> {
+impl FromStr for TableFormat {
+    type Err = MdError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
         let tf = match name.to_ascii_lowercase().as_str() {
             "csv" => Self::Csv,
             "json" => Self::Json,

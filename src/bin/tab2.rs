@@ -1,6 +1,7 @@
 //! A command line program showing how to use the library. This example program takes variable and sample names and returns a formatted cross-tabulation of the data.
-
 #[allow(unused)]
+use std::str::FromStr;
+
 use cimdea::conventions::*;
 use cimdea::request::DataRequest;
 use cimdea::request::SimpleRequest;
