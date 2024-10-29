@@ -531,10 +531,10 @@ impl Context {
 
     */
 }
-mod test {
-    #[cfg(test)]
-    use super::*;
 
+#[cfg(test)]
+mod test {
+    use super::*;
     #[test]
     pub fn test_context() {
         // Look in test directory

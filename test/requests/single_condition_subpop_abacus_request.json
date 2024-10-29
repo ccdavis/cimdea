@@ -1,0 +1,49 @@
+{
+    "product": "usa",
+    "data_root": "test/data_root",
+    "uoa": "P",
+    "output_format" : "json",
+    "category_bins": {},
+    "subpopulation": [
+      {
+        "variable_mnemonic": "SEX",
+        "mnemonic": "SEX",
+        "general_detailed_selection": null,
+        "attached_variable_pointer": null,
+        "case_selection": true,
+        "request_case_selections": [
+          {
+            "low_code": "2",
+            "high_code": "2"
+          }
+        ],
+        "extract_start": 71,
+        "extract_width": 1
+      }
+    ],
+
+      "request_variables": [
+        {
+          "variable_mnemonic": "SCHOOL",
+          "mnemonic": "SCHOOL",
+          "general_detailed_selection": null,
+          "attached_variable_pointer": null,
+          "case_selection": false,
+          "request_case_selections": [
+          ],
+          "extract_start": 71,
+          "extract_width": 1
+        }
+      ],
+      "request_samples": [
+      {
+          "name": "us2016b",
+          "custom_sampling_ratio": "5.0",
+          "first_household_sampled": 4
+        }
+
+      ]
+
+
+  }
+

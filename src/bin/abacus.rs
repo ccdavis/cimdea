@@ -73,7 +73,7 @@ fn main() {
                 },
             };
 
-            let (context, request) = match AbacusRequest::from_json(&input) {
+            let (context, request) = match AbacusRequest::try_from_json(&input) {
                 Ok(data) => data,
                 Err(err) => {
                     eprintln!("Error parsing input JSON: {err}");

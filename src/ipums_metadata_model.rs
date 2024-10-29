@@ -61,7 +61,7 @@ pub struct IpumsDataset {
     pub year: Option<usize>,
     pub month: Option<usize>,
     pub label: Option<String>,
-    pub sample: Option<f64>,
+    pub sampling_density: Option<f64>,
     /// The 'id' fields in the models are generated when metadata structs get instantiated in order. They are
     /// used for indexing into the metadata storage.
     pub id: IpumsDatasetId, // auto-assigned in order loaded
@@ -75,7 +75,7 @@ impl From<(String, usize)> for IpumsDataset {
             year: None,
             month: None,
             label: None,
-            sample: None,
+            sampling_density: None,
         }
     }
 }
