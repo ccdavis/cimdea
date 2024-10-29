@@ -18,7 +18,7 @@ pub struct AbacusRequest {
     pub request_variables: Vec<RequestVariable>,
 }
 
-#[derive(Clone,Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(try_from = "CategoryBinRaw", into = "CategoryBinRaw")]
 pub enum CategoryBin {
     LessThan {

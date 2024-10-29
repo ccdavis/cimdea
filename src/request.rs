@@ -170,6 +170,7 @@ impl RequestVariable {
     }
 
     pub fn general_width(&self) -> Result<usize, MdError> {
+        /*
         if let GeneralDetailedSelection::General = self.general_detailed_selection {
             if let Some(w) = self.extract_width {
                 Ok(w)
@@ -183,6 +184,17 @@ impl RequestVariable {
                 self.name
             ))
         }
+        */
+        match (&self.general_detailed_selection, self.extract_width) {
+            (GeneralDetailedSelection::General, Some(w)) => Ok(w),
+            (GeneralDetailedSelection::General, None) => Err(metadata_error!(
+                "'{}' requires 'extract_width' from request currently to determine the general width; not represented in IpumsVariable or not available from current metadata either.",self.name)),
+            _ => Err(metadata_error!(
+                "General width not available for {}",
+                self.name
+            ))
+                        
+          }
     }
 
     pub fn requested_width(&self) -> Result<usize, MdError> {

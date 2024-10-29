@@ -155,12 +155,12 @@ impl TabBuilder {
 
         for rq in request_variables {
             // A request variable can be 'general' or 'bucketed' but not both.
-            if rq.is_general() && rq.is_bucketed() {                
+            if rq.is_general() && rq.is_bucketed() {
                 let msg = format!(
                     "The variable {} can't be both a general variable and use category bins.",
                     &rq.name
                 );
-                return Err(MdError::Msg(msg));                
+                return Err(MdError::Msg(msg));
             }
             select_clause += &if rq.is_general() {
                 format!(
