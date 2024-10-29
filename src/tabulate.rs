@@ -284,15 +284,12 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
     Ok(tables)
 }
 
-mod test {
-    #[cfg(test)]
+#[cfg(test)]
+mod test {    
     use super::*;
-    #[cfg(test)]
-    use crate::request::SimpleRequest;
-    #[cfg(test)]
+    use crate::request::SimpleRequest;    
     use std::time::*;
-
-    #[cfg(test)]
+    
     use std::fs;
 
     #[test]
