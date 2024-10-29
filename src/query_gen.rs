@@ -109,6 +109,9 @@ impl TabBuilder {
         let Some(ref bins) = rq.category_bins else {
             return Err(MdError::Msg("No category bins available.".to_string()));
         };
+        if bins.len() == 0 {
+            return Err(MdError::Msg("Metadata marks this variable as having category bins but the list of bins is empty.".to_string()));
+        }
         let mut sql = "case\n".to_string();
         let cases = bins
             .iter()
@@ -152,14 +155,12 @@ impl TabBuilder {
 
         for rq in request_variables {
             // A request variable can be 'general' or 'bucketed' but not both.
-            if rq.is_general() && rq.is_bucketed() {
-                if rq.category_bins.as_ref().unwrap().len() > 0 {
-                    let msg = format!(
-                        "The variable {} can't be both a general variable and use category bins.",
-                        &rq.name
-                    );
-                    return Err(MdError::Msg(msg));
-                }
+            if rq.is_general() && rq.is_bucketed() {                
+                let msg = format!(
+                    "The variable {} can't be both a general variable and use category bins.",
+                    &rq.name
+                );
+                return Err(MdError::Msg(msg));                
             }
             select_clause += &if rq.is_general() {
                 format!(
