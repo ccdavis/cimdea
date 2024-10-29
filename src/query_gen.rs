@@ -229,7 +229,7 @@ impl TabBuilder {
         // have more than one rectype therefore, we error out.
         if !rectypes.contains(&uoa) {
             if rectypes.len() == 1 {
-                uoa = rectypes_vec[0].clone();
+                //uoa = rectypes_vec[0].clone();
             }
         }
 
