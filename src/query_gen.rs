@@ -552,12 +552,10 @@ pub fn tab_queries(
     Ok(queries)
 }
 
+#[cfg(test)]
 mod test {
-    #[cfg(test)]
-    use super::*;
-    #[cfg(test)]
-    use crate::request::context_from_names_helper;
-    #[cfg(test)]
+    use super::*;    
+    use crate::request::context_from_names_helper;    
     use crate::request::SimpleRequest;
 
     #[test]

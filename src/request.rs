@@ -804,10 +804,9 @@ impl DataRequest for SimpleRequest {
     }
 }
 
-mod test {
-    #[cfg(test)]
+#[cfg(test)]
+mod test {    
     use std::fs;
-    #[cfg(test)]    
     use super::*;
 
     #[test]
