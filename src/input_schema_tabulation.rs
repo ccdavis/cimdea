@@ -39,36 +39,6 @@ pub enum CategoryBin {
     },
 }
 
-/* 
-impl Clone for CategoryBin {
-    fn clone(&self) -> Self {
-        match self {
-            Self::LessThan { code, value, label } => Self::LessThan {
-                code: *code,
-                value: *value,
-                label: label.to_string(),
-            },
-            Self::Range {
-                code,
-                label,
-                high,
-                low,
-            } => Self::Range {
-                code: *code,
-                low: *low,
-                high: *high,
-                label: label.to_string(),
-            },
-            Self::MoreThan { code, value, label } => Self::MoreThan {
-                code: *code,
-                value: *value,
-                label: label.to_string(),
-            },
-        }
-    }
-
-}
-*/
 impl TryFrom<CategoryBinRaw> for CategoryBin {
     type Error = MdError;
 
