@@ -10,6 +10,7 @@ use crate::ipums_metadata_model::IpumsDataType;
 use crate::mderror::{metadata_error, MdError};
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
+use crate::request::AbacusRequest;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
@@ -17,6 +18,8 @@ use duckdb::Connection;
 
 use serde::ser::Error;
 use serde::Serialize;
+
+const DEBUG: bool = true;
 
 #[derive(Clone, Debug)]
 pub enum TableFormat {
@@ -105,7 +108,7 @@ impl OutputColumn {
         match self {
             Self::Constructed { ref width, .. } => Ok(*width),
             Self::RequestVar(ref v) => {
-                if !v.is_general {
+                if !v.is_general() {
                     if let Some((_, wid)) = v.variable.formatting {
                         Ok(wid)
                     } else {
@@ -217,7 +220,7 @@ impl Table {
 }
 
 /// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
-/// the request.Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
+/// the request. Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
@@ -232,6 +235,9 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
     let conn = Connection::open_in_memory()?;
     for q in sql_queries {
+        if DEBUG {
+            println!("{}", &q);
+        }
         let mut stmt = conn.prepare(&q)?;
         let mut rows = stmt.query([])?;
 
@@ -278,16 +284,86 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
     Ok(tables)
 }
 
-mod test {
-    #[cfg(test)]
+#[cfg(test)]
+mod test {    
     use super::*;
-    #[cfg(test)]
-    use crate::request::SimpleRequest;
-    #[cfg(test)]
+    use crate::request::SimpleRequest;    
     use std::time::*;
+    
+    use std::fs;
 
     #[test]
-    fn test_tabulation() {
+    fn test_complex_tabulation() {
+        let tabtime = Instant::now();
+        let data_root = String::from("test/data_root");
+        let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
+            .expect("Error reading test fixture in test/requests");
+
+        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
+            .expect("Error loading test context and deserializing test request.");
+
+        //println!("Codebook: {}", rq.print_codebook());
+
+        let result = tabulate(&ctx, rq);
+        if let Err(ref e) = result {
+            eprintln!("Error setting up test: {:?}", e);
+        }
+        println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
+        assert!(result.is_ok());
+        if let Ok(tables) = result {
+            assert_eq!(2, tables.len());
+
+            for (index, table) in tables.iter().enumerate() {
+                if let Ok(o) = table.output(TableFormat::TextTable) {
+                    println!("{}", &o);
+                }
+                // There are some category combinations  rare enough not to exist on every sample
+                if (index == 0) {
+                    assert_eq!(
+                        79,
+                        table.rows.len(),
+                        "6 marst X 15 incwage - a few combinations"
+                    );
+                }
+                if (index == 1) {
+                    assert_eq!(
+                        77,
+                        table.rows.len(),
+                        "6 marst X 15 incwage - a few combinations"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_subpopulation() {
+        let json_request =
+            fs::read_to_string("test/requests/single_condition_subpop_abacus_request.json")
+                .expect("Error reading test fixture in test/requests");
+
+        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
+            .expect("Error loading test context and deserializing test request.");
+
+        let result = tabulate(&ctx, rq);
+        if let Err(ref e) = result {
+            eprintln!("Error setting up test: {:?}", e);
+        }
+
+        assert!(result.is_ok());
+        if let Ok(tables) = result {
+            for table in tables {
+                if let Ok(o) = table.output(TableFormat::TextTable) {
+                    println!("{}", &o);
+                }
+                // Three categories of SCHOOL
+                assert_eq!(3, table.rows.len(), "Three SCHOOL categories");
+            }
+        }
+    }
+
+    #[test]
+    fn test_basic_tabulation() {
         let start = Instant::now();
 
         let data_root = String::from("test/data_root");

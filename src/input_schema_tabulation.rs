@@ -190,7 +190,7 @@ impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum GeneralDetailedSelection {
     #[serde(rename = "G")]
     General,

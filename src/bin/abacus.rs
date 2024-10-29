@@ -19,7 +19,7 @@ fn get_from_stdin() -> String {
 }
 
 fn abacus_request_from_str(rq: &str) -> (Context, AbacusRequest) {
-    match AbacusRequest::from_json(rq) {
+    match AbacusRequest::try_from_json(rq) {
         Err(e) => {
             eprintln!("Error parsing input JSON: '{}'", &e);
             std::process::exit(1);
