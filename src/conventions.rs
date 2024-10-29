@@ -533,7 +533,7 @@ impl Context {
 }
 
 #[cfg(test)]
-mod test {    
+mod test {
     use super::*;
     #[test]
     pub fn test_context() {

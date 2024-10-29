@@ -4,6 +4,7 @@
 //! carry some metadata information with them to be used by formatters or even codebook
 //! generators.
 //!
+use std::str::FromStr;
 
 use crate::conventions::Context;
 use crate::ipums_metadata_model::IpumsDataType;
@@ -14,14 +15,14 @@ use crate::request::AbacusRequest;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
-use duckdb::Connection;
 
+use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
 
 const DEBUG: bool = true;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum TableFormat {
     Csv,
     Html,
@@ -29,8 +30,10 @@ pub enum TableFormat {
     TextTable,
 }
 
-impl TableFormat {
-    pub fn from_str(name: &str) -> Result<Self, MdError> {
+impl FromStr for TableFormat {
+    type Err = MdError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
         let tf = match name.to_ascii_lowercase().as_str() {
             "csv" => Self::Csv,
             "json" => Self::Json,
@@ -132,25 +135,6 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
-        match format {
-            TableFormat::Html | TableFormat::Csv => {
-                todo!("Output format {:?} not implemented yet.", format)
-            }
-            TableFormat::Json => self.format_as_json(),
-            TableFormat::TextTable => self.format_as_text(),
-        }
-    }
-
-    pub fn format_as_json(&self) -> Result<String, MdError> {
-        match serde_json::to_string_pretty(&self) {
-            Ok(j) => Ok(j),
-            Err(e) => Err(MdError::Msg(format!(
-                "Cannot serialize result into json: {e}"
-            ))),
-        }
-    }
-
     pub fn format_as_text(&self) -> Result<String, MdError> {
         let mut out = String::new();
         let widths = self.column_widths()?;
@@ -219,13 +203,50 @@ impl Table {
     }
 }
 
+pub struct Tabulation(pub Vec<Table>);
+
+impl Tabulation {
+    pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
+        let output = match format {
+            TableFormat::Html | TableFormat::Csv => {
+                todo!("Output format {:?} not implemented yet.", format)
+            }
+            TableFormat::Json => match serde_json::to_string_pretty(&self.0) {
+                Ok(output) => output,
+                Err(err) => {
+                    return Err(MdError::Msg(format!(
+                        "Cannot serialize result into json: {err}"
+                    )));
+                }
+            },
+            TableFormat::TextTable => {
+                let mut output = String::new();
+                for table in &self.0 {
+                    let table_text = table.format_as_text()?;
+                    output.push_str(&format!("{table_text}\n"));
+                }
+                output
+            }
+        };
+
+        Ok(output)
+    }
+
+    pub fn into_inner(self) -> Vec<Table> {
+        self.0
+    }
+}
+
 /// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
 /// the request. Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdError> {
-    let requested_output_columns = &rq
+pub fn tabulate<R>(ctx: &Context, rq: R) -> Result<Tabulation, MdError>
+where
+    R: DataRequest,
+{
+    let requested_output_columns = rq
         .get_request_variables()
         .iter()
         .map(|v| OutputColumn::RequestVar(v.clone()))
@@ -281,15 +302,15 @@ pub fn tabulate(ctx: &Context, rq: impl DataRequest) -> Result<Vec<Table>, MdErr
         tables.push(output);
     }
 
-    Ok(tables)
+    Ok(Tabulation(tables))
 }
 
 #[cfg(test)]
-mod test {    
+mod test {
     use super::*;
-    use crate::request::SimpleRequest;    
+    use crate::request::SimpleRequest;
     use std::time::*;
-    
+
     use std::fs;
 
     #[test]
@@ -310,13 +331,15 @@ mod test {
         }
         println!("Test tabulation took {} ms", tabtime.elapsed().as_millis());
         assert!(result.is_ok());
-        if let Ok(tables) = result {
+        if let Ok(tab) = result {
+            if let Ok(output) = tab.output(TableFormat::TextTable) {
+                println!("{output}");
+            }
+
+            let tables = tab.into_inner();
             assert_eq!(2, tables.len());
 
             for (index, table) in tables.iter().enumerate() {
-                if let Ok(o) = table.output(TableFormat::TextTable) {
-                    println!("{}", &o);
-                }
                 // There are some category combinations  rare enough not to exist on every sample
                 if (index == 0) {
                     assert_eq!(
@@ -351,11 +374,13 @@ mod test {
         }
 
         assert!(result.is_ok());
-        if let Ok(tables) = result {
+        if let Ok(tab) = result {
+            if let Ok(output) = tab.output(TableFormat::TextTable) {
+                println!("{output}");
+            }
+
+            let tables = tab.into_inner();
             for table in tables {
-                if let Ok(o) = table.output(TableFormat::TextTable) {
-                    println!("{}", &o);
-                }
                 // Three categories of SCHOOL
                 assert_eq!(3, table.rows.len(), "Three SCHOOL categories");
             }
@@ -393,7 +418,8 @@ mod test {
         }
 
         assert!(result.is_ok(), "Should have tabulated.");
-        if let Ok(tables) = result {
+        if let Ok(tab) = result {
+            let tables = tab.into_inner();
             assert_eq!(1, tables.len());
             for t in tables {
                 println!(

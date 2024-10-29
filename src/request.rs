@@ -178,8 +178,7 @@ impl RequestVariable {
                 "General width not available for {}",
                 self.name
             ))
-                        
-          }
+        }
     }
 
     pub fn requested_width(&self) -> Result<usize, MdError> {
@@ -805,9 +804,9 @@ impl DataRequest for SimpleRequest {
 }
 
 #[cfg(test)]
-mod test {    
-    use std::fs;
+mod test {
     use super::*;
+    use std::fs;
 
     #[test]
     pub fn test_deserialize_into_simple_request() {
