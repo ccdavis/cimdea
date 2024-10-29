@@ -133,7 +133,7 @@ impl TabBuilder {
             .join("\n");
         sql.push_str(&cases);
         sql.push_str("\nelse 'OTHER' end ");
-        sql.push_str(&format!(" as {}_bucketed", &rq.name));
+        sql.push_str(&format!("as {}_bucketed", &rq.name));
         Ok(sql)
     }
 
@@ -625,7 +625,7 @@ mod test {
 	when UHRSWORK >= 35 and UHRSWORK <= 99 then '003'
 else 'OTHER' end as UHRSWORK_bucketed";
 
-            //assert_eq!(correct, &sql);
+            assert_eq!(correct, &sql);
         }
     }
 

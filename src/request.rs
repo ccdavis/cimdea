@@ -88,7 +88,7 @@ pub struct RequestVariable {
 impl RequestVariable {
     // Can't impl 'From' directly  with just input_schema_tabulation::RequestVariable because it takes a context
     // as well ...
-    fn from_input_request_variable(
+    fn try_from_input_request_variable(
         ctx: &Context,
         category_bins: &Option<&Vec<CategoryBin>>,
         input_rq: input_schema_tabulation::RequestVariable,
@@ -170,21 +170,6 @@ impl RequestVariable {
     }
 
     pub fn general_width(&self) -> Result<usize, MdError> {
-        /*
-        if let GeneralDetailedSelection::General = self.general_detailed_selection {
-            if let Some(w) = self.extract_width {
-                Ok(w)
-            } else {
-                return Err(metadata_error!(
-                    "Requires 'extract_width' from request currently to determine the general width; not represented in IpumsVariable or not available from current metadata either."));
-            }
-        } else {
-            Err(metadata_error!(
-                "General width not available for {}",
-                self.name
-            ))
-        }
-        */
         match (&self.general_detailed_selection, self.extract_width) {
             (GeneralDetailedSelection::General, Some(w)) => Ok(w),
             (GeneralDetailedSelection::General, None) => Err(metadata_error!(
@@ -423,8 +408,8 @@ impl DataRequest for AbacusRequest {
         lines.push(format!("Datasets:"));
         for s in self.get_request_samples() {
             let label = s.sample.label.unwrap_or("".to_string());
-            let sample_pct = if let Some(sample_ratio) = s.sample.sample {
-                format!("{}", sample_ratio * 100.0)
+            let sample_pct = if let Some(density) = s.sample.sampling_density {
+                format!("{}", density * 100.0)
             } else {
                 "N/A".to_string()
             };
@@ -590,14 +575,14 @@ impl AbacusRequest {
             // The category_bins can also come from the IpumsVariable as it's properly part of metadata. However in the request
             // for Abacus we pass category bins on each request for all request variables that need them.
             let bins = request.category_bins.get(&v.variable_mnemonic);
-            let request_var = RequestVariable::from_input_request_variable(&ctx, &bins, v)?;
+            let request_var = RequestVariable::try_from_input_request_variable(&ctx, &bins, v)?;
             rqv.push(request_var);
         }
 
         let mut subpop = Vec::new();
         for s in request.subpopulation {
             let bins = request.category_bins.get(&s.variable_mnemonic);
-            let spv = RequestVariable::from_input_request_variable(&ctx, &bins, s)?;
+            let spv = RequestVariable::try_from_input_request_variable(&ctx, &bins, s)?;
             subpop.push(spv);
         }
 
@@ -822,8 +807,7 @@ impl DataRequest for SimpleRequest {
 mod test {
     #[cfg(test)]
     use std::fs;
-
-    #[cfg(test)]
+    #[cfg(test)]    
     use super::*;
 
     #[test]
