@@ -12,5 +12,6 @@ pub mod query_gen;
 pub mod request;
 pub mod tabulate;
 
-use interner::global::{GlobalPool, GlobalString};
-static STRINGS: GlobalPool<String> = GlobalPool::new();
+// TODO: I have an idea for how to use this interner library. 
+//use interner::global::{GlobalPool, GlobalString};
+// static _STRINGS: GlobalPool<String> = GlobalPool::new();

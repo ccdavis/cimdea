@@ -11,7 +11,6 @@ use crate::ipums_metadata_model::IpumsDataType;
 use crate::mderror::{metadata_error, MdError};
 use crate::query_gen::tab_queries;
 use crate::query_gen::DataPlatform;
-use crate::request::AbacusRequest;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
@@ -191,6 +190,7 @@ impl Table {
         Ok(widths)
     }
 
+    #[allow(unused)]
     fn width_from_data(&self, column: usize) -> Option<usize> {
         self.rows.iter().map(|r| r[column].len()).max()
     }
@@ -308,15 +308,14 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::request::SimpleRequest;
+    use crate::request::{SimpleRequest,AbacusRequest};    
     use std::time::*;
 
     use std::fs;
 
     #[test]
     fn test_complex_tabulation() {
-        let tabtime = Instant::now();
-        let data_root = String::from("test/data_root");
+        let tabtime = Instant::now();        
         let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
             .expect("Error reading test fixture in test/requests");
 
@@ -341,14 +340,14 @@ mod test {
 
             for (index, table) in tables.iter().enumerate() {
                 // There are some category combinations  rare enough not to exist on every sample
-                if (index == 0) {
+                if index == 0 {
                     assert_eq!(
                         79,
                         table.rows.len(),
                         "6 marst X 15 incwage - a few combinations"
                     );
                 }
-                if (index == 1) {
+                if index == 1 {
                     assert_eq!(
                         77,
                         table.rows.len(),

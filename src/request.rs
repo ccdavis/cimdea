@@ -65,6 +65,7 @@ pub fn context_from_names_helper(
     Ok((ctx, variables, datasets))
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub struct RequestVariable {
     pub variable: IpumsVariable,
@@ -313,6 +314,7 @@ impl InputType {
 }
 
 // The key point is you can take an impl of a DataRequest and do something with it.
+#[allow(unused)]
 pub fn perform_request(rq: impl DataRequest) -> Result<(), MdError> {
     todo!("Implement");
 }
@@ -388,7 +390,7 @@ impl DataRequest for AbacusRequest {
         }
     }
 
-    #[allow(dead_code)]
+    #[allow(unused)]
     fn deserialize_from_ipums_json(
         ctx: &conventions::Context,
         request_type: RequestType,
@@ -725,11 +727,11 @@ impl DataRequest for SimpleRequest {
             return Err(parsing_error!("expected a request_variables array"));
         };
 
-        let Some(output_format) = details["output_format"].as_str() else {
+        let Some(_output_format) = details["output_format"].as_str() else {
             return Err(parsing_error!("no 'output_format' in request"));
         };
 
-        let Some(case_select_logic) = details["case_select_logic"].as_str() else {
+        let Some(_case_select_logic) = details["case_select_logic"].as_str() else {
             return Err(parsing_error!("no 'case_select_logic' in request"));
         };
 
@@ -820,8 +822,8 @@ mod test {
             .expect("should be able to load metadata for datasets");
         if let Some(ref md) = ctx.settings.metadata {
             println!("loaded {} variables.", md.variables_index.len());
-            println!("{:?}", md.variables_by_name.get("YEAR"));
-            for v in &md.variables_index {
+            
+            for _v in &md.variables_index {
                 //println!("{}",v.name);
             }
         }
@@ -842,7 +844,7 @@ mod test {
     #[test]
     pub fn test_from_names() {
         let data_root = String::from("test/data_root");
-        let (ctx, rq) = SimpleRequest::from_names(
+        let (_ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],

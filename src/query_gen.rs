@@ -14,13 +14,10 @@ use crate::conventions::Context;
 use crate::input_schema_tabulation::{self, CategoryBin};
 use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
 use crate::request::CaseSelectLogic;
-
-use crate::mderror::{metadata_error, parsing_error, MdError};
+use crate::mderror::{metadata_error, MdError};
 use crate::request::DataRequest;
 use crate::request::InputType;
-use crate::request::RequestSample;
 use crate::request::RequestVariable;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -501,7 +498,7 @@ impl Condition {
                 } else if cs.low_code == cs.high_code {
                     Ok(CompareOperation::Equal(format!("{}", cs.low_code)))
                 } else {
-                    Err(MdError::Msg((format!("Case selection low code must be lower or equal to high code on '{}': {}, {}", &var.name, cs.low_code, cs.high_code))))
+                    Err(MdError::Msg(format!("Case selection low code must be lower or equal to high code on '{}': {}, {}", &var.name, cs.low_code, cs.high_code)))
                 }
             })
             .collect::<Result<Vec<CompareOperation>, MdError>>();
@@ -517,6 +514,8 @@ impl Condition {
         }
     }
 
+    // Pretty sure we'll need this at some point not too far off
+    #[allow(dead_code)]
     fn lit(&self, v: &str) -> String {
         match self.data_type {
             IpumsDataType::String => format!("'{}'", v),
