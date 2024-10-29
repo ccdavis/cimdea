@@ -19,7 +19,7 @@ use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
 
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 
 #[derive(Clone, Copy, Debug)]
 pub enum TableFormat {
