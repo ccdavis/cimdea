@@ -18,7 +18,7 @@ pub struct AbacusRequest {
     pub request_variables: Vec<RequestVariable>,
 }
 
-#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone,Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(try_from = "CategoryBinRaw", into = "CategoryBinRaw")]
 pub enum CategoryBin {
     LessThan {
@@ -39,6 +39,7 @@ pub enum CategoryBin {
     },
 }
 
+/* 
 impl Clone for CategoryBin {
     fn clone(&self) -> Self {
         match self {
@@ -65,8 +66,9 @@ impl Clone for CategoryBin {
             },
         }
     }
-}
 
+}
+*/
 impl TryFrom<CategoryBinRaw> for CategoryBin {
     type Error = MdError;
 
