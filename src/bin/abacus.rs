@@ -49,6 +49,9 @@ struct TabArgs {
     sample: String,
     /// One or more variables to tabulate (e.g. AGE or MARST)
     variables: Vec<String>,
+    /// The path to the data root, which contains layouts and parquet data [default: inferred from the product]
+    #[arg(short, long)]
+    data_root: Option<String>,
 }
 
 #[derive(Args, Debug)]
@@ -90,7 +93,7 @@ fn main() {
                 variables.as_slice(),
                 None,
                 None,
-                None,
+                tab_args.data_root,
             ) {
                 Ok(data) => data,
                 Err(err) => {

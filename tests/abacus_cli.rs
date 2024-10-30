@@ -63,3 +63,46 @@ fn test_request_missing_input_file_error() {
     let pred = predicate::str::contains("Can't access Abacus request file");
     assert.code(1).stderr(pred);
 }
+
+/// 'abacus tab' accepts a -d argument which tells it where to look for data.
+#[test]
+fn test_tab_specify_data_root() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command
+        .args([
+            "tab",
+            "usa",
+            "us2015b",
+            "AGE",
+            "--data-root",
+            "tests/data_root",
+        ])
+        .assert();
+
+    let pred = predicates::str::starts_with(
+        "|         ct | weighted_ct | AGE |\n\
+         |--------------------------------|\n\
+         |        226 |       30958 |   0 |\n",
+    );
+
+    assert.code(0).stdout(pred);
+}
+
+/// 'abacus tab' returns an error if it can't find the provided data root.
+#[test]
+fn test_tab_missing_data_root_error() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command
+        .args([
+            "tab",
+            "usa",
+            "us2015b",
+            "--data-root",
+            "tests/data_root/does/not/exist",
+        ])
+        .assert();
+
+    let pred =
+        predicate::str::contains("Error while setting up tabulation: Cannot create CSV reader");
+    assert.code(1).stderr(pred);
+}
