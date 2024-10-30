@@ -286,11 +286,6 @@ where
             // See https://github.com/duckdb/duckdb-rs/issues/251
             let column_names = row.as_ref().column_names();
             for (column_number, column_name) in column_names.iter().enumerate() {
-                match row.get_ref(column_number) {
-                    Ok(d) =>println!("{}: {:?}", &column_name, &d),
-                    Err(e) => println!("{}: error: {}", &column_name, e),
-
-                }
                 let item: usize = match row.get(column_number) {
                     Ok(i) => i,
                     Err(e) => {
@@ -313,7 +308,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::request::{SimpleRequest,AbacusRequest};
+    use crate::request::{AbacusRequest, SimpleRequest};
     use std::time::*;
 
     use std::fs;
