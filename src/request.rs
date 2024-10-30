@@ -822,7 +822,7 @@ mod test {
             .expect("should be able to load metadata for datasets");
         if let Some(ref md) = ctx.settings.metadata {
             println!("loaded {} variables.", md.variables_index.len());
-            
+
             for _v in &md.variables_index {
                 //println!("{}",v.name);
             }

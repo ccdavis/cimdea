@@ -13,8 +13,8 @@ use crate::conventions::Context;
 
 use crate::input_schema_tabulation::{self, CategoryBin};
 use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
-use crate::request::CaseSelectLogic;
 use crate::mderror::{metadata_error, MdError};
+use crate::request::CaseSelectLogic;
 use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;

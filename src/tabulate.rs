@@ -308,14 +308,14 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::request::{SimpleRequest,AbacusRequest};    
+    use crate::request::{AbacusRequest, SimpleRequest};
     use std::time::*;
 
     use std::fs;
 
     #[test]
     fn test_complex_tabulation() {
-        let tabtime = Instant::now();        
+        let tabtime = Instant::now();
         let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
             .expect("Error reading test fixture in test/requests");
 
