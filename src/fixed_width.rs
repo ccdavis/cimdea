@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn test_hflr() {
         use super::*;
-        let hflr = Hflr::try_new("test/data_root/layouts/us2015b.layout.txt", None)
+        let hflr = Hflr::try_new("tests/data_root/layouts/us2015b.layout.txt", None)
             .expect("should be able to create Hflr from layout file");
         let person_layout = hflr
             .layout
@@ -183,7 +183,7 @@ mod tests {
         use super::*;
         let selections = vec!["AGE".to_string(), "GQ".to_string(), "SERIAL".to_string()];
         let hflr = Hflr::try_new(
-            "test/data_root/layouts/us2015b.layout.txt",
+            "tests/data_root/layouts/us2015b.layout.txt",
             Some(selections),
         )
         .expect("should be able to create Hflr from layout file");

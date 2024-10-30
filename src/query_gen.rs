@@ -562,7 +562,7 @@ mod test {
 
     #[test]
     fn test_bucketing() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, _, _) = context_from_names_helper(
             "usa",
             &["us2015b"],
@@ -631,7 +631,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
 
     #[test]
     fn test_new_condition() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, _) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
@@ -683,7 +683,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
 
     #[test]
     fn test_build_where_clause() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, _) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
@@ -742,7 +742,7 @@ else 'OTHER' end as UHRSWORK_bucketed";
 
     #[test]
     fn test_frequency_duckdb_parquet() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
