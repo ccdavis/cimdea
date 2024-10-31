@@ -435,6 +435,7 @@ mod test {
 
                 // The STATEFIP code should be 72 for PR
                 assert_eq!("72", t.rows[0][3]);
+                
             }
         }
     }
