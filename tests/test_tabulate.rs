@@ -101,10 +101,14 @@ fn test_no_category_bins_subpop_p_variable() {
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table. Has its own tests in this file.
+///
+/// Rows are type usize for convenience. If necessary we can switch this to &'a str
+/// to preserve formatting of integers. Or we could create a new type parameter
+/// T: ToString and make the rows contain &'a T.
 #[derive(Debug)]
 struct KeyTable<'a, const W: usize, const H: usize> {
     column_names: [&'a str; W],
-    rows: [[&'a str; W]; H],
+    rows: [[usize; W]; H],
 }
 
 impl<'a, const W: usize, const H: usize> KeyTable<'a, W, H> {
@@ -131,9 +135,9 @@ impl<'a, const W: usize, const H: usize> KeyTable<'a, W, H> {
     fn check_row_entries(&self, table: &Table) {
         for column_index in 0..W {
             for row_index in 0..H {
-                let key_entry = self.rows[row_index][column_index];
+                let key_entry = self.rows[row_index][column_index].to_string();
                 let table_entry = &table.rows[row_index][column_index];
-                assert_eq!(key_entry, table_entry);
+                assert_eq!(&key_entry, table_entry);
             }
         }
     }
