@@ -286,6 +286,7 @@ where
             // See https://github.com/duckdb/duckdb-rs/issues/251
             let column_names = row.as_ref().column_names();
             for (column_number, column_name) in column_names.iter().enumerate() {
+
                 /* 
                 // Leaving this here as a reminder of how to debug the DuckDB result
                 // set values; it's different than Rqlite.
@@ -295,7 +296,7 @@ where
 
                 }
                 */
-                let item: isize = match row.get(column_number) {
+                let item: isize = match row.get(column_number) {                
                     Ok(i) => i,
                     Err(e) => {
                         return Err(MdError::Msg(format!(
@@ -317,7 +318,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::request::{SimpleRequest,AbacusRequest};
+    use crate::request::{AbacusRequest, SimpleRequest};
     use std::time::*;
 
     use std::fs;
