@@ -108,9 +108,33 @@ struct KeyTable<'a, const W: usize, const H: usize> {
 }
 
 impl<'a, const W: usize, const H: usize> KeyTable<'a, W, H> {
-    /// Return Ok(()) if the Table is the same as the key. Otherwise, return Err
-    /// with the reason why the check did not pass.
-    fn check_table(&self, table: &Table) -> Result<(), String> {
-        Ok(())
+    pub fn check(&self, table: &Table) {
+        self.check_heading(table);
+        self.check_row_dimensions(table);
+        self.check_row_entries(table);
+    }
+
+    fn check_heading(&self, table: &Table) {
+        assert_eq!(table.heading.len(), W);
+        for index in 0..W {
+            assert_eq!(table.heading[index].name(), self.column_names[index]);
+        }
+    }
+
+    fn check_row_dimensions(&self, table: &Table) {
+        assert_eq!(table.rows.len(), H);
+        for row in &table.rows {
+            assert_eq!(row.len(), W);
+        }
+    }
+
+    fn check_row_entries(&self, table: &Table) {
+        for column_index in 0..W {
+            for row_index in 0..H {
+                let key_entry = self.rows[row_index][column_index];
+                let table_entry = &table.rows[row_index][column_index];
+                assert_eq!(key_entry, table_entry);
+            }
+        }
     }
 }
