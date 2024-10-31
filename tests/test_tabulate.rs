@@ -12,7 +12,7 @@ fn test_no_category_bins_no_subpops() {
     let tab = tabulate(&ctx, request).expect("tabulation should run without errors");
     let tables = tab.into_inner();
 
-    assert_eq!(tables.len(), 1);
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
     let table = tables[0].clone();
 
     let key = KeyTable {
@@ -39,7 +39,7 @@ fn test_no_category_bins_subpop_p_variable() {
     let tab = tabulate(&ctx, rq).expect("tabulation should run without errors");
     let tables = tab.into_inner();
 
-    assert_eq!(tables.len(), 1);
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
     let table = tables[0].clone();
 
     let key = KeyTable {
@@ -53,6 +53,32 @@ fn test_no_category_bins_subpop_p_variable() {
             [6622, 836520, 6],
         ],
     };
+    key.check(&table);
+}
+
+#[test]
+fn test_no_category_bins_subpop_h_variable() {
+    let input_json = include_str!("requests/no_category_bins_subpop_H_variable.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("tabulation should run without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "MARST"],
+        rows: [
+            [570, 44647, 1],
+            [71, 7056, 2],
+            [69, 6657, 3],
+            [372, 32910, 4],
+            [237, 16834, 5],
+            [1329, 137628, 6],
+        ],
+    };
+
     key.check(&table);
 }
 
