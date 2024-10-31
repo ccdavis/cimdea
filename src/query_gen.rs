@@ -129,7 +129,7 @@ impl TabBuilder {
             .collect::<Vec<String>>()
             .join("\n");
         sql.push_str(&cases);
-        sql.push_str("\nelse 'OTHER' end ");
+        sql.push_str("\nelse '999' end ");
         sql.push_str(&format!("as {}_bucketed", &rq.name));
         Ok(sql)
     }
@@ -623,7 +623,7 @@ mod test {
 	when UHRSWORK >= 1 and UHRSWORK <= 14 then '001'
 	when UHRSWORK >= 15 and UHRSWORK <= 34 then '002'
 	when UHRSWORK >= 35 and UHRSWORK <= 99 then '003'
-else 'OTHER' end as UHRSWORK_bucketed";
+else '999' end as UHRSWORK_bucketed";
 
             assert_eq!(correct, &sql);
         }

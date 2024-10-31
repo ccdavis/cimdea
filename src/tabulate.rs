@@ -286,12 +286,16 @@ where
             // See https://github.com/duckdb/duckdb-rs/issues/251
             let column_names = row.as_ref().column_names();
             for (column_number, column_name) in column_names.iter().enumerate() {
+                /* 
+                // Leaving this here as a reminder of how to debug the DuckDB result
+                // set values; it's different than Rqlite.
                 match row.get_ref(column_number) {
                     Ok(d) =>println!("{}: {:?}", &column_name, &d),
                     Err(e) => println!("{}: error: {}", &column_name, e),
 
                 }
-                let item: usize = match row.get(column_number) {
+                */
+                let item: isize = match row.get(column_number) {
                     Ok(i) => i,
                     Err(e) => {
                         return Err(MdError::Msg(format!(
