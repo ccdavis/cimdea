@@ -203,6 +203,7 @@ impl Table {
     }
 }
 
+#[derive(Debug)]
 pub struct Tabulation(pub Vec<Table>);
 
 impl Tabulation {
