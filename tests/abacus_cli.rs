@@ -14,7 +14,7 @@ fn test_help() {
     let pred = predicate::str::contains("Usage: abacus")
         .and(predicate::str::contains("JSON Abacus request"));
     assert
-        .code(0)
+        .success()
         .stdout(pred)
         .stderr(predicate::str::is_empty());
 }
@@ -28,7 +28,7 @@ fn test_request_help() {
         "Given a JSON Abacus request, compute the tabulation it describes",
     );
     assert
-        .code(0)
+        .success()
         .stdout(pred)
         .stderr(predicate::str::is_empty());
 }
@@ -40,7 +40,7 @@ fn test_tab_help() {
 
     let pred = predicate::str::contains("Compute a tabulation of one or more variables");
     assert
-        .code(0)
+        .success()
         .stdout(pred)
         .stderr(predicate::str::is_empty());
 }
@@ -54,7 +54,7 @@ fn test_request_incwage_marst_example() {
         .assert();
     let pred = predicate::str::starts_with("|         ct | weighted_ct | INCWAGE | MARST |\n");
     assert
-        .code(0)
+        .success()
         .stdout(pred)
         .stderr(predicate::str::is_empty());
 }
@@ -72,7 +72,7 @@ fn test_request_json_output() {
         ])
         .assert();
 
-    let assert = assert.code(0);
+    let assert = assert.success();
     let stdout = &assert.get_output().stdout;
 
     let _: serde_json::Value = serde_json::from_slice(stdout)
@@ -98,7 +98,7 @@ fn test_request_text_output() {
          |--------------------------------------------|\n\
          |          1 |          84 |       0 |     6 |\n",
     );
-    assert.code(0).stdout(pred);
+    assert.success().stdout(pred);
 }
 
 /// Abacus returns an error when it can't find the input file for a request.
@@ -109,7 +109,7 @@ fn test_request_missing_input_file_error() {
         .args(["request", "tests/requests/this_file_is_not_there.json"])
         .assert();
     let pred = predicate::str::contains("Can't access Abacus request file");
-    assert.code(1).stderr(pred);
+    assert.failure().stderr(pred);
 }
 
 /// Without an input file, 'abacus request' reads from stdin. Passing invalid JSON
@@ -121,7 +121,7 @@ fn test_request_invalid_json_on_stdin() {
 
     let pred = predicate::str::starts_with("Error parsing input JSON")
         .and(predicate::str::contains("EOF while parsing an object"));
-    assert.code(1).stderr(pred);
+    assert.failure().stderr(pred);
 }
 
 /// Valid JSON is not always a valid Abacus request.
@@ -132,7 +132,7 @@ fn test_request_valid_json_invalid_request_on_stdin() {
 
     let pred = predicate::str::starts_with("Error parsing input JSON")
         .and(predicate::str::contains("missing field"));
-    assert.code(1).stderr(pred);
+    assert.failure().stderr(pred);
 }
 
 /// 'abacus tab' accepts a -d argument which tells it where to look for data.
@@ -149,7 +149,7 @@ fn test_tab_specify_data_root() {
          |        226 |       30958 |   0 |\n",
     );
 
-    assert.code(0).stdout(pred);
+    assert.success().stdout(pred);
 }
 
 /// 'abacus tab' returns an error if it can't find the provided data root.
@@ -168,7 +168,7 @@ fn test_tab_missing_data_root_error() {
 
     let pred =
         predicate::str::contains("Error while setting up tabulation: Cannot create CSV reader");
-    assert.code(1).stderr(pred);
+    assert.failure().stderr(pred);
 }
 
 /// It's an error if you don't specify any variables for 'abacus tab'.
@@ -179,5 +179,5 @@ fn test_tab_zero_variables() {
         .args(["tab", "usa", "us2015b", "-d", "tests/data_root"])
         .assert();
     let pred = predicate::str::contains("Must supply at least one request variable");
-    assert.code(1).stderr(pred);
+    assert.failure().stderr(pred);
 }
