@@ -1,6 +1,6 @@
 //! Tabulation integration tests
 use cimdea::request::AbacusRequest;
-use cimdea::tabulate::tabulate;
+use cimdea::tabulate::{tabulate, Table};
 
 /// This test tabulates a single P variable MARST, which does not have category
 /// bins. There are no subpopulations applied.
@@ -96,4 +96,21 @@ fn test_no_category_bins_subpop_p_variable() {
     assert_eq!(table.rows[3][2], "4");
     assert_eq!(table.rows[4][2], "5");
     assert_eq!(table.rows[5][2], "6");
+}
+
+/// A helpful struct for simplifying comparisons of a tabulation result to a key
+/// table. Uses const generics W (width) and H (height) to keep track of the width
+/// and height of the table. Has its own tests in this file.
+#[derive(Debug)]
+struct KeyTable<'a, const W: usize, const H: usize> {
+    column_names: [&'a str; W],
+    rows: [[&'a str; W]; H],
+}
+
+impl<'a, const W: usize, const H: usize> KeyTable<'a, W, H> {
+    /// Return Ok(()) if the Table is the same as the key. Otherwise, return Err
+    /// with the reason why the check did not pass.
+    fn check_table(&self, table: &Table) -> Result<(), String> {
+        Ok(())
+    }
 }
