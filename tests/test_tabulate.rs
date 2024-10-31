@@ -42,39 +42,18 @@ fn test_no_category_bins_subpop_p_variable() {
     assert_eq!(tables.len(), 1);
     let table = tables[0].clone();
 
-    assert_eq!(table.heading.len(), 3);
-    assert_eq!(table.heading[0].name(), "ct");
-    assert_eq!(table.heading[1].name(), "weighted_ct");
-    assert_eq!(table.heading[2].name(), "MARST");
-
-    assert_eq!(table.rows.len(), 6);
-    for row in &table.rows {
-        assert_eq!(row.len(), 3);
-    }
-
-    // Check ct
-    assert_eq!(table.rows[0][0], "5048");
-    assert_eq!(table.rows[1][0], "270");
-    assert_eq!(table.rows[2][0], "432");
-    assert_eq!(table.rows[3][0], "2256");
-    assert_eq!(table.rows[4][0], "1831");
-    assert_eq!(table.rows[5][0], "6622");
-
-    // Check weighted_ct
-    assert_eq!(table.rows[0][1], "496088");
-    assert_eq!(table.rows[1][1], "30965");
-    assert_eq!(table.rows[2][1], "50255");
-    assert_eq!(table.rows[3][1], "240264");
-    assert_eq!(table.rows[4][1], "162628");
-    assert_eq!(table.rows[5][1], "836520");
-
-    // Check MARST
-    assert_eq!(table.rows[0][2], "1");
-    assert_eq!(table.rows[1][2], "2");
-    assert_eq!(table.rows[2][2], "3");
-    assert_eq!(table.rows[3][2], "4");
-    assert_eq!(table.rows[4][2], "5");
-    assert_eq!(table.rows[5][2], "6");
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "MARST"],
+        rows: [
+            [5048, 496088, 1],
+            [270, 30965, 2],
+            [432, 50255, 3],
+            [2256, 240264, 4],
+            [1831, 162628, 5],
+            [6622, 836520, 6],
+        ],
+    };
+    key.check(&table);
 }
 
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
