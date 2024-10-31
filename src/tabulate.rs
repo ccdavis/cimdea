@@ -286,8 +286,7 @@ where
             // See https://github.com/duckdb/duckdb-rs/issues/251
             let column_names = row.as_ref().column_names();
             for (column_number, column_name) in column_names.iter().enumerate() {
-
-                /* 
+                /*
                 // Leaving this here as a reminder of how to debug the DuckDB result
                 // set values; it's different than Rqlite.
                 match row.get_ref(column_number) {
@@ -296,7 +295,7 @@ where
 
                 }
                 */
-                let item: isize = match row.get(column_number) {                
+                let item: isize = match row.get(column_number) {
                     Ok(i) => i,
                     Err(e) => {
                         return Err(MdError::Msg(format!(
@@ -413,7 +412,7 @@ mod test {
 
         println!("Tab with only hh vars:");
 
-        let result = tabulate(&ctx, rq);        
+        let result = tabulate(&ctx, rq);
         if let Err(ref e) = result {
             println!("{}", e);
         }
@@ -431,11 +430,13 @@ mod test {
                 assert_eq!(4, t.rows.len());
                 assert_eq!(4, t.rows[0].len());
                 // The unweighted count of people in GQ == 1 in PR
-                assert_eq!("29846",t.rows[0][0] , "Should be the number of person records in the data, not number of households.");
+                assert_eq!(
+                    "29846", t.rows[0][0],
+                    "Should be the number of person records in the data, not number of households."
+                );
 
                 // The STATEFIP code should be 72 for PR
                 assert_eq!("72", t.rows[0][3]);
-                
             }
         }
     }

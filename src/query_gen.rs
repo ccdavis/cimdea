@@ -215,7 +215,7 @@ impl TabBuilder {
 
         let rectypes: HashSet<String> = HashSet::from_iter(rectypes_vec.iter().cloned());
 
-        // TODO: Decide the unit of analysis based on variable selection? Or, use the 
+        // TODO: Decide the unit of analysis based on variable selection? Or, use the
         // UOA in the incoming Request JSON
         let uoa = ctx.settings.default_unit_of_analysis.value.clone();
 
@@ -223,7 +223,7 @@ impl TabBuilder {
             let msg = format!("Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'", uoa, ctx.settings.name);
             return Err(MdError::Msg(msg));
         }
-    
+
         let weight_name = ctx.settings.weight_for_rectype(&uoa);
         let weight_divisor = ctx.settings.weight_divisor(&uoa);
 
