@@ -22,7 +22,7 @@ fn household(_product: &str) -> RecordType {
 
 fn person(product: &str) -> RecordType {
     let slwt = match product.to_lowercase().as_ref() {
-        "usa" =>  Some(usa_sample_line_weight()),
+        "usa" => Some(usa_sample_line_weight()),
         _ => None,
     };
 
@@ -38,9 +38,15 @@ fn person(product: &str) -> RecordType {
 
 fn default_record_types(product: &str) -> HashMap<String, RecordType> {
     match product.to_lowercase().as_ref() {
-        "usa" | "ipumsi" | "cps" => HashMap::from([("H".to_string(), household(product)), ("P".to_string(), person(product))]),
+        "usa" | "ipumsi" | "cps" => HashMap::from([
+            ("H".to_string(), household(product)),
+            ("P".to_string(), person(product)),
+        ]),
         // TODO add some other default hierarchies or load from a config file
-        _ =>HashMap::from([("H".to_string(), household(product)), ("P".to_string(), person(product))]),
+        _ => HashMap::from([
+            ("H".to_string(), household(product)),
+            ("P".to_string(), person(product)),
+        ]),
     }
 }
 
@@ -52,7 +58,7 @@ fn default_person_weight() -> RecordWeight {
     RecordWeight::new("PERWT", 100)
 }
 
-fn usa_sample_line_weight() ->RecordWeight {
+fn usa_sample_line_weight() -> RecordWeight {
     RecordWeight::new("SLWT", 100)
 }
 
