@@ -193,6 +193,35 @@ impl TabBuilder {
         }
     }
 
+    fn get_weight(&self, ctx: &Context, uoa: &str) -> (Option<String>, Option<usize>) {
+        let default_weight = (
+            ctx.settings.weight_for_rectype(uoa),
+            ctx.settings.weight_divisor(uoa),
+        );
+
+        // non-USA will be (None, None)
+        let sample_line_weight = (
+            ctx.settings.sample_line_weight_for_rectype(uoa),
+            ctx.settings.sample_line_weight_divisor(uoa),
+        );
+
+        // TODO: here is where, if we had full variable metadata, we could decide when to use
+        // SLWT or PERWT in USA, since each variable has a SLWT50 or SLWT40 value..
+        // It only matters on years with sample line questions: 1940 and 1950 (this could
+        // be set on IpumsDataset metadata but isn't yet.) For now we just need to
+        // use SLWT if the dataset names are 'us1940a' or 'us1950a' or 'us1940b' or 'us1950b'.
+        if matches!(ctx.settings.name.to_lowercase().as_ref(), "usa")
+            && matches!(
+                self.dataset.to_ascii_lowercase().as_ref(),
+                "us1940b" | "us1950b" | "us1940a" | "us1950a"
+            )
+        {
+            sample_line_weight
+        } else {
+            default_weight
+        }
+    }
+
     pub fn make_query(
         &self,
         ctx: &Context,
@@ -224,8 +253,7 @@ impl TabBuilder {
             return Err(MdError::Msg(msg));
         }
 
-        let weight_name = ctx.settings.weight_for_rectype(&uoa);
-        let weight_divisor = ctx.settings.weight_divisor(&uoa);
+        let (weight_name, weight_divisor) = self.get_weight(ctx, &uoa);
 
         let select_clause =
             self.build_select_clause(&request_variables, weight_name, weight_divisor);
