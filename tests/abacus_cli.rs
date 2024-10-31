@@ -19,6 +19,32 @@ fn test_help() {
         .stderr(predicate::str::is_empty());
 }
 
+#[test]
+fn test_request_help() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command.args(["request", "--help"]).assert();
+
+    let pred = predicate::str::contains(
+        "Given a JSON Abacus request, compute the tabulation it describes",
+    );
+    assert
+        .code(0)
+        .stdout(pred)
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn test_tab_help() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command.args(["tab", "--help"]).assert();
+
+    let pred = predicate::str::contains("Compute a tabulation of one or more variables");
+    assert
+        .code(0)
+        .stdout(pred)
+        .stderr(predicate::str::is_empty());
+}
+
 /// Abacus can process the incwage_marst_example.json example and outputs text by default.
 #[test]
 fn test_request_incwage_marst_example() {
@@ -53,6 +79,28 @@ fn test_request_json_output() {
         .expect("abacus should output valid JSON when passed '-f json'");
 }
 
+/// By default the output format is text, but you can also explicitly request
+/// this on the command line.
+#[test]
+fn test_request_text_output() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command
+        .args([
+            "request",
+            "tests/requests/incwage_marst_example.json",
+            "-f",
+            "text",
+        ])
+        .assert();
+
+    let pred = predicate::str::starts_with(
+        "|         ct | weighted_ct | INCWAGE | MARST |\n\
+         |--------------------------------------------|\n\
+         |          1 |          84 |       0 |     6 |\n",
+    );
+    assert.code(0).stdout(pred);
+}
+
 /// Abacus returns an error when it can't find the input file for a request.
 #[test]
 fn test_request_missing_input_file_error() {
@@ -64,19 +112,35 @@ fn test_request_missing_input_file_error() {
     assert.code(1).stderr(pred);
 }
 
+/// Without an input file, 'abacus request' reads from stdin. Passing invalid JSON
+/// results in an error.
+#[test]
+fn test_request_invalid_json_on_stdin() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command.arg("request").write_stdin("{").assert();
+
+    let pred = predicate::str::starts_with("Error parsing input JSON")
+        .and(predicate::str::contains("EOF while parsing an object"));
+    assert.code(1).stderr(pred);
+}
+
+/// Valid JSON is not always a valid Abacus request.
+#[test]
+fn test_request_valid_json_invalid_request_on_stdin() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command.arg("request").write_stdin("{}").assert();
+
+    let pred = predicate::str::starts_with("Error parsing input JSON")
+        .and(predicate::str::contains("missing field"));
+    assert.code(1).stderr(pred);
+}
+
 /// 'abacus tab' accepts a -d argument which tells it where to look for data.
 #[test]
 fn test_tab_specify_data_root() {
     let mut command = Command::cargo_bin("abacus").unwrap();
     let assert = command
-        .args([
-            "tab",
-            "usa",
-            "us2015b",
-            "AGE",
-            "--data-root",
-            "tests/data_root",
-        ])
+        .args(["tab", "usa", "us2015b", "AGE", "-d", "tests/data_root"])
         .assert();
 
     let pred = predicates::str::starts_with(
@@ -97,12 +161,23 @@ fn test_tab_missing_data_root_error() {
             "tab",
             "usa",
             "us2015b",
-            "--data-root",
+            "-d",
             "tests/data_root/does/not/exist",
         ])
         .assert();
 
     let pred =
         predicate::str::contains("Error while setting up tabulation: Cannot create CSV reader");
+    assert.code(1).stderr(pred);
+}
+
+/// It's an error if you don't specify any variables for 'abacus tab'.
+#[test]
+fn test_tab_zero_variables() {
+    let mut command = Command::cargo_bin("abacus").unwrap();
+    let assert = command
+        .args(["tab", "usa", "us2015b", "-d", "tests/data_root"])
+        .assert();
+    let pred = predicate::str::contains("Must supply at least one request variable");
     assert.code(1).stderr(pred);
 }
