@@ -174,6 +174,31 @@ impl TabBuilder {
         Ok(select_clause)
     }
 
+    fn should_use_sample_line_weights(&self, ctx: &Context) -> bool {
+        matches!(ctx.settings.name.to_lowercase().as_ref(), "usa")
+            && matches!(
+                self.dataset.to_ascii_lowercase().as_ref(),
+                "us1940b" | "us1950b" | "us1940a" | "us1950a"
+            )
+    }
+
+    fn should_use_selfwtsl(&self, ctx: &Context) -> bool {
+        self.should_use_sample_line_weights(ctx)
+            && matches!(self.dataset.to_lowercase().as_ref(), "us1940a")
+    }
+
+    fn conditions_with_selfwtsl_filter(
+        &self,
+        ctx: &Context,
+        conditions: Option<Vec<Condition>>,
+    ) -> Result<Vec<Condition>, MdError> {
+        let mut existing_conditions = conditions.unwrap_or(Vec::new());
+        let selfwtsl = ctx.get_md_variable_by_name("SELFWTSL")?;
+        let selfwtsl_cond = Condition::new(&selfwtsl, &[CompareOperation::Equal("2".to_string())])?;
+        existing_conditions.push(selfwtsl_cond);
+        Ok(existing_conditions)
+    }
+
     fn build_where_clause(
         &self,
         conditions: &[Condition],
@@ -210,12 +235,7 @@ impl TabBuilder {
         // It only matters on years with sample line questions: 1940 and 1950 (this could
         // be set on IpumsDataset metadata but isn't yet.) For now we just need to
         // use SLWT if the dataset names are 'us1940a' or 'us1950a' or 'us1940b' or 'us1950b'.
-        if matches!(ctx.settings.name.to_lowercase().as_ref(), "usa")
-            && matches!(
-                self.dataset.to_ascii_lowercase().as_ref(),
-                "us1940b" | "us1950b" | "us1940a" | "us1950a"
-            )
-        {
+        if self.should_use_sample_line_weights(ctx) {
             sample_line_weight
         } else {
             default_weight
@@ -228,7 +248,7 @@ impl TabBuilder {
         abacus_request: &impl DataRequest,
     ) -> Result<String, MdError> {
         let request_variables = abacus_request.get_request_variables();
-        let conditions = abacus_request.get_conditions();
+        let requested_conditions = abacus_request.get_conditions();
         let case_select_logic = abacus_request.case_select_logic();
 
         if request_variables.len() == 0 {
@@ -236,6 +256,14 @@ impl TabBuilder {
                 "Must supply at least one request variable.".to_string(),
             ));
         }
+
+        // Add a condition for SELFWTSL if needed. Yuck.
+        let conditions = if self.should_use_selfwtsl(ctx) {
+            Some(self.conditions_with_selfwtsl_filter(ctx, requested_conditions)?)
+        } else {
+            requested_conditions
+        };
+
         // Find all rectypes used by the requested variables
         let rectypes_vec = request_variables
             .iter()
@@ -273,6 +301,7 @@ impl TabBuilder {
 
         let group_by_clause = vars_in_order;
         let order_by_clause = vars_in_order;
+
         if let Some(conds) = conditions {
             let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
             Ok(format!(
