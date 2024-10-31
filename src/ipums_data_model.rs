@@ -17,6 +17,12 @@ pub struct RecordType {
     pub unique_id: String,                   // Like SERIAL for household, PSERIAL for Person etc
     pub foreign_keys: Vec<(String, String)>, // RecordType name,  key name: like 'Household', 'serialp'
     pub weight: Option<RecordWeight>,
+
+    // Some datasets will have a "sample line weight" where only certain records / people
+    // have non N/A values for some variables. This type of weight will be 0 for many
+    // records. When using this weight instead of the main weight you will get a correctly
+    // weighted subsample.
+    pub sample_weight: Option<RecordWeight>,
 }
 
 #[derive(Clone, Debug)]
