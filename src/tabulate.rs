@@ -397,6 +397,49 @@ mod test {
     }
 
     #[test]
+    fn test_hh_only() {
+        let data_root = String::from("test/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["GQ", "STATEFIP"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect(
+            "Setting up this request and context is for a subsequent test and should always work.",
+        );
+
+        println!("Tab with only hh vars:");
+
+        let result = tabulate(&ctx, rq);        
+        if let Err(ref e) = result {
+            println!("{}", e);
+        }
+
+        assert!(result.is_ok(), "Should have tabulated.");
+        if let Ok(tab) = result {
+            let tables = tab.into_inner();
+            assert_eq!(1, tables.len());
+            for t in tables {
+                println!(
+                    "{}",
+                    t.format_as_text()
+                        .expect("should be able to format as text")
+                );
+                assert_eq!(4, t.rows.len());
+                assert_eq!(4, t.rows[0].len());
+                // The unweighted count of people in GQ == 1 in PR
+                assert_eq!("29846",t.rows[0][0] , "Should be the number of person records in the data, not number of households.");
+
+                // The STATEFIP code should be 72 for PR
+                assert_eq!("72", t.rows[0][3]);
+            }
+        }
+    }
+
+    #[test]
     fn test_basic_tabulation() {
         let start = Instant::now();
 
