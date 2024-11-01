@@ -301,7 +301,7 @@ impl TabBuilder {
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
         let vars_in_order = self.help_final_var_aliases(&request_variables);
-        
+
         let group_by_clause = vars_in_order.join(", ");
         let order_by_clause = vars_in_order.join(", ");
 
