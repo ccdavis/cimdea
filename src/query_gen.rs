@@ -9,6 +9,8 @@
 //!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
+use duckdb::ffi::duckdb_function_get_local_init_data;
+
 use crate::conventions::Context;
 
 use crate::input_schema_tabulation::{self, CategoryBin};
@@ -98,7 +100,6 @@ impl TabBuilder {
                 );
             }
         }
-
         Ok(q)
     }
 
@@ -242,6 +243,19 @@ impl TabBuilder {
         }
     }
 
+    fn final_var_aliases(&self, request_variables: &[RequestVariable]) -> Vec<String> {
+        request_variables
+            .iter()
+            .map(|v| {
+                if v.is_bucketed() {
+                    format!("{}_bucketed", &v.name)
+                } else {
+                    v.name.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn make_query(
         &self,
         ctx: &Context,
@@ -287,20 +301,10 @@ impl TabBuilder {
             self.build_select_clause(&request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
-        let vars_in_order = &request_variables
-            .iter()
-            .map(|v| {
-                if v.is_bucketed() {
-                    format!("{}_bucketed", &v.name)
-                } else {
-                    v.name.to_string()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let group_by_clause = vars_in_order;
-        let order_by_clause = vars_in_order;
+        let vars_in_order = self.final_var_aliases(&request_variables);
+        
+        let group_by_clause = vars_in_order.join(", ");
+        let order_by_clause = vars_in_order.join(", ");
 
         if let Some(conds) = conditions {
             let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
