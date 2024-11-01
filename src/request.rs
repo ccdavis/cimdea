@@ -122,6 +122,12 @@ impl RequestVariable {
         var: &IpumsVariable,
         use_general: GeneralDetailedSelection,
     ) -> Result<Self, MdError> {
+        if use_general == GeneralDetailedSelection::General && var.general_width == None {
+            return Err(MdError::Msg(format!(
+                "requested the general version of variable {} which has no general width",
+                var.name
+            )));
+        }
         let general_divisor: usize = if let Some((_, w)) = var.formatting {
             if let Some(general_width) = var.general_width {
                 if w == general_width {
