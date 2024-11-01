@@ -129,7 +129,7 @@ impl TabBuilder {
             .collect::<Vec<String>>()
             .join("\n");
         sql.push_str(&cases);
-        sql.push_str("\nelse 'OTHER' end ");
+        sql.push_str("\nelse '999' end ");
         sql.push_str(&format!("as {}_bucketed", &rq.name));
         Ok(sql)
     }
@@ -215,22 +215,13 @@ impl TabBuilder {
 
         let rectypes: HashSet<String> = HashSet::from_iter(rectypes_vec.iter().cloned());
 
-        // TODO: Decide the unit of analysis based on variable selection?
-        let mut uoa = ctx.settings.default_unit_of_analysis.value.clone();
+        // TODO: Decide the unit of analysis based on variable selection? Or, use the
+        // UOA in the incoming Request JSON
+        let uoa = ctx.settings.default_unit_of_analysis.value.clone();
 
         if !self.data_sources.contains_key(&uoa) {
             let msg = format!("Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'", uoa, ctx.settings.name);
             return Err(MdError::Msg(msg));
-        }
-
-        // What if the default unit of analysis isn't in the requested variables. This covers the common case
-        // where only household type variables are in the request. It doesn't handle all cases, such as
-        // a request with "activity" and "person" variables, where the uoa (could) be "activity". If we
-        // have more than one rectype therefore, we error out.
-        if !rectypes.contains(&uoa) {
-            if rectypes.len() == 1 {
-                uoa = rectypes_vec[0].clone();
-            }
         }
 
         let weight_name = ctx.settings.weight_for_rectype(&uoa);
@@ -623,7 +614,7 @@ mod test {
 	when UHRSWORK >= 1 and UHRSWORK <= 14 then '001'
 	when UHRSWORK >= 15 and UHRSWORK <= 34 then '002'
 	when UHRSWORK >= 35 and UHRSWORK <= 99 then '003'
-else 'OTHER' end as UHRSWORK_bucketed";
+else '999' end as UHRSWORK_bucketed";
 
             assert_eq!(correct, &sql);
         }
