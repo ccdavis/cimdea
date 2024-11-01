@@ -94,7 +94,10 @@ impl RequestVariable {
         category_bins: &Option<&Vec<CategoryBin>>,
         input_rq: input_schema_tabulation::RequestVariable,
     ) -> Result<Self, MdError> {
-        let var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
+        let mut var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
+        // Currently we determine the general width from the input request, not
+        // from metadata
+        var.general_width = Some(input_rq.extract_width);
         let mut rq = Self::try_from_ipums_variable(&var, input_rq.general_detailed_selection)?;
 
         // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
@@ -155,7 +158,7 @@ impl RequestVariable {
             attached_variable_pointer: None,
             category_bins: var.category_bins.clone(),
             extract_start: None,
-            extract_width: None,
+            extract_width: var.general_width,
         })
     }
 
