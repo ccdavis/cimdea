@@ -120,23 +120,27 @@ impl RequestVariable {
         use_general: GeneralDetailedSelection,
     ) -> Result<Self, MdError> {
         let general_divisor: usize = if let Some((_, w)) = var.formatting {
-            if w == var.general_width {
-                1
-            } else if var.general_width < w {
-                // We could avoid this unwrap() by using u32s instead of usizes
-                // during parsing and metadata loading. But as it is, this is
-                // technically a fallible conversion. It's not likely to fail
-                // with normal metadata; we'd need to overflow a u32.
-                let exponent: u32 = (w - var.general_width).try_into().unwrap();
-                let base: usize = 10;
-                base.pow(exponent)
+            if let Some(general_width) = var.general_width {
+                if w == general_width {
+                    1
+                } else if general_width < w {
+                    // We could avoid this unwrap() by using u32s instead of usizes
+                    // during parsing and metadata loading. But as it is, this is
+                    // technically a fallible conversion. It's not likely to fail
+                    // with normal metadata; we'd need to overflow a u32.
+                    let exponent: u32 = (w - general_width).try_into().unwrap();
+                    let base: usize = 10;
+                    base.pow(exponent)
+                } else {
+                    return Err(metadata_error!(
+                        "variable {} has general width {}, which is larger than its detailed width {}",
+                        var.name,
+                        general_width,
+                        w
+                    ));
+                }
             } else {
-                return Err(metadata_error!(
-                    "variable {} has general width {}, which is larger than its detailed width {}",
-                    var.name,
-                    var.general_width,
-                    w
-                ));
+                1
             }
         } else {
             1
@@ -917,7 +921,7 @@ mod test {
             formatting: Some((100, 4)),
             // This is invalid because it's greater than the width in the formatting
             // field. This will cause the error later.
-            general_width: 5,
+            general_width: Some(5),
             description: None,
             category_bins: None,
         };
@@ -937,7 +941,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: Some((100, 4)),
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };
@@ -961,7 +965,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: Some((5, 2)),
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };
@@ -985,7 +989,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: None,
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };

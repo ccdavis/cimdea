@@ -89,7 +89,7 @@ pub struct IpumsVariable {
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
-    pub general_width: usize,
+    pub general_width: Option<usize>,
     pub description: Option<ComprString>,
     pub category_bins: Option<Vec<CategoryBin>>,
     pub id: IpumsVariableId, // auto-assigned in load order
@@ -106,7 +106,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             categories: None,
             category_bins: None,
             formatting: Some((value.0.start, value.0.width)),
-            general_width: value.0.width,
+            general_width: Some(value.0.width),
             description: None,
         }
     }
