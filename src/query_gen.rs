@@ -9,6 +9,7 @@
 //!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
+
 use crate::conventions::Context;
 
 use crate::input_schema_tabulation::{self, CategoryBin};
@@ -82,11 +83,11 @@ impl TabBuilder {
                 // The uoa should be the lowest record in the hierarchy of record types from requested variables by definition. The 'foreign_key' will point to the record
                 // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
                 // should not be allowed in the same tabulation.
-                let left_foreign_key = Self::get_connecting_foreign_key(ctx, uoa, rt)?;
+                let left_foreign_key = Self::help_get_connecting_foreign_key(ctx, uoa, rt)?;
 
                 let platform_specific_path = ds.for_platform(&self.platform);
                 let table_alias = ds.table_name();
-                let table_id = Self::get_id_for_record_type(ctx, rt)?;
+                let table_id = Self::help_get_id_for_record_type(ctx, rt)?;
                 q = q + &format!(
                     "\n left join  {} {} on {}.{} = {}.{}",
                     platform_specific_path,
@@ -98,11 +99,10 @@ impl TabBuilder {
                 );
             }
         }
-
         Ok(q)
     }
 
-    fn bucket(&self, rq: &RequestVariable) -> Result<String, MdError> {
+    fn help_bucket(&self, rq: &RequestVariable) -> Result<String, MdError> {
         let Some(ref bins) = rq.category_bins else {
             return Err(MdError::Msg("No category bins available.".to_string()));
         };
@@ -165,13 +165,38 @@ impl TabBuilder {
                     &rq.variable.name, &rq.general_divisor, &rq.name
                 )
             } else if rq.is_bucketed() {
-                format!(", {} ", &self.bucket(&rq)?)
+                format!(", {} ", &self.help_bucket(&rq)?)
             } else {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             };
         }
 
         Ok(select_clause)
+    }
+
+    fn should_use_sample_line_weights(&self, ctx: &Context) -> bool {
+        matches!(ctx.settings.name.to_lowercase().as_ref(), "usa")
+            && matches!(
+                self.dataset.to_ascii_lowercase().as_ref(),
+                "us1940b" | "us1950b" | "us1940a" | "us1950a"
+            )
+    }
+
+    fn should_use_selfwtsl(&self, ctx: &Context) -> bool {
+        self.should_use_sample_line_weights(ctx)
+            && matches!(self.dataset.to_lowercase().as_ref(), "us1940a")
+    }
+
+    fn help_conditions_with_selfwtsl_filter(
+        &self,
+        ctx: &Context,
+        conditions: Option<Vec<Condition>>,
+    ) -> Result<Vec<Condition>, MdError> {
+        let mut existing_conditions = conditions.unwrap_or(Vec::new());
+        let selfwtsl = ctx.get_md_variable_by_name("SELFWTSL")?;
+        let selfwtsl_cond = Condition::new(&selfwtsl, &[CompareOperation::Equal("2".to_string())])?;
+        existing_conditions.push(selfwtsl_cond);
+        Ok(existing_conditions)
     }
 
     fn build_where_clause(
@@ -193,13 +218,50 @@ impl TabBuilder {
         }
     }
 
+    fn help_get_weight(&self, ctx: &Context, uoa: &str) -> (Option<String>, Option<usize>) {
+        let default_weight = (
+            ctx.settings.weight_for_rectype(uoa),
+            ctx.settings.weight_divisor(uoa),
+        );
+
+        // non-USA will be (None, None)
+        let sample_line_weight = (
+            ctx.settings.sample_line_weight_for_rectype(uoa),
+            ctx.settings.sample_line_weight_divisor(uoa),
+        );
+
+        // TODO: here is where, if we had full variable metadata, we could decide when to use
+        // SLWT or PERWT in USA, since each variable has a SLWT50 or SLWT40 value..
+        // It only matters on years with sample line questions: 1940 and 1950 (this could
+        // be set on IpumsDataset metadata but isn't yet.) For now we just need to
+        // use SLWT if the dataset names are 'us1940a' or 'us1950a' or 'us1940b' or 'us1950b'.
+        if self.should_use_sample_line_weights(ctx) {
+            sample_line_weight
+        } else {
+            default_weight
+        }
+    }
+
+    fn help_final_var_aliases(&self, request_variables: &[RequestVariable]) -> Vec<String> {
+        request_variables
+            .iter()
+            .map(|v| {
+                if v.is_bucketed() {
+                    format!("{}_bucketed", &v.name)
+                } else {
+                    v.name.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn make_query(
         &self,
         ctx: &Context,
         abacus_request: &impl DataRequest,
     ) -> Result<String, MdError> {
         let request_variables = abacus_request.get_request_variables();
-        let conditions = abacus_request.get_conditions();
+        let requested_conditions = abacus_request.get_conditions();
         let case_select_logic = abacus_request.case_select_logic();
 
         if request_variables.len() == 0 {
@@ -207,6 +269,14 @@ impl TabBuilder {
                 "Must supply at least one request variable.".to_string(),
             ));
         }
+
+        // Add a condition for SELFWTSL if needed. Yuck.
+        let conditions = if self.should_use_selfwtsl(ctx) {
+            Some(self.help_conditions_with_selfwtsl_filter(ctx, requested_conditions)?)
+        } else {
+            requested_conditions
+        };
+
         // Find all rectypes used by the requested variables
         let rectypes_vec = request_variables
             .iter()
@@ -224,27 +294,17 @@ impl TabBuilder {
             return Err(MdError::Msg(msg));
         }
 
-        let weight_name = ctx.settings.weight_for_rectype(&uoa);
-        let weight_divisor = ctx.settings.weight_divisor(&uoa);
+        let (weight_name, weight_divisor) = self.help_get_weight(ctx, &uoa);
 
         let select_clause =
             self.build_select_clause(&request_variables, weight_name, weight_divisor);
         let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
 
-        let vars_in_order = &request_variables
-            .iter()
-            .map(|v| {
-                if v.is_bucketed() {
-                    format!("{}_bucketed", &v.name)
-                } else {
-                    v.name.to_string()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
+        let vars_in_order = self.help_final_var_aliases(&request_variables);
 
-        let group_by_clause = vars_in_order;
-        let order_by_clause = vars_in_order;
+        let group_by_clause = vars_in_order.join(", ");
+        let order_by_clause = vars_in_order.join(", ");
+
         if let Some(conds) = conditions {
             let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
             Ok(format!(
@@ -259,7 +319,7 @@ impl TabBuilder {
         }
     }
 
-    fn get_connecting_foreign_key(
+    fn help_get_connecting_foreign_key(
         ctx: &Context,
         from_rt: &str,
         to_parent: &str,
@@ -285,7 +345,7 @@ impl TabBuilder {
         }
     }
 
-    fn get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
+    fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
         if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
@@ -606,7 +666,7 @@ mod test {
 
         uhrswork_rq.category_bins = Some(bins);
 
-        let bucket_fragment_result = tab_builder.bucket(&uhrswork_rq);
+        let bucket_fragment_result = tab_builder.help_bucket(&uhrswork_rq);
         assert!(bucket_fragment_result.is_ok());
         if let Ok(sql) = bucket_fragment_result {
             let correct = r"case

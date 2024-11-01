@@ -9,28 +9,45 @@ use crate::ipums_data_model::*;
 use crate::mderror::MdError;
 use std::collections::HashMap;
 
-fn household() -> RecordType {
+fn household(_product: &str) -> RecordType {
     RecordType {
         name: "Household".to_string(),
         value: "H".to_string(),
         unique_id: "SERIAL".to_string(),
         foreign_keys: Vec::new(),
         weight: Some(default_household_weight()),
+        sample_weight: None,
     }
 }
 
-fn person() -> RecordType {
+fn person(product: &str) -> RecordType {
+    let slwt = match product.to_lowercase().as_ref() {
+        "usa" => Some(usa_sample_line_weight()),
+        _ => None,
+    };
+
     RecordType {
         name: "Person".to_string(),
         value: "P".to_string(),
         unique_id: "PSERIAL".to_string(),
         foreign_keys: vec![("H".to_string(), "SERIALP".to_string())],
         weight: Some(default_person_weight()),
+        sample_weight: slwt,
     }
 }
 
-fn default_record_types() -> HashMap<String, RecordType> {
-    HashMap::from([("H".to_string(), household()), ("P".to_string(), person())])
+fn default_record_types(product: &str) -> HashMap<String, RecordType> {
+    match product.to_lowercase().as_ref() {
+        "usa" | "ipumsi" | "cps" => HashMap::from([
+            ("H".to_string(), household(product)),
+            ("P".to_string(), person(product)),
+        ]),
+        // TODO add some other default hierarchies or load from a config file
+        _ => HashMap::from([
+            ("H".to_string(), household(product)),
+            ("P".to_string(), person(product)),
+        ]),
+    }
 }
 
 fn default_household_weight() -> RecordWeight {
@@ -39,6 +56,10 @@ fn default_household_weight() -> RecordWeight {
 
 fn default_person_weight() -> RecordWeight {
     RecordWeight::new("PERWT", 100)
+}
+
+fn usa_sample_line_weight() -> RecordWeight {
+    RecordWeight::new("SLWT", 100)
 }
 
 fn default_hierarchy() -> RecordHierarchy {
@@ -52,8 +73,8 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
     MicroDataCollection {
         name: name.to_string(),
         record_hierarchy: default_hierarchy(),
-        record_types: default_record_types(),
-        default_unit_of_analysis: person(),
+        record_types: default_record_types(name),
+        default_unit_of_analysis: person(name),
         metadata: None,
     }
 }

@@ -56,9 +56,21 @@ impl MicroDataCollection {
         Some(weight.name.clone())
     }
 
+    pub fn sample_line_weight_for_rectype(&self, rt: &str) -> Option<String> {
+        let rectype = self.record_types.get(rt)?;
+        let weight = &rectype.sample_weight.clone()?;
+        Some(weight.name.clone())
+    }
+
     pub fn weight_divisor(&self, rt: &str) -> Option<usize> {
         let rectype = self.record_types.get(rt)?;
         let weight = &rectype.weight.clone()?;
+        Some(weight.divisor)
+    }
+
+    pub fn sample_line_weight_divisor(&self, rt: &str) -> Option<usize> {
+        let rectype = self.record_types.get(rt)?;
+        let weight = &rectype.sample_weight.clone()?;
         Some(weight.divisor)
     }
 
