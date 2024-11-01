@@ -1,6 +1,6 @@
 {
     "product": "usa",
-    "data_root": "test/data_root",
+    "data_root": "tests/data_root",
     "uoa": "P",
     "output_format" : "json",
     "subpopulation": [

@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_dataset_layout_try_from_layout_file() {
-        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
         let layout = DatasetLayout::try_from_layout_file(layout_file)
             .expect("should be able to create DatasetLayout from file");
 
@@ -250,7 +250,7 @@ mod tests {
     #[test]
     fn test_dataset_layout_try_from_layout_file_no_such_file_error() {
         // This is not a real layout file
-        let layout_file = Path::new("test/data_root/layouts/us0000a.layout.txt");
+        let layout_file = Path::new("tests/data_root/layouts/us0000a.layout.txt");
         let result = DatasetLayout::try_from_layout_file(layout_file);
         assert!(result.is_err(), "expected an error but got {result:?}");
     }
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_dataset_layout_all_variables() {
-        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
         let layout = DatasetLayout::try_from_layout_file(layout_file)
             .expect("should be able to create DatasetLayout from file");
 
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn test_dataset_layout_find_variables() {
-        let layout_file = Path::new("test/data_root/layouts/us1850a.layout.txt");
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
         let layout = DatasetLayout::try_from_layout_file(layout_file)
             .expect("should be able to create DatasetLayout from file");
 

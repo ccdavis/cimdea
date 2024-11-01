@@ -20,6 +20,11 @@ serde ={version =  "1.0.201", features=["derive"]}
 serde_json = "1.0.117"
 clap = {version="4.0.0", features=["derive"]}
 
+[dev-dependencies]
+criterion = {version = "0.5", features = ["html_reports"]}
+assert_cmd = "2.0.16"
+predicates = "3.1.2"
+
 [lib]
 name = "cimdea"
 path = "src/lib.rs"
@@ -27,3 +32,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "abacus"
 path = "src/bin/abacus.rs"
+
+[[bench]]
+name = "tabulate_simple_request_benchmark"
+harness = false

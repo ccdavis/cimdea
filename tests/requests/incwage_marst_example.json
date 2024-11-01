@@ -1,5 +1,5 @@
 {"product":"usa",
-"data_root": "test/data_root",
+"data_root": "tests/data_root",
 "uoa":"P","output_format":"json",
 "subpopulation":
 [{"variable_mnemonic":"EDUC","mnemonic":"EDUC","general_detailed_selection":"G",

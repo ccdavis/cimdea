@@ -220,7 +220,7 @@ mod tests {
     /// INCWAGE and MARST.
     #[test]
     fn test_deserialize_incwage_marst_example() {
-        let json_str = include_str!("../test/requests/incwage_marst_example.json");
+        let json_str = include_str!("../tests/requests/incwage_marst_example.json");
         let request: AbacusRequest =
             serde_json::from_str(json_str).expect("should deserialize into an AbacusRequest");
 
@@ -242,7 +242,7 @@ mod tests {
     /// it should deserialize to the same AbacusRequest as the input string does.
     #[test]
     fn test_json_request_round_trip() {
-        let json_str = include_str!("../test/requests/incwage_marst_example.json");
+        let json_str = include_str!("../tests/requests/incwage_marst_example.json");
         let deserialized1: AbacusRequest =
             serde_json::from_str(json_str).expect("should deserialize into an AbacusRequest");
         let serialized =

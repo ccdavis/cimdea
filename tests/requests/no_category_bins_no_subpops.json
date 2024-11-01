@@ -1,0 +1,29 @@
+{
+  "product": "usa",
+  "data_root": "tests/data_root",
+  "uoa": "P",
+  "output_format": "json",
+  "subpopulation": [],
+  "category_bins": {},
+  "request_samples": [
+    {
+      "name": "us2015b",
+      "custom_sampling_ratio": null,
+      "first_household_sampled": null
+    }
+  ],
+  "request_variables": [
+    {
+      "variable_mnemonic": "MARST",
+      "mnemonic": "MARST",
+      "general_detailed_selection": "",
+      "standardization_index": null,
+      "attached_variable_pointer": null,
+      "case_selection": false,
+      "request_case_selections": [],
+      "include_dq_flags": false,
+      "extract_start": 1,
+      "extract_width": 1
+    }
+  ]
+}

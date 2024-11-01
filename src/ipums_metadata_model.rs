@@ -112,7 +112,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IpumsDataType {
     Integer,
     Float,
@@ -230,5 +230,50 @@ mod test {
 
         assert_eq!(cat2.label(), cat3.label());
         assert_eq!("second", cat3.label());
+    }
+
+    /// If IpumsDataType::from() doesn't recognize the input string, it defaults
+    /// to the type Integer.
+    #[test]
+    fn test_ipums_data_type_from_unknown_type() {
+        let input = "kaboom";
+        let data_type = IpumsDataType::from(input);
+        assert_eq!(
+            data_type,
+            IpumsDataType::Integer,
+            "for unrecognized input, the default type should be Integer"
+        );
+    }
+
+    #[test]
+    fn test_ipums_data_type_from_is_case_insensitive() {
+        let input = "sTrInG";
+        let data_type = IpumsDataType::from(input);
+        assert_eq!(
+            data_type, IpumsDataType::String,
+            "IpumsDataType::from() should be insensitive to the case (uppercase/lowercase) of its input",
+        );
+    }
+
+    #[test]
+    fn test_ipums_data_type_string_round_trip() {
+        let data_types = [
+            IpumsDataType::Integer,
+            IpumsDataType::Float,
+            // The string representation of Fixed(n) does not include the integer
+            // n. So we always parse it as Fixed(0). This means that only Fixed(0)
+            // round trips to a string and back.
+            IpumsDataType::Fixed(0),
+            IpumsDataType::String,
+        ];
+
+        for data_type in data_types {
+            let type_as_string = data_type.to_string();
+            let round_tripped = IpumsDataType::from(type_as_string.as_str());
+            assert_eq!(
+                round_tripped, data_type,
+                "data type '{data_type:?}' should round trip to a string and back unchanged"
+            );
+        }
     }
 }

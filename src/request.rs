@@ -808,11 +808,10 @@ impl DataRequest for SimpleRequest {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs;
 
     #[test]
     pub fn test_deserialize_into_simple_request() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let mut ctx =
             conventions::Context::from_ipums_collection_name("usa", None, Some(data_root))
                 .expect("should be able to load context for USA");
@@ -828,8 +827,7 @@ mod test {
             }
         }
 
-        let json_request = fs::read_to_string("test/requests/usa_extract.json")
-            .expect("Error reading test fixture in test/requests");
+        let json_request = include_str!("../tests/requests/usa_extract.json");
         let simple_request =
             SimpleRequest::deserialize_from_ipums_json(&ctx, RequestType::Extract, &json_request);
         if let Err(ref e) = simple_request {
@@ -843,7 +841,7 @@ mod test {
 
     #[test]
     pub fn test_from_names() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (_ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
@@ -860,7 +858,7 @@ mod test {
 
     #[test]
     fn test_abacus_request_from_names() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (_ctx, abacus_request) = AbacusRequest::from_names(
             "usa",
             &["us2015b"],
@@ -878,8 +876,7 @@ mod test {
 
     #[test]
     pub fn test_abacus_request_from_json() {
-        let json_request = fs::read_to_string("test/requests/usa_abacus_request.json")
-            .expect("Error reading test fixture in test/requests");
+        let json_request = include_str!("../tests/requests/usa_abacus_request.json");
 
         let abacus_request = AbacusRequest::try_from_json(&json_request);
         match abacus_request {
@@ -894,7 +891,7 @@ mod test {
     #[test]
     fn test_validated_unit_of_analysis_unknown_rectype_error() {
         let context =
-            Context::from_ipums_collection_name("usa", None, Some("test/data_root".to_string()))
+            Context::from_ipums_collection_name("usa", None, Some("tests/data_root".to_string()))
                 .expect("should be able to load context for USA");
         let uoa = "Z";
         assert!(

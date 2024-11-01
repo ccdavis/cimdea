@@ -203,6 +203,7 @@ impl Table {
     }
 }
 
+#[derive(Debug)]
 pub struct Tabulation(pub Vec<Table>);
 
 impl Tabulation {
@@ -320,13 +321,10 @@ mod test {
     use crate::request::{AbacusRequest, SimpleRequest};
     use std::time::*;
 
-    use std::fs;
-
     #[test]
     fn test_complex_tabulation() {
         let tabtime = Instant::now();
-        let json_request = fs::read_to_string("test/requests/incwage_marst_example.json")
-            .expect("Error reading test fixture in test/requests");
+        let json_request = include_str!("../tests/requests/incwage_marst_example.json");
 
         let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
             .expect("Error loading test context and deserializing test request.");
@@ -370,10 +368,9 @@ mod test {
     #[test]
     fn test_subpopulation() {
         let json_request =
-            fs::read_to_string("test/requests/single_condition_subpop_abacus_request.json")
-                .expect("Error reading test fixture in test/requests");
+            include_str!("../tests/requests/single_condition_subpop_abacus_request.json");
 
-        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
+        let (ctx, rq) = AbacusRequest::try_from_json(json_request)
             .expect("Error loading test context and deserializing test request.");
 
         let result = tabulate(&ctx, rq);
@@ -397,7 +394,7 @@ mod test {
 
     #[test]
     fn test_hh_only() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
@@ -445,7 +442,7 @@ mod test {
     fn test_basic_tabulation() {
         let start = Instant::now();
 
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let (ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
