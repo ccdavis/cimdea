@@ -255,6 +255,31 @@ impl TabBuilder {
             .collect::<Vec<_>>()
     }
 
+    fn help_get_required_rectypes(
+        request_variables: &[RequestVariable],
+        conditions: &[Condition],
+    ) -> HashSet<String> {
+        // Find all rectypes used by the requested variables
+        let rectypes_from_vars: Vec<String> = request_variables
+            .iter()
+            .map(|v| &v.variable.record_type)
+            .cloned()
+            .collect();
+
+        let rectypes_from_conds: Vec<String> = conditions
+            .iter()
+            .map(|c| &c.var.record_type)
+            .cloned()
+            .collect();
+
+        let all_rectypes = [
+            rectypes_from_vars.as_slice(),
+            rectypes_from_conds.as_slice(),
+        ]
+        .concat();
+        HashSet::from_iter(all_rectypes.iter().cloned())
+    }
+
     pub fn make_query(
         &self,
         ctx: &Context,
@@ -277,13 +302,10 @@ impl TabBuilder {
             requested_conditions
         };
 
-        // Find all rectypes used by the requested variables
-        let rectypes_vec = request_variables
-            .iter()
-            .map(|v| v.variable.record_type.clone())
-            .collect::<Vec<String>>();
-
-        let rectypes: HashSet<String> = HashSet::from_iter(rectypes_vec.iter().cloned());
+        let rectypes = TabBuilder::help_get_required_rectypes(
+            &request_variables,
+            &conditions.clone().unwrap_or(Vec::new()),
+        );
 
         // TODO: Decide the unit of analysis based on variable selection? Or, use the
         // UOA in the incoming Request JSON
@@ -305,7 +327,7 @@ impl TabBuilder {
         let group_by_clause = vars_in_order.join(", ");
         let order_by_clause = vars_in_order.join(", ");
 
-        if let Some(conds) = conditions {
+        if let Some(ref conds) = conditions {
             let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
             Ok(format!(
                 "select \n{}\nfrom {}\nwhere {}\ngroup by {}\norder by {}",
