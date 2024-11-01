@@ -6,31 +6,31 @@
 //! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //!
-
-use serde::de::IntoDeserializer;
-use serde::Serialize;
-use serde_json::{to_string, Error};
-
+//use serde_json::{to_string, Error};
 use crate::ipums_data_model::{self, RecordType};
 use crate::{
     conventions,
     conventions::Context,
-    ipums_metadata_model::{CategoryBin, IpumsDataType, IpumsDataset, IpumsVariable},
+    input_schema_tabulation,
+    input_schema_tabulation::{CategoryBin, GeneralDetailedSelection},
+    ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
+    mderror::{metadata_error, parsing_error, MdError},
     query_gen::Condition,
 };
 
 // Given a set of variable and dataset names and a product name, produce a context loaded
 // with metadata just for those named parts and return copies of the IpumsVariable and IpumsSample structs.
-fn context_from_names_helper(
+// This is public so it can be used as a test helper.
+pub fn context_from_names_helper(
     product: &str,
     requested_datasets: &[&str],
     requested_variables: &[&str],
-    optional_product_root: Option<String>,
+    _optional_product_root: Option<String>,
     optional_data_root: Option<String>,
-) -> (conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>) {
+) -> Result<(conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>), MdError> {
     let mut ctx =
-        conventions::Context::from_ipums_collection_name(product, None, optional_data_root);
-    ctx.load_metadata_for_datasets(requested_datasets);
+        conventions::Context::from_ipums_collection_name(product, None, optional_data_root)?;
+    ctx.load_metadata_for_datasets(requested_datasets)?;
 
     // Get variables from selections
     let variables = if let Some(ref md) = ctx.settings.metadata {
@@ -39,7 +39,7 @@ fn context_from_names_helper(
             if let Some(id) = md.variables_by_name.get(&*rv.to_ascii_uppercase()) {
                 loaded_vars.push(md.variables_index[*id].clone());
             } else {
-                panic!("Variable {} not in any loaded metadata.", rv);
+                return Err(metadata_error!("Variable {rv} not in any loaded metadata."));
             }
         }
         loaded_vars
@@ -53,75 +53,137 @@ fn context_from_names_helper(
             if let Some(id) = md.datasets_by_name.get(*rd) {
                 loaded_datasets.push(md.datasets_index[*id].clone());
             } else {
-                panic!("No dataset named {} found in metadata or layouts!", rd);
+                return Err(metadata_error!(
+                    "No dataset named {rd} found in metadata or layouts!"
+                ));
             }
         }
         loaded_datasets
     } else {
         Vec::new()
     };
-    (ctx, variables, datasets)
+    Ok((ctx, variables, datasets))
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub struct RequestVariable {
     pub variable: IpumsVariable,
-    pub is_general: bool,
+    pub general_detailed_selection: GeneralDetailedSelection,
     pub general_divisor: usize, // for instance, 100 for RELATE vs RELATED
     pub name: String,
     pub case_selection: Option<Condition>,
     pub attached_variable_pointer: Option<IpumsVariable>,
     pub category_bins: Option<Vec<CategoryBin>>,
+    // extract_start is only useful to help order the request variables and
+    // for producing a fixed-width output which we generally don't want.
+    extract_start: Option<usize>,
+
+    // extract_width is useful for detecting if a request variable is 'general' vs
+    // 'detailed'  and we can derive the 'general_divisor' by comparing 'extract_width'
+    // to the var.formatting[1] (start, width) which has the full detailed width.
+    // General width isn't available from all metadata sources like layout files.
+    extract_width: Option<usize>,
 }
 
 impl RequestVariable {
-    pub fn from_ipums_variable(var: &IpumsVariable, use_general: bool) -> Self {
+    // Can't impl 'From' directly  with just input_schema_tabulation::RequestVariable because it takes a context
+    // as well ...
+    fn try_from_input_request_variable(
+        ctx: &Context,
+        category_bins: &Option<&Vec<CategoryBin>>,
+        input_rq: input_schema_tabulation::RequestVariable,
+    ) -> Result<Self, MdError> {
+        let var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
+        let mut rq = Self::try_from_ipums_variable(&var, input_rq.general_detailed_selection)?;
+
+        // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
+        // we pass Some() then we're asking to over-ride anything coming from context.
+        if let Some(ref bins) = category_bins {
+            rq.category_bins = Some(bins.to_vec().clone());
+        }
+
+        if input_rq.case_selection {
+            rq.case_selection = Condition::try_from_request_case_selections(
+                &var,
+                &input_rq.request_case_selections,
+            )?;
+        } else {
+            rq.case_selection = None;
+        }
+
+        Ok(rq)
+    }
+
+    pub fn try_from_ipums_variable(
+        var: &IpumsVariable,
+        use_general: GeneralDetailedSelection,
+    ) -> Result<Self, MdError> {
         let general_divisor: usize = if let Some((_, w)) = var.formatting {
             if w == var.general_width {
                 1
-            } else if (w < var.general_width) {
+            } else if var.general_width < w {
+                // We could avoid this unwrap() by using u32s instead of usizes
+                // during parsing and metadata loading. But as it is, this is
+                // technically a fallible conversion. It's not likely to fail
+                // with normal metadata; we'd need to overflow a u32.
                 let exponent: u32 = (w - var.general_width).try_into().unwrap();
-                let base: i32 = 10;
-                base.pow(exponent).try_into().unwrap()
+                let base: usize = 10;
+                base.pow(exponent)
             } else {
-                panic!(
-                    "Bad metadata, general width can't be larger than detailed width on {}",
-                    &var.name
-                );
+                return Err(metadata_error!(
+                    "variable {} has general width {}, which is larger than its detailed width {}",
+                    var.name,
+                    var.general_width,
+                    w
+                ));
             }
         } else {
             1
         };
 
-        Self {
+        Ok(Self {
             variable: var.clone(),
-            is_general: use_general,
+            general_detailed_selection: use_general,
             general_divisor,
             name: var.name.clone(),
             case_selection: None,
             attached_variable_pointer: None,
-            category_bins: var.categoryBins.clone(),
-        }
+            category_bins: var.category_bins.clone(),
+            extract_start: None,
+            extract_width: None,
+        })
     }
 
-    pub fn detailed_width(&self) -> Result<usize, String> {
+    pub fn is_general(&self) -> bool {
+        GeneralDetailedSelection::General == self.general_detailed_selection
+    }
+
+    pub fn detailed_width(&self) -> Result<usize, MdError> {
         if let Some((_, w)) = self.variable.formatting {
             Ok(w)
         } else {
-            Err(format!("No width metadata available for {}", self.name))
+            Err(metadata_error!(
+                "No width metadata available for {}",
+                self.name
+            ))
         }
     }
 
-    pub fn general_width(&self) -> Result<usize, String> {
-        if self.is_general {
-            Ok(self.variable.general_width)
-        } else {
-            Err(format!("General width not available for {}", self.name))
+    pub fn general_width(&self) -> Result<usize, MdError> {
+        match (&self.general_detailed_selection, self.extract_width) {
+            (GeneralDetailedSelection::General, Some(w)) => Ok(w),
+            (GeneralDetailedSelection::General, None) => Err(metadata_error!(
+                "'{}' requires 'extract_width' from request currently to determine the general width; not represented in IpumsVariable or not available from current metadata either.",self.name)),
+            _ => Err(metadata_error!(
+                "General width not available for {}",
+                self.name
+            ))
         }
     }
 
-    pub fn requested_width(&self) -> Result<usize, String> {
-        if self.is_general {
+    pub fn requested_width(&self) -> Result<usize, MdError> {
+        if let GeneralDetailedSelection::General = self.general_detailed_selection {
             self.general_width()
         } else {
             self.detailed_width()
@@ -134,6 +196,10 @@ impl RequestVariable {
 
     pub fn variable_name(&self) -> String {
         self.variable.name.clone()
+    }
+
+    pub fn is_bucketed(&self) -> bool {
+        self.category_bins.is_some()
     }
 }
 
@@ -152,6 +218,26 @@ impl RequestSample {
     }
 }
 
+pub enum CaseSelectLogic {
+    And,
+    Or,
+}
+
+// We only ever apply CaseSelectUnit  to household-person but theoretically this is a way
+// to select all members of a given unit of analysis contained in the 'unit' if it's
+// not the current unit when one record matches. For instance 'EntireHousehold' means
+// include all people / person records from the current household if any person records match.
+// NOTE: The behavior when the case selection is on a household variable but the extract or
+// tabulation is using 'person' as the unit of analysis isn't well defined. In our old code
+// we include all persons in a household if a household variable matches even if there's no
+// person level variables with case selection. The interaction with the 'and' and 'or' of the case select logic
+// across record types and hierarchies is complicated. The old extract engine has a complex approach probably not worth
+// reproducing in full here.
+pub enum CaseSelectUnit {
+    Individual,
+    EntireHousehold,
+}
+
 /// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
@@ -160,14 +246,14 @@ pub trait DataRequest {
     fn get_conditions(&self) -> Option<Vec<Condition>>;
 
     /// Convert to the Tractor / generic IPUMS representation
-    fn serialize_to_IPUMS_JSON(&self) -> String;
+    fn serialize_to_ipums_json(&self) -> String;
 
     /// Convert from the Tractor / generic JSON representation.
     fn deserialize_from_ipums_json(
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String>
+    ) -> Result<Self, MdError>
     where
         Self: std::marker::Sized;
 
@@ -180,13 +266,18 @@ pub trait DataRequest {
         unit_of_analysis: Option<String>,
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
-    ) -> (conventions::Context, Self);
+    ) -> Result<(conventions::Context, Self), MdError>
+    where
+        Self: std::marker::Sized;
 
     /// Print a human readable codebook
     fn print_codebook(&self) -> String;
 
     /// Print a machine readable Stata codebook
     fn print_stata(&self) -> String;
+
+    fn case_select_logic(&self) -> CaseSelectLogic;
+    fn case_select_unit(&self) -> CaseSelectUnit;
 }
 
 #[derive(Clone, Debug)]
@@ -223,25 +314,37 @@ impl InputType {
 }
 
 // The key point is you can take an impl of a DataRequest and do something with it.
-pub fn perform_request(rq: impl DataRequest) -> Result<(), String> {
-    Ok(())
+#[allow(unused)]
+pub fn perform_request(rq: impl DataRequest) -> Result<(), MdError> {
+    todo!("Implement");
 }
 
-fn validated_unit_of_analysis(ctx: &Context, unit_of_analysis: Option<String>) -> RecordType {
+fn validated_unit_of_analysis(
+    ctx: &Context,
+    unit_of_analysis: Option<String>,
+) -> Result<RecordType, MdError> {
     let uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.value.clone());
 
     // Check that uoa is present for the current context
     let unit_rectype = match ctx.settings.record_types.get(&uoa) {
         Some(urt) => urt.clone(),
         None => {
-            let rectype_names = ctx.settings.record_types.keys().cloned();
-            let msg = format!("Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'",
-            &uoa,
-            rectype_names);
-            panic!("{}", msg);
+            let mut rectype_names = ctx
+                .settings
+                .record_types
+                .keys()
+                .map(|k| k.as_str())
+                .collect::<Vec<_>>();
+            rectype_names.sort();
+            let rectype_names = rectype_names.join(", ");
+            let err = metadata_error!(
+                "Record type '{uoa}' not available for use as unit of analysis; \
+                 the record type is not present in the current context with record types {rectype_names}"
+            );
+            return Err(err);
         }
     };
-    unit_rectype
+    Ok(unit_rectype)
 }
 
 /// The Abacus Request type contains variables to tabulate, variables used for conditions and datasets.
@@ -258,6 +361,14 @@ pub struct AbacusRequest {
 }
 
 impl DataRequest for AbacusRequest {
+    fn case_select_logic(&self) -> CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    fn case_select_unit(&self) -> CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     fn get_request_variables(&self) -> Vec<RequestVariable> {
         self.request_variables.clone()
     }
@@ -270,8 +381,7 @@ impl DataRequest for AbacusRequest {
         let conditions = self
             .subpopulation
             .iter()
-            .filter(|rv| rv.case_selection.is_some())
-            .map(|rv_c| rv_c.clone().case_selection.unwrap())
+            .filter_map(|rv| rv.case_selection.clone())
             .collect::<Vec<Condition>>();
         if conditions.len() > 0 {
             Some(conditions)
@@ -280,11 +390,12 @@ impl DataRequest for AbacusRequest {
         }
     }
 
+    #[allow(unused)]
     fn deserialize_from_ipums_json(
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String>
+    ) -> Result<Self, MdError>
     where
         Self: std::marker::Sized,
     {
@@ -292,7 +403,58 @@ impl DataRequest for AbacusRequest {
     }
 
     fn print_codebook(&self) -> String {
-        todo!("Not implemented!");
+        let mut lines = Vec::new();
+        lines.push("Tabulation\n\n".to_string());
+
+        lines.push(format!("Datasets:"));
+        for s in self.get_request_samples() {
+            let label = s.sample.label.unwrap_or("".to_string());
+            let sample_pct = if let Some(density) = s.sample.sampling_density {
+                format!("{}", density * 100.0)
+            } else {
+                "N/A".to_string()
+            };
+
+            lines.push(format!(
+                "{}: \"{}\" sample: {} ",
+                &s.name, label, sample_pct
+            ));
+        }
+
+        lines.push("\n\nVariables:".to_string());
+
+        for v in self.get_request_variables() {
+            let label = &v.variable.label.clone().unwrap_or("NO LABEL".to_string());
+            let general_detailed = if v.is_general() {
+                "General".to_string()
+            } else {
+                "detailed".to_string()
+            };
+
+            lines.push(format!("{}\t\t{} -- {}", v.name, &label, &general_detailed));
+        }
+
+        lines.push("\n\nSubpopulation filters:\n".to_string());
+        if let Some(ref conditions) = self.get_conditions() {
+            if conditions.len() > 0 {
+                let logic = match self.case_select_logic() {
+                    CaseSelectLogic::And => " 'AND'",
+                    CaseSelectLogic::Or => " 'OR' ",
+                };
+                lines.push(format!("Logic across variables: {}\n", logic));
+
+                for c in conditions {
+                    let compare_to_list = c
+                        .comparison
+                        .iter()
+                        .map(|cs| cs.print())
+                        .collect::<Vec<String>>();
+                    lines.push(format!("{} : {}", &c.var.name, &compare_to_list.join("\n")));
+                }
+            }
+        }
+
+        lines.join("\n")
     }
 
     fn print_stata(&self) -> String {
@@ -307,7 +469,7 @@ impl DataRequest for AbacusRequest {
         unit_of_analysis: Option<String>,
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
-    ) -> (conventions::Context, Self) {
+    ) -> Result<(conventions::Context, Self), MdError> {
         // get datasets from selections
         let (ctx, variables, datasets) = context_from_names_helper(
             product,
@@ -315,18 +477,21 @@ impl DataRequest for AbacusRequest {
             requested_variables,
             optional_product_root,
             optional_data_root.clone(),
-        );
+        )?;
         let request_variables = variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v, false))
-            .collect();
+            .map(|v| {
+                RequestVariable::try_from_ipums_variable(v, GeneralDetailedSelection::Detailed)
+            })
+            .collect::<Result<Vec<RequestVariable>, MdError>>()?;
+
         let request_samples = datasets
             .iter()
             .map(|d| RequestSample::from_ipums_dataset(d))
             .collect();
 
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
-        (
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
+        Ok((
             ctx,
             Self {
                 product: product.to_string(),
@@ -338,11 +503,11 @@ impl DataRequest for AbacusRequest {
                 use_general_variables: false,
                 data_root: optional_data_root,
             },
-        )
+        ))
     }
 
-    fn serialize_to_IPUMS_JSON(&self) -> String {
-        panic!("Not implemented.")
+    fn serialize_to_ipums_json(&self) -> String {
+        todo!("Serialization is not yet implemented.")
     }
 }
 
@@ -355,71 +520,51 @@ impl AbacusRequest {
     /// request_samples: [...],
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
-    pub fn from_json(input: &str) -> Result<(conventions::Context, Self), String> {
-        let parsed: serde_json::Value = match serde_json::from_str(input) {
-            Ok(parsed) => parsed,
-            Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
-        };
-
-        let Some(product) = parsed["product"].as_str() else {
-            return Err("No 'product' in request".to_string());
-        };
-
-        let optional_data_root = if let Some(ref r) = parsed["data_root"].as_str() {
-            Some(r.to_string())
-        } else {
-            None
+    pub fn try_from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
+        let request: input_schema_tabulation::AbacusRequest = match serde_json::from_str(input) {
+            Ok(request) => request,
+            Err(err) => {
+                return Err(MdError::Msg(format!(
+                    "Error deserializing request: '{err}'"
+                )));
+            }
         };
 
         let mut ctx = conventions::Context::from_ipums_collection_name(
-            product,
+            &request.product,
             None,
-            optional_data_root.clone(),
-        );
+            request.data_root.clone(),
+        )?;
 
-        let Some(parsed_request_samples) = parsed["request_samples"].as_array() else {
-            return Err("No 'request_samples' in request.".to_string());
-        };
-        let Some(parsed_request_variables) = parsed["request_variables"].as_array() else {
-            return Err("Request must have 'request_variables' field.".to_string());
-        };
-
-        let Some(parsed_subpop) = parsed["subpopulation"].as_array() else {
-            return Err("No subpopulation key.".to_string());
-        };
-
-        let Some(parsed_uoa) = parsed["uoa"].as_str() else {
-            return Err("'uoa' (unit of analysis) required.".to_string());
-        };
-
-        let mut requested_dataset_names = Vec::new();
-        for rs in parsed_request_samples {
-            let Some(name) = rs["name"].as_str() else {
-                return Err("Missing name field in RequestSample object.".to_string());
-            };
-            requested_dataset_names.push(name);
-        }
+        let requested_dataset_names: Vec<_> = request
+            .request_samples
+            .iter()
+            .map(|rs| rs.name.as_str())
+            .collect();
 
         // Use the names of the requested samples to load partial metadata
-        ctx.load_metadata_for_datasets(&requested_dataset_names);
+        ctx.load_metadata_for_datasets(requested_dataset_names.as_slice())?;
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(parsed_uoa) {
+        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
             u.clone()
         } else {
-            return Err("No record type for uoa.".to_string());
+            return Err(metadata_error!("No record type for uoa."));
         };
 
         let Some(ref md) = &ctx.settings.metadata else {
-            return Err("Insufficient metadata loaded to deserialize request.".to_string());
+            return Err(metadata_error!(
+                "Insufficient metadata loaded to deserialize request."
+            ));
         };
 
         let mut rqs = Vec::new();
-        for p in parsed_request_samples {
-            let name = p["name"].as_str().unwrap();
-            let Some(ipums_ds) = md.cloned_dataset_from_name(name) else {
-                return Err(format!("No metadata for dataset named {}", &name));
+        for p in request.request_samples {
+            let name = p.name;
+            let Some(ipums_ds) = md.cloned_dataset_from_name(&name) else {
+                return Err(metadata_error!("No metadata for dataset named {name}"));
             };
+
             rqs.push(RequestSample {
                 name: name.to_string(),
                 sample: ipums_ds,
@@ -427,53 +572,32 @@ impl AbacusRequest {
         }
 
         let mut rqv = Vec::new();
-        for v in parsed_request_variables {
-            let name = v["mnemonic"].as_str() else {
-                return Err("Missing mnemonic on request variable.".to_string());
-            };
-
-            let Some(variable_mnemonic) = v["variable_mnemonic"].as_str() else {
-                return Err("Missing variable_mnemonic in RequestVariable.".to_string());
-            };
-
-            let Some(ipums_var) = md.cloned_variable_from_name(variable_mnemonic) else {
-                return Err(format!(
-                    "No variable named '{}' in loaded metadata.",
-                    variable_mnemonic
-                ));
-            };
-
-            let use_general = if v["general_detailed_selection"].is_null() {
-                false
-            } else {
-                if let Some(gendet) = v["general_detail_selection"].as_str() {
-                    gendet == "G"
-                } else {
-                    false
-                }
-            };
-
-            let mut request_var = RequestVariable::from_ipums_variable(&ipums_var, use_general);
-
-            // TODO add category bins
-
+        for v in request.request_variables {
+            // The category_bins can also come from the IpumsVariable as it's properly part of metadata. However in the request
+            // for Abacus we pass category bins on each request for all request variables that need them.
+            let bins = request.category_bins.get(&v.variable_mnemonic);
+            let request_var = RequestVariable::try_from_input_request_variable(&ctx, &bins, v)?;
             rqv.push(request_var);
         }
 
         let mut subpop = Vec::new();
-        for s in parsed_subpop {}
+        for s in request.subpopulation {
+            let bins = request.category_bins.get(&s.variable_mnemonic);
+            let spv = RequestVariable::try_from_input_request_variable(&ctx, &bins, s)?;
+            subpop.push(spv);
+        }
 
         Ok((
             ctx,
             Self {
-                product: product.to_string(),
+                product: request.product,
                 request_variables: rqv,
                 request_samples: rqs,
                 subpopulation: subpop,
                 output_format: OutputFormat::Json,
                 use_general_variables: true,
                 unit_rectype: uoa.clone(),
-                data_root: optional_data_root,
+                data_root: request.data_root,
             },
         ))
     }
@@ -499,12 +623,20 @@ pub struct SimpleRequest {
     pub request_type: RequestType,
     pub output_format: OutputFormat,
     pub conditions: Option<Vec<Condition>>,
-    pub use_general_variables: bool,
+    pub use_general_variables: GeneralDetailedSelection,
 }
 
 // The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
 
 impl DataRequest for SimpleRequest {
+    fn case_select_logic(&self) -> CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    fn case_select_unit(&self) -> CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     // A simple builder if we don't have serialized JSON, for tests and CLI use cases.
     // Returns a new context.
     fn from_names(
@@ -514,7 +646,7 @@ impl DataRequest for SimpleRequest {
         unit_of_analysis: Option<String>,
         optional_product_root: Option<String>,
         optional_data_root: Option<String>,
-    ) -> (conventions::Context, Self) {
+    ) -> Result<(conventions::Context, Self), MdError> {
         // get datasets from selections
         let (ctx, variables, datasets) = context_from_names_helper(
             product,
@@ -522,9 +654,9 @@ impl DataRequest for SimpleRequest {
             requested_variables,
             optional_product_root,
             optional_data_root,
-        );
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
-        (
+        )?;
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
+        Ok((
             ctx,
             Self {
                 product: product.to_string(),
@@ -534,15 +666,21 @@ impl DataRequest for SimpleRequest {
                 request_type: RequestType::Tabulation,
                 output_format: OutputFormat::CSV,
                 conditions: None,
-                use_general_variables: false,
+                use_general_variables: GeneralDetailedSelection::Detailed,
             },
-        )
+        ))
     }
 
     fn get_request_variables(&self) -> Vec<RequestVariable> {
+        // Note the .expect() below: If we got here from the from_names() then
+        // if the metadata is broken (general detailed probably incorrect), we
+        // simply can't proceed.
         self.variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v, self.use_general_variables))
+            .map(|v| {
+                RequestVariable::try_from_ipums_variable(v, self.use_general_variables.clone())
+                    .expect("Broken metadata.")
+            })
             .collect()
     }
 
@@ -562,68 +700,85 @@ impl DataRequest for SimpleRequest {
         ctx: &conventions::Context,
         request_type: RequestType,
         json_request: &str,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, MdError> {
         let parsed: serde_json::Value = match serde_json::from_str(json_request) {
             Ok(parsed) => parsed,
-            Err(e) => return Err(format!("Error deserializing request: '{}'", e)),
+            Err(e) => {
+                return Err(MdError::Msg(format!(
+                    "Error deserializing request: '{}'",
+                    e
+                )))
+            }
         };
 
-        let product = parsed["product"].as_str().expect("No 'product' in request");
-        let details = parsed["details"]
-            .as_object()
-            .expect("No 'details' in request.");
+        let Some(product) = parsed["product"].as_str() else {
+            return Err(parsing_error!("no 'product' in request"));
+        };
 
-        let request_samples = details["request_samples"]
-            .as_array()
-            .expect("Expected request_samples array.");
-        let request_variables = details["request_variables"]
-            .as_array()
-            .expect("Expected a request_variables array.");
-        let output_format = details["output_format"]
-            .as_str()
-            .expect("No 'output_format' in request.");
+        let Some(details) = parsed["details"].as_object() else {
+            return Err(parsing_error!("no 'details' in request"));
+        };
 
-        let case_select_logic = details["case_select_logic"]
-            .as_str()
-            .expect("No case_select_logic in request.");
+        let Some(request_samples) = details["request_samples"].as_array() else {
+            return Err(parsing_error!("expected 'request_samples' array"));
+        };
+
+        let Some(request_variables) = details["request_variables"].as_array() else {
+            return Err(parsing_error!("expected a request_variables array"));
+        };
+
+        let Some(_output_format) = details["output_format"].as_str() else {
+            return Err(parsing_error!("no 'output_format' in request"));
+        };
+
+        let Some(_case_select_logic) = details["case_select_logic"].as_str() else {
+            return Err(parsing_error!("no 'case_select_logic' in request"));
+        };
+
         let variables = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_vars = Vec::new();
-            for v in request_variables.iter() {
-                let variable_mnemonic = v["variable_mnemonic"]
-                    .as_str()
-                    .expect("No 'variable_mnemonic'");
+            for (index, v) in request_variables.iter().enumerate() {
+                let Some(variable_mnemonic) = v["variable_mnemonic"].as_str() else {
+                    return Err(parsing_error!(
+                        "no 'variable_mnemonic' for request variable {index}"
+                    ));
+                };
+
                 if let Some(var_value) = md.cloned_variable_from_name(variable_mnemonic) {
                     checked_vars.push(var_value);
                 } else {
-                    let msg = format!("No variable '{}' in metadata.", variable_mnemonic);
-                    return Err(msg);
+                    return Err(metadata_error!(
+                        "No variable '{variable_mnemonic}' in metadata."
+                    ));
                 }
             }
             checked_vars
         } else {
-            panic!("Metadata for context not yet set up.");
+            return Err(metadata_error!("Metadata for context not yet set up."));
         };
 
         let datasets = if let Some(ref md) = ctx.settings.metadata {
             let mut checked_samples = Vec::new();
-            for d in request_samples.iter() {
-                let ds_name = d["name"].as_str().expect("missing sample 'name'.");
+            for (index, d) in request_samples.iter().enumerate() {
+                let Some(ds_name) = d["name"].as_str() else {
+                    return Err(parsing_error!("no 'name' for request sample {index}"));
+                };
+
                 if let Some(ipums_ds) = md.cloned_dataset_from_name(ds_name) {
                     checked_samples.push(ipums_ds);
                 } else {
-                    let msg = format!("No dataset '{}' in metadata.", ds_name);
-                    return Err(msg);
+                    return Err(metadata_error!("No dataset '{ds_name}' in metadata."));
                 }
             }
             checked_samples
         } else {
-            panic!("Metadata for context not yet set up.");
+            return Err(metadata_error!("Metadata for context not yet set up."));
         };
 
         let output_format = OutputFormat::CSV;
 
         let unit_of_analysis = None;
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis);
+        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
 
         Ok(Self {
             product: product.to_string(),
@@ -633,11 +788,11 @@ impl DataRequest for SimpleRequest {
             request_type,
             output_format,
             conditions: None,
-            use_general_variables: false,
+            use_general_variables: GeneralDetailedSelection::Detailed,
         })
     }
 
-    fn serialize_to_IPUMS_JSON(&self) -> String {
+    fn serialize_to_ipums_json(&self) -> String {
         "".to_string()
     }
 
@@ -650,29 +805,29 @@ impl DataRequest for SimpleRequest {
     }
 }
 
+#[cfg(test)]
 mod test {
-    use std::fs;
-
     use super::*;
 
     #[test]
     pub fn test_deserialize_into_simple_request() {
-        let data_root = String::from("test/data_root");
+        let data_root = String::from("tests/data_root");
         let mut ctx =
-            conventions::Context::from_ipums_collection_name("usa", None, Some(data_root));
+            conventions::Context::from_ipums_collection_name("usa", None, Some(data_root))
+                .expect("should be able to load context for USA");
 
         // Load the mentioned datasets and all their associated variables into metadata
-        ctx.load_metadata_for_datasets(&["us2016c", "us2014d"]);
+        ctx.load_metadata_for_datasets(&["us2016c", "us2014d"])
+            .expect("should be able to load metadata for datasets");
         if let Some(ref md) = ctx.settings.metadata {
             println!("loaded {} variables.", md.variables_index.len());
-            println!("{:?}", md.variables_by_name.get("YEAR"));
-            for v in &md.variables_index {
+
+            for _v in &md.variables_index {
                 //println!("{}",v.name);
             }
         }
 
-        let json_request = fs::read_to_string("test/requests/usa_extract.json")
-            .expect("Error reading test fixture in test/requests");
+        let json_request = include_str!("../tests/requests/usa_extract.json");
         let simple_request =
             SimpleRequest::deserialize_from_ipums_json(&ctx, RequestType::Extract, &json_request);
         if let Err(ref e) = simple_request {
@@ -686,15 +841,15 @@ mod test {
 
     #[test]
     pub fn test_from_names() {
-        let data_root = String::from("test/data_root");
-        let (ctx, rq) = SimpleRequest::from_names(
+        let data_root = String::from("tests/data_root");
+        let (_ctx, rq) = SimpleRequest::from_names(
             "usa",
             &["us2015b"],
             &["AGE", "MARST", "GQ", "YEAR"],
             Some("P".to_string()),
             None,
             Some(data_root),
-        );
+        ).expect("This construction of a request is for setting up a subsequent test and should always work.");
 
         assert_eq!(4, rq.variables.len());
         assert_eq!(rq.product, "usa");
@@ -702,15 +857,145 @@ mod test {
     }
 
     #[test]
-    pub fn test_abacus_request_from_json() {
-        let json_request = fs::read_to_string("test/requests/usa_abacus_request.json")
-            .expect("Error reading test fixture in test/requests");
+    fn test_abacus_request_from_names() {
+        let data_root = String::from("tests/data_root");
+        let (_ctx, abacus_request) = AbacusRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["AGE", "MARST", "GQ", "YEAR"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect("should be able to construct an AbacusRequest from the given names");
 
-        let abacus_request = AbacusRequest::from_json(&json_request);
+        assert_eq!(abacus_request.request_variables.len(), 4);
+        assert_eq!(abacus_request.product, "usa");
+        assert_eq!(abacus_request.request_samples.len(), 1);
+    }
+
+    #[test]
+    pub fn test_abacus_request_from_json() {
+        let json_request = include_str!("../tests/requests/usa_abacus_request.json");
+
+        let abacus_request = AbacusRequest::try_from_json(&json_request);
         match abacus_request {
             Err(ref e) => eprintln!("Error was '{}'", e),
             _ => (),
         }
         assert!(abacus_request.is_ok());
+    }
+
+    /// It's an error if the given unit of analysis is not present as a record
+    /// type in the context.
+    #[test]
+    fn test_validated_unit_of_analysis_unknown_rectype_error() {
+        let context =
+            Context::from_ipums_collection_name("usa", None, Some("tests/data_root".to_string()))
+                .expect("should be able to load context for USA");
+        let uoa = "Z";
+        assert!(
+            !context.settings.record_types.contains_key(uoa),
+            "Z should not be a default record type for USA"
+        );
+        let err = validated_unit_of_analysis(&context, Some(uoa.to_string()))
+            .expect_err("expected an error because Z is not a valid record type");
+        assert!(err
+            .to_string()
+            .contains("Record type 'Z' not available for use as unit of analysis"));
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_invalid_widths_error() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "RELATE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((100, 4)),
+            // This is invalid because it's greater than the width in the formatting
+            // field. This will cause the error later.
+            general_width: 5,
+            description: None,
+            category_bins: None,
+        };
+
+        let result =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General);
+        assert!(result.is_err(), "expected an error but got {result:?}");
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_valid_general_width() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "RELATE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((100, 4)),
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
+                .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 100,
+            "expected a general divisor of 10^(4-2) = 10^2 = 100"
+        );
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_equal_widths() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
+                .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 1,
+            "expected a general divisor of 1 because the general and detailed widths are the same"
+        );
+    }
+
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_formatting() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: None,
+            general_width: 2,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
+                .expect("should convert into a RequestVariable");
+        assert_eq!(
+            rqv.general_divisor, 1,
+            "expected a general divisor of 1 because there was no detailed width provided"
+        );
     }
 }

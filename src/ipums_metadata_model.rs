@@ -45,11 +45,8 @@
 //! information such as variable and value labels.
 //!
 //!
+use crate::input_schema_tabulation::CategoryBin;
 use crate::layout::LayoutVar;
-use bstr::*;
-use std::ascii::AsciiExt;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::fmt;
 
 use compressed_string::ComprString;
@@ -64,7 +61,7 @@ pub struct IpumsDataset {
     pub year: Option<usize>,
     pub month: Option<usize>,
     pub label: Option<String>,
-    pub sample: Option<f64>,
+    pub sampling_density: Option<f64>,
     /// The 'id' fields in the models are generated when metadata structs get instantiated in order. They are
     /// used for indexing into the metadata storage.
     pub id: IpumsDatasetId, // auto-assigned in order loaded
@@ -78,7 +75,7 @@ impl From<(String, usize)> for IpumsDataset {
             year: None,
             month: None,
             label: None,
-            sample: None,
+            sampling_density: None,
         }
     }
 }
@@ -94,7 +91,7 @@ pub struct IpumsVariable {
     pub formatting: Option<(usize, usize)>,
     pub general_width: usize,
     pub description: Option<ComprString>,
-    pub categoryBins: Option<Vec<CategoryBin>>,
+    pub category_bins: Option<Vec<CategoryBin>>,
     pub id: IpumsVariableId, // auto-assigned in load order
 }
 
@@ -107,7 +104,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             data_type: Some(value.0.data_type.clone()),
             label: None,
             categories: None,
-            categoryBins: None,
+            category_bins: None,
             formatting: Some((value.0.start, value.0.width)),
             general_width: value.0.width,
             description: None,
@@ -115,7 +112,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IpumsDataType {
     Integer,
     Float,
@@ -173,6 +170,7 @@ pub enum UniversalCategoryType {
 
 type IpumsCategoryId = usize;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct IpumsCategory {
     label_intern: GlobalString,
@@ -196,46 +194,9 @@ impl IpumsCategory {
         }
     }
 }
-#[derive(Clone, Debug)]
-pub enum CategoryBin {
-    LessThan { value: i64, label: String },
-    Range { low: i64, high: i64, label: String },
-    MoreThan { value: i64, label: String },
-}
-
-impl CategoryBin {
-    pub fn new(low: Option<i64>, high: Option<i64>, label: &str) -> Self {
-        if low.is_some() && high.is_some() {
-            Self::Range {
-                low: low.unwrap(),
-                high: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } else if low.is_none() && high.is_some() {
-            Self::LessThan {
-                value: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } else if low.is_some() && high.is_none() {
-            Self::MoreThan {
-                value: low.unwrap(),
-                label: label.to_owned(),
-            }
-        } else {
-            panic!("Must have at low or high or both equal to some value.");
-        }
-    }
-
-    pub fn within(&self, testValue: i64) -> bool {
-        match self {
-            Self::LessThan { value, .. } => testValue < *value,
-            Self::Range { low, high, .. } => testValue >= *low && testValue <= *high,
-            Self::MoreThan { value, .. } => testValue > *value,
-        }
-    }
-}
 
 mod test {
+    #[cfg(test)]
     use super::*;
 
     #[test]
@@ -269,5 +230,50 @@ mod test {
 
         assert_eq!(cat2.label(), cat3.label());
         assert_eq!("second", cat3.label());
+    }
+
+    /// If IpumsDataType::from() doesn't recognize the input string, it defaults
+    /// to the type Integer.
+    #[test]
+    fn test_ipums_data_type_from_unknown_type() {
+        let input = "kaboom";
+        let data_type = IpumsDataType::from(input);
+        assert_eq!(
+            data_type,
+            IpumsDataType::Integer,
+            "for unrecognized input, the default type should be Integer"
+        );
+    }
+
+    #[test]
+    fn test_ipums_data_type_from_is_case_insensitive() {
+        let input = "sTrInG";
+        let data_type = IpumsDataType::from(input);
+        assert_eq!(
+            data_type, IpumsDataType::String,
+            "IpumsDataType::from() should be insensitive to the case (uppercase/lowercase) of its input",
+        );
+    }
+
+    #[test]
+    fn test_ipums_data_type_string_round_trip() {
+        let data_types = [
+            IpumsDataType::Integer,
+            IpumsDataType::Float,
+            // The string representation of Fixed(n) does not include the integer
+            // n. So we always parse it as Fixed(0). This means that only Fixed(0)
+            // round trips to a string and back.
+            IpumsDataType::Fixed(0),
+            IpumsDataType::String,
+        ];
+
+        for data_type in data_types {
+            let type_as_string = data_type.to_string();
+            let round_tripped = IpumsDataType::from(type_as_string.as_str());
+            assert_eq!(
+                round_tripped, data_type,
+                "data type '{data_type:?}' should round trip to a string and back unchanged"
+            );
+        }
     }
 }

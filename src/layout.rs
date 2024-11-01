@@ -5,7 +5,9 @@
 //! they can be useful for getting basic metadata for the dataset.
 
 use crate::ipums_metadata_model::IpumsDataType;
+use crate::mderror::MdError;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
 use std::str;
 
@@ -20,7 +22,7 @@ pub struct LayoutVar {
     pub data_type: IpumsDataType,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RecordLayout {
     pub vars: Vec<LayoutVar>,
 }
@@ -74,7 +76,7 @@ impl RecordLayout {
 }
 
 // Layouts for all record types in a file
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DatasetLayout {
     layouts: HashMap<String, RecordLayout>,
 }
@@ -85,26 +87,23 @@ impl DatasetLayout {
     }
 
     pub fn all_variables(&self) -> Vec<LayoutVar> {
-        self.record_types()
-            .iter()
-            .flat_map(|rt| self.for_rectype(rt).vars.clone())
+        self.layouts
+            .values()
+            .flat_map(|record_layout| record_layout.vars.clone())
             .collect()
     }
 
     pub fn find_variables(&self, names: &[String]) -> Vec<LayoutVar> {
-        self.record_types()
-            .iter()
-            .flat_map(|rt| self.for_rectype(rt).filtered(names).vars)
+        self.layouts
+            .values()
+            .flat_map(|record_layout| record_layout.filtered(names).vars)
             .collect()
     }
 
-    pub fn for_rectype(&self, rt: &str) -> &RecordLayout {
-        match self.layouts.get(rt) {
-            None => {
-                panic!("No records of type {} in layout.", rt);
-            }
-            Some(vars) => vars,
-        }
+    /// Returns the RecordLayout for the given record type, or None if there is
+    /// no layout for that record type.
+    pub fn for_rectype(&self, rt: &str) -> Option<&RecordLayout> {
+        self.layouts.get(rt)
     }
 
     // If you have a Vec of mixed record type LayoutVars, perhaps read in
@@ -128,66 +127,236 @@ impl DatasetLayout {
         Self { layouts }
     }
 
-    pub fn from_layout_file(filename: &Path) -> Self {
-        let layouts: HashMap<String, RecordLayout> = HashMap::new();
+    fn try_from_layout_reader<R: Read>(mut reader: csv::Reader<R>) -> Result<Self, MdError> {
+        let mut all_vars = reader
+            .records()
+            .filter_map(|r| r.ok())
+            .filter(|r| r.len() > 1)
+            .map(|record| {
+                if record.len() < 5 {
+                    let fields = record.iter().collect::<Vec<_>>().join(" ");
+                    return Err(MdError::ParsingError(format!(
+                        "not enough fields in layout record '{fields}'"
+                    )));
+                }
+                let name = record[0].to_string();
+                let start_str = &record[2];
+                let start: usize = start_str.parse().map_err(|err| {
+                    let msg = format!(
+                        "could not parse layout start '{start_str}' for variable \
+                         '{name}' as a non-negative integer: {err}"
+                    );
+                    MdError::ParsingError(msg)
+                })?;
+
+                let width_str = &record[3];
+                let width: usize = width_str.parse().map_err(|err| {
+                    let msg = format!(
+                        "could not parse layout width '{width_str}' for variable \
+                            '{name}' as a non-negative integer: {err}"
+                    );
+                    MdError::ParsingError(msg)
+                })?;
+
+                Ok(LayoutVar {
+                    name,
+                    rectype: record[1].to_string(),
+                    start,
+                    width,
+                    data_type: IpumsDataType::from(&record[4]),
+                    col: 0,
+                })
+            })
+            .collect::<Result<Vec<LayoutVar>, MdError>>()?;
+
+        // While sorting in 'start' order would yield an order that's slightly
+        // faster to process, defaulting vars to alphabetical order ensures
+        // a known schema order that is easy to match with other files or
+        // data sources with different natural orderings.
+        all_vars.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(DatasetLayout::from_layout_vars(all_vars))
+    }
+
+    pub fn try_from_layout_file(filename: &Path) -> Result<Self, MdError> {
         let rdr = csv::ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b' ')
             .comment(Some(b'#'))
             .from_path(filename);
 
-        let mut reader = match rdr {
-            Err(msg) => panic!(
-                "Cannot create CSV reader on {}, error was {}.",
-                filename.display(),
-                &msg
-            ),
+        let reader = match rdr {
+            Err(msg) => {
+                return Err(MdError::Msg(format!(
+                    "Cannot create CSV reader on {}, error was {}.",
+                    filename.display(),
+                    &msg
+                )))
+            }
             Ok(r) => r,
         };
 
-        let mut all_vars = reader
-            .records()
-            .filter(|r| r.is_ok())
-            .map(|r| r.unwrap())
-            .filter(|r| r.len() > 1)
-            .map(|record| LayoutVar {
-                name: record[0].to_string(),
-                rectype: record[1].to_string(),
-                start: record[2].parse().unwrap(),
-                width: record[3].parse().unwrap(),
-                data_type: IpumsDataType::from(&record[4]),
-                col: 0,
-            })
-            .collect::<Vec<LayoutVar>>();
-
-        // While sorting in 'start' order would yield an order that's slightly
-        // faster to process, defaulting vars to alphabetical order ensures
-        // a known schema order that is easy to match with other files or
-        // data sources with different natural orderings.
-        all_vars.sort_by(|a, b| b.name.cmp(&a.name));
-        DatasetLayout::from_layout_vars(all_vars)
+        DatasetLayout::try_from_layout_reader(reader)
     }
 
-    // Return a new DatasetLayout containing only the requested variables or an error message.
+    // Return a new DatasetLayout containing only the requested variables or an error.
     // Doing it this way so that we can retain the full layout for reuse.
-    pub fn select_only(&self, selections: Vec<String>) -> Result<DatasetLayout, String> {
+    pub fn select_only(&self, selections: Vec<String>) -> Result<DatasetLayout, MdError> {
         let mut filtered_layouts: HashMap<String, RecordLayout> = HashMap::new();
         let upcased_selections = selections
             .iter()
             .map(|s| s.to_uppercase())
             .collect::<Vec<String>>();
 
-        for rectype in self.layouts.keys() {
-            filtered_layouts.insert(
-                rectype.clone(),
-                self.layouts
-                    .get(rectype)
-                    .unwrap()
-                    .filtered(&upcased_selections),
-            );
+        for (rectype, layout) in self.layouts.iter() {
+            filtered_layouts.insert(rectype.clone(), layout.filtered(&upcased_selections));
         }
+
         Ok(DatasetLayout {
             layouts: filtered_layouts,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::HashSet;
+    use std::io::Cursor;
+
+    fn csv_reader_from_bytes(layout_data: &[u8]) -> csv::Reader<Cursor<&[u8]>> {
+        let cursor = Cursor::new(layout_data);
+        csv::ReaderBuilder::new()
+            .has_headers(false)
+            .delimiter(b' ')
+            .from_reader(cursor)
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_file() {
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
+
+        let h_vars = layout.layouts["H"].vars.len();
+        let p_vars = layout.layouts["P"].vars.len();
+        assert_eq!(
+            h_vars + p_vars,
+            339,
+            "there should be 339 total P and H variables in the layout"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_file_no_such_file_error() {
+        // This is not a real layout file
+        let layout_file = Path::new("tests/data_root/layouts/us0000a.layout.txt");
+        let result = DatasetLayout::try_from_layout_file(layout_file);
+        assert!(result.is_err(), "expected an error but got {result:?}");
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_variables_sorted_by_name() {
+        let layout_data = b"RECTYPE H 1 1 string\n\
+        CITY H 60 4 integer\n\
+        CITYPOP H 64 7 integer\n";
+        let reader = csv_reader_from_bytes(layout_data);
+
+        let layout = DatasetLayout::try_from_layout_reader(reader)
+            .expect("should parse into a DatasetLayout");
+
+        let h_layout = &layout.layouts["H"];
+        let variable_names: Vec<_> = h_layout.vars.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(variable_names, vec!["CITY", "CITYPOP", "RECTYPE"]);
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_non_integer_start_error() {
+        let layout_data = b"RECTYPE H a 1 string\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_non_integer_width_error() {
+        let layout_data = b"RECTYPE H 1 a string\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_missing_fields_error() {
+        let layout_data = b"RECTYPE H\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let result = DatasetLayout::try_from_layout_reader(reader);
+
+        assert!(
+            matches!(result, Err(MdError::ParsingError(_))),
+            "expected a parsing error, got {result:?}"
+        );
+    }
+
+    /// Variables are split into RecordLayouts by record type.
+    #[test]
+    fn test_dataset_layout_try_from_layout_reader_multiple_rectypes() {
+        let layout_data = b"YEAR H 2 4 integer\n\
+        AGE P 58 3 integer\n";
+        let reader = csv_reader_from_bytes(layout_data);
+        let layout = DatasetLayout::try_from_layout_reader(reader)
+            .expect("should parse into a DatasetLayout");
+
+        let h_layout = &layout.layouts["H"];
+        let p_layout = &layout.layouts["P"];
+
+        assert_eq!(h_layout.vars[0].name, "YEAR");
+        assert_eq!(p_layout.vars[0].name, "AGE");
+    }
+
+    #[test]
+    fn test_dataset_layout_all_variables() {
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
+
+        let all_vars = layout.all_variables();
+        let all_var_names: Vec<_> = all_vars.iter().map(|v| v.name.as_str()).collect();
+        assert_eq!(all_vars.len(), 345, "there should be 339 total variables");
+        assert!(all_var_names.contains(&"AGE"), "should have P variable AGE");
+        assert!(
+            all_var_names.contains(&"METRO"),
+            "should have H variable METRO"
+        );
+        assert!(
+            all_var_names.contains(&"CORE_VERS_RELEASE_NUMBER"),
+            "should have # variable CORE_VERS_RELEASE_NUMBER"
+        );
+    }
+
+    #[test]
+    fn test_dataset_layout_find_variables() {
+        let layout_file = Path::new("tests/data_root/layouts/us1850a.layout.txt");
+        let layout = DatasetLayout::try_from_layout_file(layout_file)
+            .expect("should be able to create DatasetLayout from file");
+
+        let vars = layout.find_variables(&[
+            "METRO".to_string(),
+            "PERNUM".to_string(),
+            "AGE".to_string(),
+            "NOTAVAR".to_string(),
+        ]);
+        let var_names: HashSet<_> = vars.iter().map(|v| v.name.as_str()).collect();
+
+        // Any unrecognized variables (like NOTAVAR) should be left out
+        assert_eq!(var_names, ["AGE", "METRO", "PERNUM"].into());
     }
 }

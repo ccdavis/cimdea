@@ -1,0 +1,10 @@
+{"product":"usa",
+"data_root":"test/data_root",
+"uoa":"P",
+"output_format":"json",
+"subpopulation":[],
+"category_bins":{"SEI":[{"code":0,"value_label":"N/A","low":0,"high":0},
+{"code":1,"value_label":"1 to 20","low":1,"high":20},{"code":2,"value_label":"21 to 40","low":21,"high":40},{"code":3,"value_label":"41 to 60","low":41,"high":60},{"code":4,"value_label":"61 to 80","low":61,"high":80},{"code":5,"value_label":"81+","low":81,"high":95}]},
+"request_samples":[{"name":"us2015b","custom_sampling_ratio":null,"first_household_sampled":null}],
+"request_variables":[{"variable_mnemonic":"SEI","mnemonic":"SEI","general_detailed_selection":"","standardization_index":null,"attached_variable_pointer":null,"case_selection":false,"request_case_selections":[],"include_dq_flags":false,"extract_start":1,"extract_width":2}]}
+
