@@ -1005,4 +1005,55 @@ mod test {
             "expected a general divisor of 1 because there was no detailed width provided"
         );
     }
+
+    /// It's not a problem if we don't know the variable's general width, but we
+    /// request its detailed version.
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_general_width_use_detailed() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: None,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::Detailed)
+                .expect("should convert into a RequestVariable");
+
+        let detailed_width = rqv
+            .detailed_width()
+            .expect("should be able to get detailed width");
+        assert_eq!(detailed_width, 2);
+        rqv.general_width()
+            .expect_err("general width should not be available");
+    }
+
+    /// It's an error if we don't know the variable's general width, and we still
+    /// request the general version of the variable.
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_general_width_use_general() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: None,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
+                .expect_err("should not convert into a RequestVariable because we don't have a general width but requested the general version of the variable");
+    }
 }
