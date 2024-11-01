@@ -1058,8 +1058,11 @@ mod test {
             category_bins: None,
         };
 
-        let rqv =
-            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General)
-                .expect_err("should not convert into a RequestVariable because we don't have a general width but requested the general version of the variable");
+        let result =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General);
+        result.expect_err(
+            "should not convert into a RequestVariable because we don't have a \
+            general width but requested the general version of the variable",
+        );
     }
 }

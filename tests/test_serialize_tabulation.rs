@@ -1,4 +1,4 @@
-use cimdea::request::{AbacusRequest, DataRequest};
+use cimdea::request::AbacusRequest;
 use cimdea::tabulate::{self, TableFormat};
 
 /// Computes and serializes into JSON a tabulation on the EDUC variable, with
