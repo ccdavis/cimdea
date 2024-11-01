@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InputType","OutputFormat","RequestType"],"fn":["perform_request"],"struct":["AbacusRequest","RequestSample","RequestVariable","SimpleRequest"],"trait":["DataRequest"]};
+window.SIDEBAR_ITEMS = {"enum":["CaseSelectLogic","CaseSelectUnit","InputType","OutputFormat","RequestType"],"fn":["context_from_names_helper","perform_request"],"struct":["AbacusRequest","RequestSample","RequestVariable","SimpleRequest"],"trait":["DataRequest"]};

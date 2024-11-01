@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/request.rs`."><title>request.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/request.rs`."><title>request.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -714,6 +714,291 @@
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Requests describe requested IPUMS data either as an extract -- multiple records -- or an aggregation of
 //! data  from those records. We use names of IPUMS "variables" and "datasets" to make the requests along with other details.
 //!
@@ -722,31 +1007,31 @@
 //! data and formatting output. Request objects will connect with metadata storage if needed in order to set up
 //! the request object to get handed off to "Extract" or "Tabulate" code.
 //!
-
-</span><span class="kw">use </span>serde::de::IntoDeserializer;
-<span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>serde_json::{to_string, Error};
-
-<span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::{<span class="self">self</span>, RecordType};
+</span><span class="comment">//use serde_json::{to_string, Error};
+</span><span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::{<span class="self">self</span>, RecordType};
 <span class="kw">use crate</span>::{
     conventions,
     conventions::Context,
-    ipums_metadata_model::{CategoryBin, IpumsDataType, IpumsDataset, IpumsVariable},
+    input_schema_tabulation,
+    input_schema_tabulation::{CategoryBin, GeneralDetailedSelection},
+    ipums_metadata_model::{IpumsDataType, IpumsDataset, IpumsVariable},
+    mderror::{metadata_error, parsing_error, MdError},
     query_gen::Condition,
 };
 
 <span class="comment">// Given a set of variable and dataset names and a product name, produce a context loaded
 // with metadata just for those named parts and return copies of the IpumsVariable and IpumsSample structs.
-</span><span class="kw">fn </span>context_from_names_helper(
+// This is public so it can be used as a test helper.
+</span><span class="kw">pub fn </span>context_from_names_helper(
     product: <span class="kw-2">&amp;</span>str,
     requested_datasets: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
     requested_variables: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
-    optional_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    _optional_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
     optional_data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
-) -&gt; (conventions::Context, Vec&lt;IpumsVariable&gt;, Vec&lt;IpumsDataset&gt;) {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, Vec&lt;IpumsVariable&gt;, Vec&lt;IpumsDataset&gt;), MdError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>ctx =
-        conventions::Context::from_ipums_collection_name(product, <span class="prelude-val">None</span>, optional_data_root);
-    ctx.load_metadata_for_datasets(requested_datasets);
+        conventions::Context::from_ipums_collection_name(product, <span class="prelude-val">None</span>, optional_data_root)<span class="question-mark">?</span>;
+    ctx.load_metadata_for_datasets(requested_datasets)<span class="question-mark">?</span>;
 
     <span class="comment">// Get variables from selections
     </span><span class="kw">let </span>variables = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = ctx.settings.metadata {
@@ -755,7 +1040,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = md.variables_by_name.get(<span class="kw-2">&amp;*</span>rv.to_ascii_uppercase()) {
                 loaded_vars.push(md.variables_index[<span class="kw-2">*</span>id].clone());
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(<span class="string">"Variable {} not in any loaded metadata."</span>, rv);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"Variable {rv} not in any loaded metadata."</span>));
             }
         }
         loaded_vars
@@ -769,75 +1054,137 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = md.datasets_by_name.get(<span class="kw-2">*</span>rd) {
                 loaded_datasets.push(md.datasets_index[<span class="kw-2">*</span>id].clone());
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(<span class="string">"No dataset named {} found in metadata or layouts!"</span>, rd);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                    <span class="string">"No dataset named {rd} found in metadata or layouts!"
+                </span>));
             }
         }
         loaded_datasets
     } <span class="kw">else </span>{
         Vec::new()
     };
-    (ctx, variables, datasets)
+    <span class="prelude-val">Ok</span>((ctx, variables, datasets))
 }
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="attr">#[allow(unused)]
+#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>RequestVariable {
     <span class="kw">pub </span>variable: IpumsVariable,
-    <span class="kw">pub </span>is_general: bool,
+    <span class="kw">pub </span>general_detailed_selection: GeneralDetailedSelection,
     <span class="kw">pub </span>general_divisor: usize, <span class="comment">// for instance, 100 for RELATE vs RELATED
     </span><span class="kw">pub </span>name: String,
     <span class="kw">pub </span>case_selection: <span class="prelude-ty">Option</span>&lt;Condition&gt;,
     <span class="kw">pub </span>attached_variable_pointer: <span class="prelude-ty">Option</span>&lt;IpumsVariable&gt;,
     <span class="kw">pub </span>category_bins: <span class="prelude-ty">Option</span>&lt;Vec&lt;CategoryBin&gt;&gt;,
+    <span class="comment">// extract_start is only useful to help order the request variables and
+    // for producing a fixed-width output which we generally don't want.
+    </span>extract_start: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+
+    <span class="comment">// extract_width is useful for detecting if a request variable is 'general' vs
+    // 'detailed'  and we can derive the 'general_divisor' by comparing 'extract_width'
+    // to the var.formatting[1] (start, width) which has the full detailed width.
+    // General width isn't available from all metadata sources like layout files.
+    </span>extract_width: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
 <span class="kw">impl </span>RequestVariable {
-    <span class="kw">pub fn </span>from_ipums_variable(var: <span class="kw-2">&amp;</span>IpumsVariable, use_general: bool) -&gt; <span class="self">Self </span>{
+    <span class="comment">// Can't impl 'From' directly  with just input_schema_tabulation::RequestVariable because it takes a context
+    // as well ...
+    </span><span class="kw">fn </span>try_from_input_request_variable(
+        ctx: <span class="kw-2">&amp;</span>Context,
+        category_bins: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;CategoryBin&gt;&gt;,
+        input_rq: input_schema_tabulation::RequestVariable,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
+        <span class="kw">let </span>var = ctx.get_md_variable_by_name(<span class="kw-2">&amp;</span>input_rq.variable_mnemonic)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>rq = <span class="self">Self</span>::try_from_ipums_variable(<span class="kw-2">&amp;</span>var, input_rq.general_detailed_selection)<span class="question-mark">?</span>;
+
+        <span class="comment">// This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
+        // we pass Some() then we're asking to over-ride anything coming from context.
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>bins) = category_bins {
+            rq.category_bins = <span class="prelude-val">Some</span>(bins.to_vec().clone());
+        }
+
+        <span class="kw">if </span>input_rq.case_selection {
+            rq.case_selection = Condition::try_from_request_case_selections(
+                <span class="kw-2">&amp;</span>var,
+                <span class="kw-2">&amp;</span>input_rq.request_case_selections,
+            )<span class="question-mark">?</span>;
+        } <span class="kw">else </span>{
+            rq.case_selection = <span class="prelude-val">None</span>;
+        }
+
+        <span class="prelude-val">Ok</span>(rq)
+    }
+
+    <span class="kw">pub fn </span>try_from_ipums_variable(
+        var: <span class="kw-2">&amp;</span>IpumsVariable,
+        use_general: GeneralDetailedSelection,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
         <span class="kw">let </span>general_divisor: usize = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, w)) = var.formatting {
             <span class="kw">if </span>w == var.general_width {
                 <span class="number">1
-            </span>} <span class="kw">else if </span>(w &lt; var.general_width) {
-                <span class="kw">let </span>exponent: u32 = (w - var.general_width).try_into().unwrap();
-                <span class="kw">let </span>base: i32 = <span class="number">10</span>;
-                base.pow(exponent).try_into().unwrap()
+            </span>} <span class="kw">else if </span>var.general_width &lt; w {
+                <span class="comment">// We could avoid this unwrap() by using u32s instead of usizes
+                // during parsing and metadata loading. But as it is, this is
+                // technically a fallible conversion. It's not likely to fail
+                // with normal metadata; we'd need to overflow a u32.
+                </span><span class="kw">let </span>exponent: u32 = (w - var.general_width).try_into().unwrap();
+                <span class="kw">let </span>base: usize = <span class="number">10</span>;
+                base.pow(exponent)
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(
-                    <span class="string">"Bad metadata, general width can't be larger than detailed width on {}"</span>,
-                    <span class="kw-2">&amp;</span>var.name
-                );
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                    <span class="string">"variable {} has general width {}, which is larger than its detailed width {}"</span>,
+                    var.name,
+                    var.general_width,
+                    w
+                ));
             }
         } <span class="kw">else </span>{
             <span class="number">1
         </span>};
 
-        <span class="self">Self </span>{
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             variable: var.clone(),
-            is_general: use_general,
+            general_detailed_selection: use_general,
             general_divisor,
             name: var.name.clone(),
             case_selection: <span class="prelude-val">None</span>,
             attached_variable_pointer: <span class="prelude-val">None</span>,
-            category_bins: var.categoryBins.clone(),
-        }
+            category_bins: var.category_bins.clone(),
+            extract_start: <span class="prelude-val">None</span>,
+            extract_width: <span class="prelude-val">None</span>,
+        })
     }
 
-    <span class="kw">pub fn </span>detailed_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, String&gt; {
+    <span class="kw">pub fn </span>is_general(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        GeneralDetailedSelection::General == <span class="self">self</span>.general_detailed_selection
+    }
+
+    <span class="kw">pub fn </span>detailed_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MdError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, w)) = <span class="self">self</span>.variable.formatting {
             <span class="prelude-val">Ok</span>(w)
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"No width metadata available for {}"</span>, <span class="self">self</span>.name))
+            <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                <span class="string">"No width metadata available for {}"</span>,
+                <span class="self">self</span>.name
+            ))
         }
     }
 
-    <span class="kw">pub fn </span>general_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, String&gt; {
-        <span class="kw">if </span><span class="self">self</span>.is_general {
-            <span class="prelude-val">Ok</span>(<span class="self">self</span>.variable.general_width)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"General width not available for {}"</span>, <span class="self">self</span>.name))
+    <span class="kw">pub fn </span>general_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MdError&gt; {
+        <span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.general_detailed_selection, <span class="self">self</span>.extract_width) {
+            (GeneralDetailedSelection::General, <span class="prelude-val">Some</span>(w)) =&gt; <span class="prelude-val">Ok</span>(w),
+            (GeneralDetailedSelection::General, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                <span class="string">"'{}' requires 'extract_width' from request currently to determine the general width; not represented in IpumsVariable or not available from current metadata either."</span>,<span class="self">self</span>.name)),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                <span class="string">"General width not available for {}"</span>,
+                <span class="self">self</span>.name
+            ))
         }
     }
 
-    <span class="kw">pub fn </span>requested_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, String&gt; {
-        <span class="kw">if </span><span class="self">self</span>.is_general {
+    <span class="kw">pub fn </span>requested_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MdError&gt; {
+        <span class="kw">if let </span>GeneralDetailedSelection::General = <span class="self">self</span>.general_detailed_selection {
             <span class="self">self</span>.general_width()
         } <span class="kw">else </span>{
             <span class="self">self</span>.detailed_width()
@@ -850,6 +1197,10 @@
 
     <span class="kw">pub fn </span>variable_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">self</span>.variable.name.clone()
+    }
+
+    <span class="kw">pub fn </span>is_bucketed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.category_bins.is_some()
     }
 }
 
@@ -868,6 +1219,26 @@
     }
 }
 
+<span class="kw">pub enum </span>CaseSelectLogic {
+    And,
+    Or,
+}
+
+<span class="comment">// We only ever apply CaseSelectUnit  to household-person but theoretically this is a way
+// to select all members of a given unit of analysis contained in the 'unit' if it's
+// not the current unit when one record matches. For instance 'EntireHousehold' means
+// include all people / person records from the current household if any person records match.
+// NOTE: The behavior when the case selection is on a household variable but the extract or
+// tabulation is using 'person' as the unit of analysis isn't well defined. In our old code
+// we include all persons in a household if a household variable matches even if there's no
+// person level variables with case selection. The interaction with the 'and' and 'or' of the case select logic
+// across record types and hierarchies is complicated. The old extract engine has a complex approach probably not worth
+// reproducing in full here.
+</span><span class="kw">pub enum </span>CaseSelectUnit {
+    Individual,
+    EntireHousehold,
+}
+
 <span class="doccomment">/// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 </span><span class="kw">pub trait </span>DataRequest {
@@ -876,14 +1247,14 @@
     <span class="kw">fn </span>get_conditions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;Condition&gt;&gt;;
 
     <span class="doccomment">/// Convert to the Tractor / generic IPUMS representation
-    </span><span class="kw">fn </span>serialize_to_IPUMS_JSON(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
+    </span><span class="kw">fn </span>serialize_to_ipums_json(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
 
     <span class="doccomment">/// Convert from the Tractor / generic JSON representation.
     </span><span class="kw">fn </span>deserialize_from_ipums_json(
         ctx: <span class="kw-2">&amp;</span>conventions::Context,
         request_type: RequestType,
         json_request: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: std::marker::Sized;
 
@@ -896,13 +1267,18 @@
         unit_of_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    ) -&gt; (conventions::Context, <span class="self">Self</span>);
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, <span class="self">Self</span>), MdError&gt;
+    <span class="kw">where
+        </span><span class="self">Self</span>: std::marker::Sized;
 
     <span class="doccomment">/// Print a human readable codebook
     </span><span class="kw">fn </span>print_codebook(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
 
     <span class="doccomment">/// Print a machine readable Stata codebook
     </span><span class="kw">fn </span>print_stata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String;
+
+    <span class="kw">fn </span>case_select_logic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectLogic;
+    <span class="kw">fn </span>case_select_unit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectUnit;
 }
 
 <span class="attr">#[derive(Clone, Debug)]
@@ -939,25 +1315,37 @@
 }
 
 <span class="comment">// The key point is you can take an impl of a DataRequest and do something with it.
-</span><span class="kw">pub fn </span>perform_request(rq: <span class="kw">impl </span>DataRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-    <span class="prelude-val">Ok</span>(())
+</span><span class="attr">#[allow(unused)]
+</span><span class="kw">pub fn </span>perform_request(rq: <span class="kw">impl </span>DataRequest) -&gt; <span class="prelude-ty">Result</span>&lt;(), MdError&gt; {
+    <span class="macro">todo!</span>(<span class="string">"Implement"</span>);
 }
 
-<span class="kw">fn </span>validated_unit_of_analysis(ctx: <span class="kw-2">&amp;</span>Context, unit_of_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; RecordType {
+<span class="kw">fn </span>validated_unit_of_analysis(
+    ctx: <span class="kw-2">&amp;</span>Context,
+    unit_of_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;RecordType, MdError&gt; {
     <span class="kw">let </span>uoa = unit_of_analysis.unwrap_or(ctx.settings.default_unit_of_analysis.value.clone());
 
     <span class="comment">// Check that uoa is present for the current context
     </span><span class="kw">let </span>unit_rectype = <span class="kw">match </span>ctx.settings.record_types.get(<span class="kw-2">&amp;</span>uoa) {
         <span class="prelude-val">Some</span>(urt) =&gt; urt.clone(),
         <span class="prelude-val">None </span>=&gt; {
-            <span class="kw">let </span>rectype_names = ctx.settings.record_types.keys().cloned();
-            <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Record type '{}' not available for use as unit of analysis; the record type is not present in the current context with record types '{:?}'"</span>,
-            <span class="kw-2">&amp;</span>uoa,
-            rectype_names);
-            <span class="macro">panic!</span>(<span class="string">"{}"</span>, msg);
+            <span class="kw">let </span><span class="kw-2">mut </span>rectype_names = ctx
+                .settings
+                .record_types
+                .keys()
+                .map(|k| k.as_str())
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+            rectype_names.sort();
+            <span class="kw">let </span>rectype_names = rectype_names.join(<span class="string">", "</span>);
+            <span class="kw">let </span>err = <span class="macro">metadata_error!</span>(
+                <span class="string">"Record type '{uoa}' not available for use as unit of analysis; \
+                 the record type is not present in the current context with record types {rectype_names}"
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(err);
         }
     };
-    unit_rectype
+    <span class="prelude-val">Ok</span>(unit_rectype)
 }
 
 <span class="doccomment">/// The Abacus Request type contains variables to tabulate, variables used for conditions and datasets.
@@ -974,6 +1362,14 @@
 }
 
 <span class="kw">impl </span>DataRequest <span class="kw">for </span>AbacusRequest {
+    <span class="kw">fn </span>case_select_logic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    <span class="kw">fn </span>case_select_unit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     <span class="kw">fn </span>get_request_variables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;RequestVariable&gt; {
         <span class="self">self</span>.request_variables.clone()
     }
@@ -986,8 +1382,7 @@
         <span class="kw">let </span>conditions = <span class="self">self
             </span>.subpopulation
             .iter()
-            .filter(|rv| rv.case_selection.is_some())
-            .map(|rv_c| rv_c.clone().case_selection.unwrap())
+            .filter_map(|rv| rv.case_selection.clone())
             .collect::&lt;Vec&lt;Condition&gt;&gt;();
         <span class="kw">if </span>conditions.len() &gt; <span class="number">0 </span>{
             <span class="prelude-val">Some</span>(conditions)
@@ -996,11 +1391,12 @@
         </span>}
     }
 
-    <span class="kw">fn </span>deserialize_from_ipums_json(
+    <span class="attr">#[allow(unused)]
+    </span><span class="kw">fn </span>deserialize_from_ipums_json(
         ctx: <span class="kw-2">&amp;</span>conventions::Context,
         request_type: RequestType,
         json_request: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: std::marker::Sized,
     {
@@ -1008,7 +1404,58 @@
     }
 
     <span class="kw">fn </span>print_codebook(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="macro">todo!</span>(<span class="string">"Not implemented!"</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>lines = Vec::new();
+        lines.push(<span class="string">"Tabulation\n\n"</span>.to_string());
+
+        lines.push(<span class="macro">format!</span>(<span class="string">"Datasets:"</span>));
+        <span class="kw">for </span>s <span class="kw">in </span><span class="self">self</span>.get_request_samples() {
+            <span class="kw">let </span>label = s.sample.label.unwrap_or(<span class="string">""</span>.to_string());
+            <span class="kw">let </span>sample_pct = <span class="kw">if let </span><span class="prelude-val">Some</span>(density) = s.sample.sampling_density {
+                <span class="macro">format!</span>(<span class="string">"{}"</span>, density * <span class="number">100.0</span>)
+            } <span class="kw">else </span>{
+                <span class="string">"N/A"</span>.to_string()
+            };
+
+            lines.push(<span class="macro">format!</span>(
+                <span class="string">"{}: \"{}\" sample: {} "</span>,
+                <span class="kw-2">&amp;</span>s.name, label, sample_pct
+            ));
+        }
+
+        lines.push(<span class="string">"\n\nVariables:"</span>.to_string());
+
+        <span class="kw">for </span>v <span class="kw">in </span><span class="self">self</span>.get_request_variables() {
+            <span class="kw">let </span>label = <span class="kw-2">&amp;</span>v.variable.label.clone().unwrap_or(<span class="string">"NO LABEL"</span>.to_string());
+            <span class="kw">let </span>general_detailed = <span class="kw">if </span>v.is_general() {
+                <span class="string">"General"</span>.to_string()
+            } <span class="kw">else </span>{
+                <span class="string">"detailed"</span>.to_string()
+            };
+
+            lines.push(<span class="macro">format!</span>(<span class="string">"{}\t\t{} -- {}"</span>, v.name, <span class="kw-2">&amp;</span>label, <span class="kw-2">&amp;</span>general_detailed));
+        }
+
+        lines.push(<span class="string">"\n\nSubpopulation filters:\n"</span>.to_string());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>conditions) = <span class="self">self</span>.get_conditions() {
+            <span class="kw">if </span>conditions.len() &gt; <span class="number">0 </span>{
+                <span class="kw">let </span>logic = <span class="kw">match </span><span class="self">self</span>.case_select_logic() {
+                    CaseSelectLogic::And =&gt; <span class="string">" 'AND'"</span>,
+                    CaseSelectLogic::Or =&gt; <span class="string">" 'OR' "</span>,
+                };
+                lines.push(<span class="macro">format!</span>(<span class="string">"Logic across variables: {}\n"</span>, logic));
+
+                <span class="kw">for </span>c <span class="kw">in </span>conditions {
+                    <span class="kw">let </span>compare_to_list = c
+                        .comparison
+                        .iter()
+                        .map(|cs| cs.print())
+                        .collect::&lt;Vec&lt;String&gt;&gt;();
+                    lines.push(<span class="macro">format!</span>(<span class="string">"{} : {}"</span>, <span class="kw-2">&amp;</span>c.var.name, <span class="kw-2">&amp;</span>compare_to_list.join(<span class="string">"\n"</span>)));
+                }
+            }
+        }
+
+        lines.join(<span class="string">"\n"</span>)
     }
 
     <span class="kw">fn </span>print_stata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
@@ -1023,7 +1470,7 @@
         unit_of_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    ) -&gt; (conventions::Context, <span class="self">Self</span>) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, <span class="self">Self</span>), MdError&gt; {
         <span class="comment">// get datasets from selections
         </span><span class="kw">let </span>(ctx, variables, datasets) = context_from_names_helper(
             product,
@@ -1031,18 +1478,21 @@
             requested_variables,
             optional_product_root,
             optional_data_root.clone(),
-        );
+        )<span class="question-mark">?</span>;
         <span class="kw">let </span>request_variables = variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v, <span class="bool-val">false</span>))
-            .collect();
+            .map(|v| {
+                RequestVariable::try_from_ipums_variable(v, GeneralDetailedSelection::Detailed)
+            })
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;RequestVariable&gt;, MdError&gt;&gt;()<span class="question-mark">?</span>;
+
         <span class="kw">let </span>request_samples = datasets
             .iter()
             .map(|d| RequestSample::from_ipums_dataset(d))
             .collect();
 
-        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis);
-        (
+        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((
             ctx,
             <span class="self">Self </span>{
                 product: product.to_string(),
@@ -1054,11 +1504,11 @@
                 use_general_variables: <span class="bool-val">false</span>,
                 data_root: optional_data_root,
             },
-        )
+        ))
     }
 
-    <span class="kw">fn </span>serialize_to_IPUMS_JSON(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="macro">panic!</span>(<span class="string">"Not implemented."</span>)
+    <span class="kw">fn </span>serialize_to_ipums_json(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="macro">todo!</span>(<span class="string">"Serialization is not yet implemented."</span>)
     }
 }
 
@@ -1071,71 +1521,51 @@
     /// request_samples: [...],
     ///  "subpop" : [ {...}, {...}],
     /// "uoa" : "P"}
-    </span><span class="kw">pub fn </span>from_json(input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, <span class="self">Self</span>), String&gt; {
-        <span class="kw">let </span>parsed: serde_json::Value = <span class="kw">match </span>serde_json::from_str(input) {
-            <span class="prelude-val">Ok</span>(parsed) =&gt; parsed,
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Error deserializing request: '{}'"</span>, e)),
+    </span><span class="kw">pub fn </span>try_from_json(input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, <span class="self">Self</span>), MdError&gt; {
+        <span class="kw">let </span>request: input_schema_tabulation::AbacusRequest = <span class="kw">match </span>serde_json::from_str(input) {
+            <span class="prelude-val">Ok</span>(request) =&gt; request,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                    <span class="string">"Error deserializing request: '{err}'"
+                </span>)));
+            }
         };
-
-        <span class="kw">let </span><span class="prelude-val">Some</span>(product) = parsed[<span class="string">"product"</span>].as_str() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No 'product' in request"</span>.to_string());
-        };
-
-        <span class="kw">let </span>optional_data_root = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>r) = parsed[<span class="string">"data_root"</span>].as_str() {
-            <span class="prelude-val">Some</span>(r.to_string())
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
 
         <span class="kw">let </span><span class="kw-2">mut </span>ctx = conventions::Context::from_ipums_collection_name(
-            product,
+            <span class="kw-2">&amp;</span>request.product,
             <span class="prelude-val">None</span>,
-            optional_data_root.clone(),
-        );
+            request.data_root.clone(),
+        )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(parsed_request_samples) = parsed[<span class="string">"request_samples"</span>].as_array() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No 'request_samples' in request."</span>.to_string());
-        };
-        <span class="kw">let </span><span class="prelude-val">Some</span>(parsed_request_variables) = parsed[<span class="string">"request_variables"</span>].as_array() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Request must have 'request_variables' field."</span>.to_string());
-        };
-
-        <span class="kw">let </span><span class="prelude-val">Some</span>(parsed_subpop) = parsed[<span class="string">"subpopulation"</span>].as_array() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No subpopulation key."</span>.to_string());
-        };
-
-        <span class="kw">let </span><span class="prelude-val">Some</span>(parsed_uoa) = parsed[<span class="string">"uoa"</span>].as_str() <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"'uoa' (unit of analysis) required."</span>.to_string());
-        };
-
-        <span class="kw">let </span><span class="kw-2">mut </span>requested_dataset_names = Vec::new();
-        <span class="kw">for </span>rs <span class="kw">in </span>parsed_request_samples {
-            <span class="kw">let </span><span class="prelude-val">Some</span>(name) = rs[<span class="string">"name"</span>].as_str() <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Missing name field in RequestSample object."</span>.to_string());
-            };
-            requested_dataset_names.push(name);
-        }
+        <span class="kw">let </span>requested_dataset_names: Vec&lt;<span class="kw">_</span>&gt; = request
+            .request_samples
+            .iter()
+            .map(|rs| rs.name.as_str())
+            .collect();
 
         <span class="comment">// Use the names of the requested samples to load partial metadata
-        </span>ctx.load_metadata_for_datasets(<span class="kw-2">&amp;</span>requested_dataset_names);
+        </span>ctx.load_metadata_for_datasets(requested_dataset_names.as_slice())<span class="question-mark">?</span>;
 
         <span class="comment">// With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        </span><span class="kw">let </span>uoa = <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = ctx.settings.record_types.clone().get(parsed_uoa) {
+        </span><span class="kw">let </span>uoa = <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = ctx.settings.record_types.clone().get(<span class="kw-2">&amp;</span>request.uoa) {
             u.clone()
         } <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No record type for uoa."</span>.to_string());
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"No record type for uoa."</span>));
         };
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = <span class="kw-2">&amp;</span>ctx.settings.metadata <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Insufficient metadata loaded to deserialize request."</span>.to_string());
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                <span class="string">"Insufficient metadata loaded to deserialize request."
+            </span>));
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>rqs = Vec::new();
-        <span class="kw">for </span>p <span class="kw">in </span>parsed_request_samples {
-            <span class="kw">let </span>name = p[<span class="string">"name"</span>].as_str().unwrap();
-            <span class="kw">let </span><span class="prelude-val">Some</span>(ipums_ds) = md.cloned_dataset_from_name(name) <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"No metadata for dataset named {}"</span>, <span class="kw-2">&amp;</span>name));
+        <span class="kw">for </span>p <span class="kw">in </span>request.request_samples {
+            <span class="kw">let </span>name = p.name;
+            <span class="kw">let </span><span class="prelude-val">Some</span>(ipums_ds) = md.cloned_dataset_from_name(<span class="kw-2">&amp;</span>name) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"No metadata for dataset named {name}"</span>));
             };
+
             rqs.push(RequestSample {
                 name: name.to_string(),
                 sample: ipums_ds,
@@ -1143,53 +1573,32 @@
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>rqv = Vec::new();
-        <span class="kw">for </span>v <span class="kw">in </span>parsed_request_variables {
-            <span class="kw">let </span>name = v[<span class="string">"mnemonic"</span>].as_str() <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Missing mnemonic on request variable."</span>.to_string());
-            };
-
-            <span class="kw">let </span><span class="prelude-val">Some</span>(variable_mnemonic) = v[<span class="string">"variable_mnemonic"</span>].as_str() <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Missing variable_mnemonic in RequestVariable."</span>.to_string());
-            };
-
-            <span class="kw">let </span><span class="prelude-val">Some</span>(ipums_var) = md.cloned_variable_from_name(variable_mnemonic) <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">"No variable named '{}' in loaded metadata."</span>,
-                    variable_mnemonic
-                ));
-            };
-
-            <span class="kw">let </span>use_general = <span class="kw">if </span>v[<span class="string">"general_detailed_selection"</span>].is_null() {
-                <span class="bool-val">false
-            </span>} <span class="kw">else </span>{
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(gendet) = v[<span class="string">"general_detail_selection"</span>].as_str() {
-                    gendet == <span class="string">"G"
-                </span>} <span class="kw">else </span>{
-                    <span class="bool-val">false
-                </span>}
-            };
-
-            <span class="kw">let </span><span class="kw-2">mut </span>request_var = RequestVariable::from_ipums_variable(<span class="kw-2">&amp;</span>ipums_var, use_general);
-
-            <span class="comment">// TODO add category bins
-
-            </span>rqv.push(request_var);
+        <span class="kw">for </span>v <span class="kw">in </span>request.request_variables {
+            <span class="comment">// The category_bins can also come from the IpumsVariable as it's properly part of metadata. However in the request
+            // for Abacus we pass category bins on each request for all request variables that need them.
+            </span><span class="kw">let </span>bins = request.category_bins.get(<span class="kw-2">&amp;</span>v.variable_mnemonic);
+            <span class="kw">let </span>request_var = RequestVariable::try_from_input_request_variable(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;</span>bins, v)<span class="question-mark">?</span>;
+            rqv.push(request_var);
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>subpop = Vec::new();
-        <span class="kw">for </span>s <span class="kw">in </span>parsed_subpop {}
+        <span class="kw">for </span>s <span class="kw">in </span>request.subpopulation {
+            <span class="kw">let </span>bins = request.category_bins.get(<span class="kw-2">&amp;</span>s.variable_mnemonic);
+            <span class="kw">let </span>spv = RequestVariable::try_from_input_request_variable(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;</span>bins, s)<span class="question-mark">?</span>;
+            subpop.push(spv);
+        }
 
         <span class="prelude-val">Ok</span>((
             ctx,
             <span class="self">Self </span>{
-                product: product.to_string(),
+                product: request.product,
                 request_variables: rqv,
                 request_samples: rqs,
                 subpopulation: subpop,
                 output_format: OutputFormat::Json,
                 use_general_variables: <span class="bool-val">true</span>,
                 unit_rectype: uoa.clone(),
-                data_root: optional_data_root,
+                data_root: request.data_root,
             },
         ))
     }
@@ -1215,12 +1624,20 @@
     <span class="kw">pub </span>request_type: RequestType,
     <span class="kw">pub </span>output_format: OutputFormat,
     <span class="kw">pub </span>conditions: <span class="prelude-ty">Option</span>&lt;Vec&lt;Condition&gt;&gt;,
-    <span class="kw">pub </span>use_general_variables: bool,
+    <span class="kw">pub </span>use_general_variables: GeneralDetailedSelection,
 }
 
 <span class="comment">// The new() and some setup stuff is particular to the SimpleRequest or the more complex types of requests.
 
 </span><span class="kw">impl </span>DataRequest <span class="kw">for </span>SimpleRequest {
+    <span class="kw">fn </span>case_select_logic(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectLogic {
+        CaseSelectLogic::And
+    }
+
+    <span class="kw">fn </span>case_select_unit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CaseSelectUnit {
+        CaseSelectUnit::Individual
+    }
+
     <span class="comment">// A simple builder if we don't have serialized JSON, for tests and CLI use cases.
     // Returns a new context.
     </span><span class="kw">fn </span>from_names(
@@ -1230,7 +1647,7 @@
         unit_of_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
         optional_data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    ) -&gt; (conventions::Context, <span class="self">Self</span>) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(conventions::Context, <span class="self">Self</span>), MdError&gt; {
         <span class="comment">// get datasets from selections
         </span><span class="kw">let </span>(ctx, variables, datasets) = context_from_names_helper(
             product,
@@ -1238,9 +1655,9 @@
             requested_variables,
             optional_product_root,
             optional_data_root,
-        );
-        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis);
-        (
+        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((
             ctx,
             <span class="self">Self </span>{
                 product: product.to_string(),
@@ -1250,15 +1667,21 @@
                 request_type: RequestType::Tabulation,
                 output_format: OutputFormat::CSV,
                 conditions: <span class="prelude-val">None</span>,
-                use_general_variables: <span class="bool-val">false</span>,
+                use_general_variables: GeneralDetailedSelection::Detailed,
             },
-        )
+        ))
     }
 
     <span class="kw">fn </span>get_request_variables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;RequestVariable&gt; {
-        <span class="self">self</span>.variables
+        <span class="comment">// Note the .expect() below: If we got here from the from_names() then
+        // if the metadata is broken (general detailed probably incorrect), we
+        // simply can't proceed.
+        </span><span class="self">self</span>.variables
             .iter()
-            .map(|v| RequestVariable::from_ipums_variable(v, <span class="self">self</span>.use_general_variables))
+            .map(|v| {
+                RequestVariable::try_from_ipums_variable(v, <span class="self">self</span>.use_general_variables.clone())
+                    .expect(<span class="string">"Broken metadata."</span>)
+            })
             .collect()
     }
 
@@ -1278,68 +1701,85 @@
         ctx: <span class="kw-2">&amp;</span>conventions::Context,
         request_type: RequestType,
         json_request: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
         <span class="kw">let </span>parsed: serde_json::Value = <span class="kw">match </span>serde_json::from_str(json_request) {
             <span class="prelude-val">Ok</span>(parsed) =&gt; parsed,
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Error deserializing request: '{}'"</span>, e)),
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                    <span class="string">"Error deserializing request: '{}'"</span>,
+                    e
+                )))
+            }
         };
 
-        <span class="kw">let </span>product = parsed[<span class="string">"product"</span>].as_str().expect(<span class="string">"No 'product' in request"</span>);
-        <span class="kw">let </span>details = parsed[<span class="string">"details"</span>]
-            .as_object()
-            .expect(<span class="string">"No 'details' in request."</span>);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(product) = parsed[<span class="string">"product"</span>].as_str() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"no 'product' in request"</span>));
+        };
 
-        <span class="kw">let </span>request_samples = details[<span class="string">"request_samples"</span>]
-            .as_array()
-            .expect(<span class="string">"Expected request_samples array."</span>);
-        <span class="kw">let </span>request_variables = details[<span class="string">"request_variables"</span>]
-            .as_array()
-            .expect(<span class="string">"Expected a request_variables array."</span>);
-        <span class="kw">let </span>output_format = details[<span class="string">"output_format"</span>]
-            .as_str()
-            .expect(<span class="string">"No 'output_format' in request."</span>);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(details) = parsed[<span class="string">"details"</span>].as_object() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"no 'details' in request"</span>));
+        };
 
-        <span class="kw">let </span>case_select_logic = details[<span class="string">"case_select_logic"</span>]
-            .as_str()
-            .expect(<span class="string">"No case_select_logic in request."</span>);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(request_samples) = details[<span class="string">"request_samples"</span>].as_array() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"expected 'request_samples' array"</span>));
+        };
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(request_variables) = details[<span class="string">"request_variables"</span>].as_array() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"expected a request_variables array"</span>));
+        };
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(_output_format) = details[<span class="string">"output_format"</span>].as_str() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"no 'output_format' in request"</span>));
+        };
+
+        <span class="kw">let </span><span class="prelude-val">Some</span>(_case_select_logic) = details[<span class="string">"case_select_logic"</span>].as_str() <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"no 'case_select_logic' in request"</span>));
+        };
+
         <span class="kw">let </span>variables = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = ctx.settings.metadata {
             <span class="kw">let </span><span class="kw-2">mut </span>checked_vars = Vec::new();
-            <span class="kw">for </span>v <span class="kw">in </span>request_variables.iter() {
-                <span class="kw">let </span>variable_mnemonic = v[<span class="string">"variable_mnemonic"</span>]
-                    .as_str()
-                    .expect(<span class="string">"No 'variable_mnemonic'"</span>);
+            <span class="kw">for </span>(index, v) <span class="kw">in </span>request_variables.iter().enumerate() {
+                <span class="kw">let </span><span class="prelude-val">Some</span>(variable_mnemonic) = v[<span class="string">"variable_mnemonic"</span>].as_str() <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(
+                        <span class="string">"no 'variable_mnemonic' for request variable {index}"
+                    </span>));
+                };
+
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(var_value) = md.cloned_variable_from_name(variable_mnemonic) {
                     checked_vars.push(var_value);
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"No variable '{}' in metadata."</span>, variable_mnemonic);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(msg);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                        <span class="string">"No variable '{variable_mnemonic}' in metadata."
+                    </span>));
                 }
             }
             checked_vars
         } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"Metadata for context not yet set up."</span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"Metadata for context not yet set up."</span>));
         };
 
         <span class="kw">let </span>datasets = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = ctx.settings.metadata {
             <span class="kw">let </span><span class="kw-2">mut </span>checked_samples = Vec::new();
-            <span class="kw">for </span>d <span class="kw">in </span>request_samples.iter() {
-                <span class="kw">let </span>ds_name = d[<span class="string">"name"</span>].as_str().expect(<span class="string">"missing sample 'name'."</span>);
+            <span class="kw">for </span>(index, d) <span class="kw">in </span>request_samples.iter().enumerate() {
+                <span class="kw">let </span><span class="prelude-val">Some</span>(ds_name) = d[<span class="string">"name"</span>].as_str() <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">parsing_error!</span>(<span class="string">"no 'name' for request sample {index}"</span>));
+                };
+
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(ipums_ds) = md.cloned_dataset_from_name(ds_name) {
                     checked_samples.push(ipums_ds);
                 } <span class="kw">else </span>{
-                    <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"No dataset '{}' in metadata."</span>, ds_name);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(msg);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"No dataset '{ds_name}' in metadata."</span>));
                 }
             }
             checked_samples
         } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"Metadata for context not yet set up."</span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"Metadata for context not yet set up."</span>));
         };
 
         <span class="kw">let </span>output_format = OutputFormat::CSV;
 
         <span class="kw">let </span>unit_of_analysis = <span class="prelude-val">None</span>;
-        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis);
+        <span class="kw">let </span>unit_rectype = validated_unit_of_analysis(<span class="kw-2">&amp;</span>ctx, unit_of_analysis)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             product: product.to_string(),
@@ -1349,11 +1789,11 @@
             request_type,
             output_format,
             conditions: <span class="prelude-val">None</span>,
-            use_general_variables: <span class="bool-val">false</span>,
+            use_general_variables: GeneralDetailedSelection::Detailed,
         })
     }
 
-    <span class="kw">fn </span>serialize_to_IPUMS_JSON(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="kw">fn </span>serialize_to_ipums_json(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="string">""</span>.to_string()
     }
 
@@ -1366,29 +1806,29 @@
     }
 }
 
-<span class="kw">mod </span>test {
-    <span class="kw">use </span>std::fs;
-
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_deserialize_into_simple_request() {
-        <span class="kw">let </span>data_root = String::from(<span class="string">"test/data_root"</span>);
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>ctx =
-            conventions::Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(data_root));
+            conventions::Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(data_root))
+                .expect(<span class="string">"should be able to load context for USA"</span>);
 
         <span class="comment">// Load the mentioned datasets and all their associated variables into metadata
-        </span>ctx.load_metadata_for_datasets(<span class="kw-2">&amp;</span>[<span class="string">"us2016c"</span>, <span class="string">"us2014d"</span>]);
+        </span>ctx.load_metadata_for_datasets(<span class="kw-2">&amp;</span>[<span class="string">"us2016c"</span>, <span class="string">"us2014d"</span>])
+            .expect(<span class="string">"should be able to load metadata for datasets"</span>);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = ctx.settings.metadata {
             <span class="macro">println!</span>(<span class="string">"loaded {} variables."</span>, md.variables_index.len());
-            <span class="macro">println!</span>(<span class="string">"{:?}"</span>, md.variables_by_name.get(<span class="string">"YEAR"</span>));
-            <span class="kw">for </span>v <span class="kw">in </span><span class="kw-2">&amp;</span>md.variables_index {
+
+            <span class="kw">for </span>_v <span class="kw">in </span><span class="kw-2">&amp;</span>md.variables_index {
                 <span class="comment">//println!("{}",v.name);
             </span>}
         }
 
-        <span class="kw">let </span>json_request = fs::read_to_string(<span class="string">"test/requests/usa_extract.json"</span>)
-            .expect(<span class="string">"Error reading test fixture in test/requests"</span>);
+        <span class="kw">let </span>json_request = <span class="macro">include_str!</span>(<span class="string">"../tests/requests/usa_extract.json"</span>);
         <span class="kw">let </span>simple_request =
             SimpleRequest::deserialize_from_ipums_json(<span class="kw-2">&amp;</span>ctx, RequestType::Extract, <span class="kw-2">&amp;</span>json_request);
         <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = simple_request {
@@ -1402,15 +1842,15 @@
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_from_names() {
-        <span class="kw">let </span>data_root = String::from(<span class="string">"test/data_root"</span>);
-        <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(_ctx, rq) = SimpleRequest::from_names(
             <span class="string">"usa"</span>,
             <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
             <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>],
             <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(data_root),
-        );
+        ).expect(<span class="string">"This construction of a request is for setting up a subsequent test and should always work."</span>);
 
         <span class="macro">assert_eq!</span>(<span class="number">4</span>, rq.variables.len());
         <span class="macro">assert_eq!</span>(rq.product, <span class="string">"usa"</span>);
@@ -1418,16 +1858,146 @@
     }
 
     <span class="attr">#[test]
-    </span><span class="kw">pub fn </span>test_abacus_request_from_json() {
-        <span class="kw">let </span>json_request = fs::read_to_string(<span class="string">"test/requests/usa_abacus_request.json"</span>)
-            .expect(<span class="string">"Error reading test fixture in test/requests"</span>);
+    </span><span class="kw">fn </span>test_abacus_request_from_names() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(_ctx, abacus_request) = AbacusRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .expect(<span class="string">"should be able to construct an AbacusRequest from the given names"</span>);
 
-        <span class="kw">let </span>abacus_request = AbacusRequest::from_json(<span class="kw-2">&amp;</span>json_request);
+        <span class="macro">assert_eq!</span>(abacus_request.request_variables.len(), <span class="number">4</span>);
+        <span class="macro">assert_eq!</span>(abacus_request.product, <span class="string">"usa"</span>);
+        <span class="macro">assert_eq!</span>(abacus_request.request_samples.len(), <span class="number">1</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">pub fn </span>test_abacus_request_from_json() {
+        <span class="kw">let </span>json_request = <span class="macro">include_str!</span>(<span class="string">"../tests/requests/usa_abacus_request.json"</span>);
+
+        <span class="kw">let </span>abacus_request = AbacusRequest::try_from_json(<span class="kw-2">&amp;</span>json_request);
         <span class="kw">match </span>abacus_request {
             <span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; <span class="macro">eprintln!</span>(<span class="string">"Error was '{}'"</span>, e),
             <span class="kw">_ </span>=&gt; (),
         }
         <span class="macro">assert!</span>(abacus_request.is_ok());
+    }
+
+    <span class="doccomment">/// It's an error if the given unit of analysis is not present as a record
+    /// type in the context.
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_validated_unit_of_analysis_unknown_rectype_error() {
+        <span class="kw">let </span>context =
+            Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"tests/data_root"</span>.to_string()))
+                .expect(<span class="string">"should be able to load context for USA"</span>);
+        <span class="kw">let </span>uoa = <span class="string">"Z"</span>;
+        <span class="macro">assert!</span>(
+            !context.settings.record_types.contains_key(uoa),
+            <span class="string">"Z should not be a default record type for USA"
+        </span>);
+        <span class="kw">let </span>err = validated_unit_of_analysis(<span class="kw-2">&amp;</span>context, <span class="prelude-val">Some</span>(uoa.to_string()))
+            .expect_err(<span class="string">"expected an error because Z is not a valid record type"</span>);
+        <span class="macro">assert!</span>(err
+            .to_string()
+            .contains(<span class="string">"Record type 'Z' not available for use as unit of analysis"</span>));
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_request_variable_from_ipums_variable_invalid_widths_error() {
+        <span class="kw">let </span>variable = IpumsVariable {
+            id: <span class="number">0</span>,
+            name: <span class="string">"RELATE"</span>.to_string(),
+            data_type: <span class="prelude-val">None</span>,
+            label: <span class="prelude-val">None</span>,
+            record_type: <span class="string">"P"</span>.to_string(),
+            categories: <span class="prelude-val">None</span>,
+            formatting: <span class="prelude-val">Some</span>((<span class="number">100</span>, <span class="number">4</span>)),
+            <span class="comment">// This is invalid because it's greater than the width in the formatting
+            // field. This will cause the error later.
+            </span>general_width: <span class="number">5</span>,
+            description: <span class="prelude-val">None</span>,
+            category_bins: <span class="prelude-val">None</span>,
+        };
+
+        <span class="kw">let </span>result =
+            RequestVariable::try_from_ipums_variable(<span class="kw-2">&amp;</span>variable, GeneralDetailedSelection::General);
+        <span class="macro">assert!</span>(result.is_err(), <span class="string">"expected an error but got {result:?}"</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_request_variable_from_ipums_variable_valid_general_width() {
+        <span class="kw">let </span>variable = IpumsVariable {
+            id: <span class="number">0</span>,
+            name: <span class="string">"RELATE"</span>.to_string(),
+            data_type: <span class="prelude-val">None</span>,
+            label: <span class="prelude-val">None</span>,
+            record_type: <span class="string">"P"</span>.to_string(),
+            categories: <span class="prelude-val">None</span>,
+            formatting: <span class="prelude-val">Some</span>((<span class="number">100</span>, <span class="number">4</span>)),
+            general_width: <span class="number">2</span>,
+            description: <span class="prelude-val">None</span>,
+            category_bins: <span class="prelude-val">None</span>,
+        };
+
+        <span class="kw">let </span>rqv =
+            RequestVariable::try_from_ipums_variable(<span class="kw-2">&amp;</span>variable, GeneralDetailedSelection::General)
+                .expect(<span class="string">"should convert into a RequestVariable"</span>);
+        <span class="macro">assert_eq!</span>(
+            rqv.general_divisor, <span class="number">100</span>,
+            <span class="string">"expected a general divisor of 10^(4-2) = 10^2 = 100"
+        </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_request_variable_from_ipums_variable_equal_widths() {
+        <span class="kw">let </span>variable = IpumsVariable {
+            id: <span class="number">0</span>,
+            name: <span class="string">"AGE"</span>.to_string(),
+            data_type: <span class="prelude-val">None</span>,
+            label: <span class="prelude-val">None</span>,
+            record_type: <span class="string">"P"</span>.to_string(),
+            categories: <span class="prelude-val">None</span>,
+            formatting: <span class="prelude-val">Some</span>((<span class="number">5</span>, <span class="number">2</span>)),
+            general_width: <span class="number">2</span>,
+            description: <span class="prelude-val">None</span>,
+            category_bins: <span class="prelude-val">None</span>,
+        };
+
+        <span class="kw">let </span>rqv =
+            RequestVariable::try_from_ipums_variable(<span class="kw-2">&amp;</span>variable, GeneralDetailedSelection::General)
+                .expect(<span class="string">"should convert into a RequestVariable"</span>);
+        <span class="macro">assert_eq!</span>(
+            rqv.general_divisor, <span class="number">1</span>,
+            <span class="string">"expected a general divisor of 1 because the general and detailed widths are the same"
+        </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_request_variable_from_ipums_variable_no_formatting() {
+        <span class="kw">let </span>variable = IpumsVariable {
+            id: <span class="number">0</span>,
+            name: <span class="string">"AGE"</span>.to_string(),
+            data_type: <span class="prelude-val">None</span>,
+            label: <span class="prelude-val">None</span>,
+            record_type: <span class="string">"P"</span>.to_string(),
+            categories: <span class="prelude-val">None</span>,
+            formatting: <span class="prelude-val">None</span>,
+            general_width: <span class="number">2</span>,
+            description: <span class="prelude-val">None</span>,
+            category_bins: <span class="prelude-val">None</span>,
+        };
+
+        <span class="kw">let </span>rqv =
+            RequestVariable::try_from_ipums_variable(<span class="kw-2">&amp;</span>variable, GeneralDetailedSelection::General)
+                .expect(<span class="string">"should convert into a RequestVariable"</span>);
+        <span class="macro">assert_eq!</span>(
+            rqv.general_divisor, <span class="number">1</span>,
+            <span class="string">"expected a general divisor of 1 because there was no detailed width provided"
+        </span>);
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["GlobalPool","StaticPooledBuffer","StaticPooledPath","StaticPooledString"],"type":["BufferPool","GlobalBuffer","GlobalPath","GlobalString","PathPool","StringPool"]};

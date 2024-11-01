@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/defaults.rs`."><title>defaults.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/defaults.rs`."><title>defaults.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -77,6 +77,52 @@
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The Household - Person record structure is the default for much IPUMS data. Here we have some
 //!  functions to support setting up such a default structure without needing any external configuration. Everything modeled here could originate from a run-time configuration process instead.
 //!
@@ -85,30 +131,48 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::conventions::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::mderror::MdError;
 <span class="kw">use </span>std::collections::HashMap;
 
-<span class="kw">fn </span>household() -&gt; RecordType {
+<span class="kw">fn </span>household(_product: <span class="kw-2">&amp;</span>str) -&gt; RecordType {
     RecordType {
         name: <span class="string">"Household"</span>.to_string(),
         value: <span class="string">"H"</span>.to_string(),
         unique_id: <span class="string">"SERIAL"</span>.to_string(),
         foreign_keys: Vec::new(),
         weight: <span class="prelude-val">Some</span>(default_household_weight()),
+        sample_weight: <span class="prelude-val">None</span>,
     }
 }
 
-<span class="kw">fn </span>person() -&gt; RecordType {
+<span class="kw">fn </span>person(product: <span class="kw-2">&amp;</span>str) -&gt; RecordType {
+    <span class="kw">let </span>slwt = <span class="kw">match </span>product.to_lowercase().as_ref() {
+        <span class="string">"usa" </span>=&gt; <span class="prelude-val">Some</span>(usa_sample_line_weight()),
+        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+    };
+
     RecordType {
         name: <span class="string">"Person"</span>.to_string(),
         value: <span class="string">"P"</span>.to_string(),
         unique_id: <span class="string">"PSERIAL"</span>.to_string(),
         foreign_keys: <span class="macro">vec!</span>[(<span class="string">"H"</span>.to_string(), <span class="string">"SERIALP"</span>.to_string())],
         weight: <span class="prelude-val">Some</span>(default_person_weight()),
+        sample_weight: slwt,
     }
 }
 
-<span class="kw">fn </span>default_record_types() -&gt; HashMap&lt;String, RecordType&gt; {
-    HashMap::from([(<span class="string">"H"</span>.to_string(), household()), (<span class="string">"P"</span>.to_string(), person())])
+<span class="kw">fn </span>default_record_types(product: <span class="kw-2">&amp;</span>str) -&gt; HashMap&lt;String, RecordType&gt; {
+    <span class="kw">match </span>product.to_lowercase().as_ref() {
+        <span class="string">"usa" </span>| <span class="string">"ipumsi" </span>| <span class="string">"cps" </span>=&gt; HashMap::from([
+            (<span class="string">"H"</span>.to_string(), household(product)),
+            (<span class="string">"P"</span>.to_string(), person(product)),
+        ]),
+        <span class="comment">// TODO add some other default hierarchies or load from a config file
+        </span><span class="kw">_ </span>=&gt; HashMap::from([
+            (<span class="string">"H"</span>.to_string(), household(product)),
+            (<span class="string">"P"</span>.to_string(), person(product)),
+        ]),
+    }
 }
 
 <span class="kw">fn </span>default_household_weight() -&gt; RecordWeight {
@@ -119,9 +183,14 @@
     RecordWeight::new(<span class="string">"PERWT"</span>, <span class="number">100</span>)
 }
 
+<span class="kw">fn </span>usa_sample_line_weight() -&gt; RecordWeight {
+    RecordWeight::new(<span class="string">"SLWT"</span>, <span class="number">100</span>)
+}
+
 <span class="kw">fn </span>default_hierarchy() -&gt; RecordHierarchy {
     <span class="kw">let </span><span class="kw-2">mut </span>hierarchy = RecordHierarchy::new(<span class="string">"H"</span>);
-    hierarchy.add_member(<span class="string">"P"</span>, <span class="string">"H"</span>);
+    <span class="kw">let </span>result = hierarchy.add_member(<span class="string">"P"</span>, <span class="string">"H"</span>);
+    <span class="macro">assert!</span>(result.is_ok());
     hierarchy
 }
 
@@ -129,8 +198,8 @@
     MicroDataCollection {
         name: name.to_string(),
         record_hierarchy: default_hierarchy(),
-        record_types: default_record_types(),
-        default_unit_of_analysis: person(),
+        record_types: default_record_types(name),
+        default_unit_of_analysis: person(name),
         metadata: <span class="prelude-val">None</span>,
     }
 }
@@ -139,7 +208,7 @@
 /// Get them like
 /// ```
 /// use cimdea::defaults::defaults_for;
-/// let current_settings = defaults_for("usa");
+/// let current_settings = defaults_for("usa").unwrap();
 /// ```
 ///
 ///
@@ -148,12 +217,35 @@
 /// Right now we only set defaults programmatically but in future this should set some additional
 /// properties particular to products or stuff loaded in from
 </span><span class="comment">// an external configuration.
-</span><span class="kw">pub fn </span>defaults_for(product: <span class="kw-2">&amp;</span>str) -&gt; MicroDataCollection {
+</span><span class="kw">pub fn </span>defaults_for(product: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;MicroDataCollection, MdError&gt; {
     <span class="kw">match </span>product.to_lowercase().as_ref() {
-        <span class="string">"usa" </span>=&gt; default_settings_named(<span class="string">"USA"</span>),
-        <span class="string">"cps" </span>=&gt; default_settings_named(<span class="string">"cps"</span>),
-        <span class="string">"ipumsi" </span>=&gt; default_settings_named(<span class="string">"ipumsi"</span>),
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Product not supported"</span>),
+        <span class="string">"usa" </span>=&gt; <span class="prelude-val">Ok</span>(default_settings_named(<span class="string">"USA"</span>)),
+        <span class="string">"cps" </span>=&gt; <span class="prelude-val">Ok</span>(default_settings_named(<span class="string">"cps"</span>)),
+        <span class="string">"ipumsi" </span>=&gt; <span class="prelude-val">Ok</span>(default_settings_named(<span class="string">"ipumsi"</span>)),
+        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(<span class="string">"Product '{product}' not supported"</span>))),
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_defaults_for_usa() {
+        <span class="kw">let </span>result = defaults_for(<span class="string">"usa"</span>);
+        <span class="macro">assert!</span>(
+            result.is_ok(),
+            <span class="string">"should be able to get defaults for product USA"
+        </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_defaults_for_unknown_product() {
+        <span class="kw">let </span>result = defaults_for(<span class="string">"????"</span>);
+        <span class="macro">assert!</span>(
+            result.is_err(),
+            <span class="string">"there should not be any defaults for product '????'"
+        </span>);
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["take","take_record_batch"],"struct":["TakeOptions"]};

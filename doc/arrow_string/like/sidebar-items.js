@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["contains","ends_with","ilike","like","nilike","nlike","starts_with"]};

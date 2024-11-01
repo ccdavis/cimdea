@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/bin/abacus.rs`."><title>abacus.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="abacus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/bin/abacus.rs`."><title>abacus.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="abacus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -74,80 +74,208 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>cimdea::conventions::Context;
-<span class="kw">use </span>cimdea::request::AbacusRequest;
-<span class="kw">use </span>cimdea::tabulate;
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::fs::File;
+<span class="kw">use </span>std::io::{<span class="self">self</span>, BufRead, Write};
 
-<span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::io::{<span class="self">self</span>, BufRead};
+<span class="kw">use </span>cimdea::request::{AbacusRequest, DataRequest, SimpleRequest};
+<span class="kw">use </span>cimdea::tabulate::{<span class="self">self</span>, TableFormat};
+
+<span class="kw">use </span>clap::{Args, Parser, Subcommand};
 
 <span class="kw">fn </span>get_from_stdin() -&gt; String {
     <span class="kw">let </span>stdin = io::stdin();
     <span class="kw">let </span>lines = stdin.lock().lines();
-    <span class="kw">let </span>data = <span class="kw">match </span>lines.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, <span class="kw">_</span>&gt;&gt;() {
+    <span class="kw">match </span>lines.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, <span class="kw">_</span>&gt;&gt;() {
         <span class="prelude-val">Ok</span>(lns) =&gt; lns.join(<span class="string">"\n"</span>),
         <span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; {
             <span class="macro">eprintln!</span>(<span class="string">"Error reading from STDIN: '{}'"</span>, e);
             std::process::exit(<span class="number">1</span>);
         }
-    };
-    data
-}
-
-<span class="kw">fn </span>abacus_request_from_str(rq: <span class="kw-2">&amp;</span>str) -&gt; (Context, AbacusRequest) {
-    <span class="kw">match </span>AbacusRequest::from_json(rq) {
-        <span class="prelude-val">Err</span>(e) =&gt; {
-            <span class="macro">eprintln!</span>(<span class="string">"Error parsing input JSON: '{}'"</span>, <span class="kw-2">&amp;</span>e);
-            std::process::exit(<span class="number">1</span>);
-        }
-        <span class="prelude-val">Ok</span>((ctx, ar)) =&gt; (ctx, ar),
     }
 }
 
 <span class="attr">#[derive(Parser, Debug)]
 #[command(version, about, long_about = <span class="prelude-val">None</span>)]
 </span><span class="kw">struct </span>CliRequest {
-    <span class="attr">#[arg(short, long, default_value = <span class="string">"file"</span>)]
-    </span><span class="kw">pub </span>input: String,
+    <span class="attr">#[command(subcommand)]
+    </span>command: CliCommand,
 
-    <span class="attr">#[arg(short, long, default_value = <span class="string">"stdout"</span>)]
-    </span><span class="kw">pub </span>output: String,
+    <span class="doccomment">/// The path to an output file [default: write to stdout]
+    </span><span class="attr">#[arg(short, long, global = <span class="bool-val">true</span>)]
+    </span>output: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// The output format
+    </span><span class="attr">#[arg(short, long, global = <span class="bool-val">true</span>, default_value = <span class="string">"text"</span>)]
+    </span>format: TableFormat,
+}
+
+<span class="attr">#[derive(Debug, Subcommand)]
+</span><span class="kw">enum </span>CliCommand {
+    <span class="doccomment">/// Compute a tabulation of one or more variables from an IPUMS microdata output sample
+    </span>Tab(TabArgs),
+    <span class="doccomment">/// Given a JSON Abacus request, compute the tabulation it describes
+    </span>Request(RequestArgs),
+}
+
+<span class="attr">#[derive(Args, Debug)]
+</span><span class="kw">struct </span>TabArgs {
+    <span class="doccomment">/// The name of the product (e.g. usa or ipumsi)
+    </span>product: String,
+    <span class="doccomment">/// The name of the sample (e.g. us2015b or mx2016h)
+    </span>sample: String,
+    <span class="doccomment">/// One or more variables to tabulate (e.g. AGE or MARST)
+    </span>variables: Vec&lt;String&gt;,
+    <span class="doccomment">/// The path to the data root, which contains layouts and parquet data [default: inferred from the product]
+    </span><span class="attr">#[arg(short, long)]
+    </span>data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="attr">#[derive(Args, Debug)]
+</span><span class="kw">struct </span>RequestArgs {
+    <span class="doccomment">/// The path to the input JSON file [default: read from stdin]
+    </span>input_file: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="kw">fn </span>main() {
     <span class="kw">let </span>args = CliRequest::parse();
-    <span class="kw">let </span>input_value = <span class="kw-2">&amp;</span>args.input.to_string();
 
-    <span class="kw">let </span>(context, request) = <span class="kw">if </span>input_value == <span class="string">"stdin" </span>{
-        abacus_request_from_str(<span class="kw-2">&amp;</span>get_from_stdin())
-    } <span class="kw">else </span>{
-        <span class="kw">let </span>json = <span class="kw">match </span>std::fs::read_to_string(<span class="kw-2">&amp;</span>input_value) {
-            <span class="prelude-val">Ok</span>(j) =&gt; j,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">eprintln!</span>(<span class="string">"Can't access Abacus request file: '{}'"</span>, e);
+    <span class="kw">let </span>result = <span class="kw">match </span>args.command {
+        CliCommand::Request(request_args) =&gt; {
+            <span class="kw">let </span>input = <span class="kw">match </span>request_args.input_file {
+                <span class="prelude-val">None </span>=&gt; get_from_stdin(),
+                <span class="prelude-val">Some</span>(file) =&gt; <span class="kw">match </span>std::fs::read_to_string(<span class="kw-2">&amp;</span>file) {
+                    <span class="prelude-val">Ok</span>(j) =&gt; j,
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">eprintln!</span>(<span class="string">"Can't access Abacus request file: {err}"</span>);
+                        std::process::exit(<span class="number">1</span>);
+                    }
+                },
+            };
+
+            <span class="kw">let </span>(context, request) = <span class="kw">match </span>AbacusRequest::try_from_json(<span class="kw-2">&amp;</span>input) {
+                <span class="prelude-val">Ok</span>(data) =&gt; data,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">eprintln!</span>(<span class="string">"Error parsing input JSON: {err}"</span>);
+                    std::process::exit(<span class="number">1</span>);
+                }
+            };
+            tabulate::tabulate(<span class="kw-2">&amp;</span>context, request)
+        }
+        CliCommand::Tab(tab_args) =&gt; {
+            <span class="kw">let </span>variables: Vec&lt;<span class="kw">_</span>&gt; = tab_args.variables.iter().map(|v| v.as_str()).collect();
+            <span class="kw">let </span>(context, request) = <span class="kw">match </span>SimpleRequest::from_names(
+                <span class="kw-2">&amp;</span>tab_args.product,
+                <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>tab_args.sample],
+                variables.as_slice(),
+                <span class="prelude-val">None</span>,
+                <span class="prelude-val">None</span>,
+                tab_args.data_root,
+            ) {
+                <span class="prelude-val">Ok</span>(data) =&gt; data,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">eprintln!</span>(<span class="string">"Error while setting up tabulation: {err}"</span>);
+                    std::process::exit(<span class="number">1</span>);
+                }
+            };
+            tabulate::tabulate(<span class="kw-2">&amp;</span>context, request)
+        }
+    };
+
+    <span class="kw">let </span>tab = <span class="kw">match </span>result {
+        <span class="prelude-val">Ok</span>(tab) =&gt; tab,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Error trying to tabulate: {err}"</span>);
+            std::process::exit(<span class="number">1</span>);
+        }
+    };
+
+    <span class="kw">let </span>output = <span class="kw">match </span>tab.output(args.format) {
+        <span class="prelude-val">Ok</span>(output) =&gt; output,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Error while formatting output: {err}"</span>);
+            std::process::exit(<span class="number">1</span>);
+        }
+    };
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(file_name) = args.output {
+        <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="kw">match </span>File::create(file_name) {
+            <span class="prelude-val">Ok</span>(file) =&gt; file,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Error while creating output file: {err}"</span>);
                 std::process::exit(<span class="number">1</span>);
             }
         };
-        abacus_request_from_str(<span class="kw-2">&amp;</span>json)
-    };
 
-    <span class="kw">let </span>table_format = tabulate::TableFormat::Json;
-    <span class="kw">match </span>tabulate::tabulate(<span class="kw-2">&amp;</span>context, request) {
-        <span class="prelude-val">Ok</span>(tables) =&gt; {
-            <span class="comment">// Print a JSON array and separate table objects with ',' if more than one in
-            // the output.
-            </span><span class="macro">println!</span>(<span class="string">"[\n"</span>);
-            <span class="kw">for </span>(table_number, table) <span class="kw">in </span>tables.iter().enumerate() {
-                <span class="kw">if </span>table_number &gt; <span class="number">0 </span>{
-                    <span class="macro">println!</span>(<span class="string">","</span>);
-                }
-                <span class="macro">println!</span>(<span class="string">"{}"</span>, table.output(table_format.clone()));
-            }
-            <span class="macro">println!</span>(<span class="string">"\n]\n"</span>);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="macro">writeln!</span>(file, <span class="string">"{output}"</span>) {
+            <span class="macro">eprintln!</span>(<span class="string">"Error while writing output: {err}"</span>);
+            std::process::exit(<span class="number">1</span>);
         }
-        <span class="prelude-val">Err</span>(e) =&gt; {
-            <span class="macro">eprintln!</span>(<span class="string">"Error trying to tabulate: {}"</span>, <span class="kw-2">&amp;</span>e);
-        }
+    } <span class="kw">else </span>{
+        <span class="macro">println!</span>(<span class="string">"{output}"</span>);
     }
 }
 </code></pre></div></section></main></body></html>

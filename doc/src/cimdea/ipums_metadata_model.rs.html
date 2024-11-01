@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/ipums_metadata_model.rs`."><title>ipums_metadata_model.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/ipums_metadata_model.rs`."><title>ipums_metadata_model.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -271,6 +271,12 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
 //!  of their relationships to one another and their description of the data.
 //!
@@ -318,11 +324,8 @@
 //! information such as variable and value labels.
 //!
 //!
-</span><span class="kw">use </span><span class="kw">crate</span>::layout::LayoutVar;
-<span class="kw">use </span>bstr::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::ascii::AsciiExt;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::collections::HashSet;
+</span><span class="kw">use </span><span class="kw">crate</span>::input_schema_tabulation::CategoryBin;
+<span class="kw">use </span><span class="kw">crate</span>::layout::LayoutVar;
 <span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span>compressed_string::ComprString;
@@ -337,7 +340,7 @@
     <span class="kw">pub </span>year: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="kw">pub </span>month: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="kw">pub </span>label: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="kw">pub </span>sample: <span class="prelude-ty">Option</span>&lt;f64&gt;,
+    <span class="kw">pub </span>sampling_density: <span class="prelude-ty">Option</span>&lt;f64&gt;,
     <span class="doccomment">/// The 'id' fields in the models are generated when metadata structs get instantiated in order. They are
     /// used for indexing into the metadata storage.
     </span><span class="kw">pub </span>id: IpumsDatasetId, <span class="comment">// auto-assigned in order loaded
@@ -351,7 +354,7 @@
             year: <span class="prelude-val">None</span>,
             month: <span class="prelude-val">None</span>,
             label: <span class="prelude-val">None</span>,
-            sample: <span class="prelude-val">None</span>,
+            sampling_density: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -367,7 +370,7 @@
     <span class="kw">pub </span>formatting: <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;,
     <span class="kw">pub </span>general_width: usize,
     <span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;ComprString&gt;,
-    <span class="kw">pub </span>categoryBins: <span class="prelude-ty">Option</span>&lt;Vec&lt;CategoryBin&gt;&gt;,
+    <span class="kw">pub </span>category_bins: <span class="prelude-ty">Option</span>&lt;Vec&lt;CategoryBin&gt;&gt;,
     <span class="kw">pub </span>id: IpumsVariableId, <span class="comment">// auto-assigned in load order
 </span>}
 
@@ -380,7 +383,7 @@
             data_type: <span class="prelude-val">Some</span>(value.<span class="number">0</span>.data_type.clone()),
             label: <span class="prelude-val">None</span>,
             categories: <span class="prelude-val">None</span>,
-            categoryBins: <span class="prelude-val">None</span>,
+            category_bins: <span class="prelude-val">None</span>,
             formatting: <span class="prelude-val">Some</span>((value.<span class="number">0</span>.start, value.<span class="number">0</span>.width)),
             general_width: value.<span class="number">0</span>.width,
             description: <span class="prelude-val">None</span>,
@@ -388,7 +391,7 @@
     }
 }
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="attr">#[derive(Clone, Debug, Eq, PartialEq)]
 </span><span class="kw">pub enum </span>IpumsDataType {
     Integer,
     Float,
@@ -446,7 +449,8 @@
 
 <span class="kw">type </span>IpumsCategoryId = usize;
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="attr">#[allow(dead_code)]
+#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>IpumsCategory {
     label_intern: GlobalString,
     <span class="kw">pub </span>meaning: UniversalCategoryType,
@@ -469,47 +473,10 @@
         }
     }
 }
-<span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub enum </span>CategoryBin {
-    LessThan { value: i64, label: String },
-    Range { low: i64, high: i64, label: String },
-    MoreThan { value: i64, label: String },
-}
-
-<span class="kw">impl </span>CategoryBin {
-    <span class="kw">pub fn </span>new(low: <span class="prelude-ty">Option</span>&lt;i64&gt;, high: <span class="prelude-ty">Option</span>&lt;i64&gt;, label: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-        <span class="kw">if </span>low.is_some() &amp;&amp; high.is_some() {
-            <span class="self">Self</span>::Range {
-                low: low.unwrap(),
-                high: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } <span class="kw">else if </span>low.is_none() &amp;&amp; high.is_some() {
-            <span class="self">Self</span>::LessThan {
-                value: high.unwrap(),
-                label: label.to_owned(),
-            }
-        } <span class="kw">else if </span>low.is_some() &amp;&amp; high.is_none() {
-            <span class="self">Self</span>::MoreThan {
-                value: low.unwrap(),
-                label: label.to_owned(),
-            }
-        } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"Must have at low or high or both equal to some value."</span>);
-        }
-    }
-
-    <span class="kw">pub fn </span>within(<span class="kw-2">&amp;</span><span class="self">self</span>, testValue: i64) -&gt; bool {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::LessThan { value, .. } =&gt; testValue &lt; <span class="kw-2">*</span>value,
-            <span class="self">Self</span>::Range { low, high, .. } =&gt; testValue &gt;= <span class="kw-2">*</span>low &amp;&amp; testValue &lt;= <span class="kw-2">*</span>high,
-            <span class="self">Self</span>::MoreThan { value, .. } =&gt; testValue &gt; <span class="kw-2">*</span>value,
-        }
-    }
-}
 
 <span class="kw">mod </span>test {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="attr">#[cfg(test)]
+    </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_category_labels() {
@@ -542,6 +509,51 @@
 
         <span class="macro">assert_eq!</span>(cat2.label(), cat3.label());
         <span class="macro">assert_eq!</span>(<span class="string">"second"</span>, cat3.label());
+    }
+
+    <span class="doccomment">/// If IpumsDataType::from() doesn't recognize the input string, it defaults
+    /// to the type Integer.
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_ipums_data_type_from_unknown_type() {
+        <span class="kw">let </span>input = <span class="string">"kaboom"</span>;
+        <span class="kw">let </span>data_type = IpumsDataType::from(input);
+        <span class="macro">assert_eq!</span>(
+            data_type,
+            IpumsDataType::Integer,
+            <span class="string">"for unrecognized input, the default type should be Integer"
+        </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_ipums_data_type_from_is_case_insensitive() {
+        <span class="kw">let </span>input = <span class="string">"sTrInG"</span>;
+        <span class="kw">let </span>data_type = IpumsDataType::from(input);
+        <span class="macro">assert_eq!</span>(
+            data_type, IpumsDataType::String,
+            <span class="string">"IpumsDataType::from() should be insensitive to the case (uppercase/lowercase) of its input"</span>,
+        );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_ipums_data_type_string_round_trip() {
+        <span class="kw">let </span>data_types = [
+            IpumsDataType::Integer,
+            IpumsDataType::Float,
+            <span class="comment">// The string representation of Fixed(n) does not include the integer
+            // n. So we always parse it as Fixed(0). This means that only Fixed(0)
+            // round trips to a string and back.
+            </span>IpumsDataType::Fixed(<span class="number">0</span>),
+            IpumsDataType::String,
+        ];
+
+        <span class="kw">for </span>data_type <span class="kw">in </span>data_types {
+            <span class="kw">let </span>type_as_string = data_type.to_string();
+            <span class="kw">let </span>round_tripped = IpumsDataType::from(type_as_string.as_str());
+            <span class="macro">assert_eq!</span>(
+                round_tripped, data_type,
+                <span class="string">"data type '{data_type:?}' should round trip to a string and back unchanged"
+            </span>);
+        }
     }
 }
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["distinct","eq","gt","gt_eq","lt","lt_eq","neq","not_distinct"]};

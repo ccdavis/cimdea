@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompareOperation","DataPlatform","DataSource"],"fn":["frequency","tab_queries"],"struct":["Condition"]};
+window.SIDEBAR_ITEMS = {"enum":["CompareOperation","DataPlatform","DataSource"],"fn":["tab_queries"],"struct":["Condition"]};

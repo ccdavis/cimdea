@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["DurationFormat"],"fn":["array_value_to_string","lexical_to_string"],"struct":["ArrayFormatter","FormatOptions","ValueFormatter"]};

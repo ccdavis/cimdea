@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/conventions.rs`."><title>conventions.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/conventions.rs`."><title>conventions.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -534,6 +534,89 @@
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
 <a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module provides structs and methods for loading metadata and storing information about a IPUMS data
 //! collection based on IPUMS conventions and minimal configuration.
 //!
@@ -567,6 +650,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::layout;
+<span class="kw">use </span><span class="kw">crate</span>::mderror::{metadata_error, MdError};
 <span class="kw">use </span><span class="kw">crate</span>::request::InputType;
 
 <span class="kw">use </span>std::collections::HashMap;
@@ -591,9 +675,21 @@
         <span class="prelude-val">Some</span>(weight.name.clone())
     }
 
+    <span class="kw">pub fn </span>sample_line_weight_for_rectype(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+        <span class="kw">let </span>rectype = <span class="self">self</span>.record_types.get(rt)<span class="question-mark">?</span>;
+        <span class="kw">let </span>weight = <span class="kw-2">&amp;</span>rectype.sample_weight.clone()<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(weight.name.clone())
+    }
+
     <span class="kw">pub fn </span>weight_divisor(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
         <span class="kw">let </span>rectype = <span class="self">self</span>.record_types.get(rt)<span class="question-mark">?</span>;
         <span class="kw">let </span>weight = <span class="kw-2">&amp;</span>rectype.weight.clone()<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(weight.divisor)
+    }
+
+    <span class="kw">pub fn </span>sample_line_weight_divisor(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">let </span>rectype = <span class="self">self</span>.record_types.get(rt)<span class="question-mark">?</span>;
+        <span class="kw">let </span>weight = <span class="kw-2">&amp;</span>rectype.sample_weight.clone()<span class="question-mark">?</span>;
         <span class="prelude-val">Some</span>(weight.divisor)
     }
 
@@ -617,63 +713,78 @@
     // where we can refer to data files as tables but need a alias to use in the rest of the query, like:
     // select count(*) from '/data/us2015b/us2015b_usa.P.parquet' as us2015b_person, '/data/us2015b/us2015b_usa.H.parquet' as us2015b_household
     //  where us2015b_household.SERIAL = us2015b_usa_person.SERIALP and us2015b_household.GQ = 3 and us2015b_person.AGE &lt; 25;
-    </span><span class="kw">pub fn </span>default_table_name(<span class="kw-2">&amp;</span><span class="self">self</span>, dataset_name: <span class="kw-2">&amp;</span>str, record_type_abbrev: <span class="kw-2">&amp;</span>str) -&gt; String {
+    </span><span class="kw">pub fn </span>default_table_name(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        dataset_name: <span class="kw-2">&amp;</span>str,
+        record_type_abbrev: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>rt) = <span class="self">self</span>.record_types.get(record_type_abbrev) {
-            <span class="macro">format!</span>(
+            <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
                 <span class="string">"{}_{}"</span>,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.base_filename_for_dataset(dataset_name),
                 <span class="kw-2">&amp;</span>rt.name.to_ascii_lowercase()
-            )
+            ))
         } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(
+            <span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
                 <span class="string">"Can't create table name since {} is not a valid record type abbrevation."</span>,
                 record_type_abbrev
-            );
+            )))
         }
     }
 
     <span class="doccomment">/// Read one fixed-width layout file. These files contain some variable level metadata for
     /// every record type in the data product.
-    </span><span class="kw">fn </span>load_metadata_from_layout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, layout_file: <span class="kw-2">&amp;</span>Path) {}
+    </span><span class="kw">pub fn </span>load_metadata_from_layout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _layout_file: <span class="kw-2">&amp;</span>Path) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="doccomment">/// Read all layout files for the data root like `../output_data/current/layouts`
     /// The existence of a layout file implies existence of a dataset. The presence of
     /// a variable in a dataset's layout indicates availability in that dataset.
-    </span><span class="kw">fn </span>load_metadata_from_all_layouts(<span class="kw-2">&amp;mut </span><span class="self">self</span>, layouts_dir: <span class="kw-2">&amp;</span>Path) {}
+    </span><span class="kw">pub fn </span>load_metadata_from_all_layouts(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _layouts_dir: <span class="kw-2">&amp;</span>Path) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="doccomment">/// The path like `../output_data/current/parquet/us2019a/`
     /// Reading the schema will give approximately the same metadata information
     /// as reading the fixed-width layout file for the same dataset.
-    </span><span class="kw">fn </span>load_metadata_from_parquet(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parquet_dataset_path: <span class="kw-2">&amp;</span>Path) {}
+    </span><span class="kw">pub fn </span>load_metadata_from_parquet(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _parquet_dataset_path: <span class="kw-2">&amp;</span>Path) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="doccomment">/// Using the data_root, scan the layouts and load metadata from them.
     </span><span class="kw">pub fn </span>load_metadata_for_selected_datasets_from_layouts(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         datasets: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
         data_root: <span class="kw-2">&amp;</span>Path,
-    ) {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), MdError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>md = MetadataEntities::new();
         <span class="kw">for </span>(index_ds, ds) <span class="kw">in </span>datasets.iter().enumerate() {
             <span class="kw">let </span>ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
             <span class="kw">let </span>layouts_path = data_root.to_path_buf().join(<span class="string">"layouts"</span>);
-            <span class="kw">let </span>layout = layout::DatasetLayout::from_layout_file(
+            <span class="kw">let </span>layout = layout::DatasetLayout::try_from_layout_file(
                 <span class="kw-2">&amp;</span>layouts_path.join(<span class="macro">format!</span>(<span class="string">"{}.layout.txt"</span>, ds)),
-            );
+            )<span class="question-mark">?</span>;
             <span class="kw">for </span>(index_v, var) <span class="kw">in </span>layout.all_variables().iter().enumerate() {
                 <span class="kw">let </span>ipums_var = IpumsVariable::from((var, index_v));
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
             }
         }
         <span class="self">self</span>.metadata = <span class="prelude-val">Some</span>(md);
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Uses default product_root to find metadata database and load all metadata for given datasets.
-    </span><span class="kw">pub fn </span>load_full_metadata_for_datasets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, datasets: <span class="kw-2">&amp;</span>[String]) {}
+    </span><span class="kw">pub fn </span>load_full_metadata_for_datasets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _datasets: <span class="kw-2">&amp;</span>[String]) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="doccomment">/// Takes a path like ../output_data/current/parquet/, which could be derived
     /// automatically from defaults based on data root or product root. Scans all
     /// parquet schema information.
-    </span><span class="kw">fn </span>load_metadata_from_all_parquet(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parquet_path: <span class="kw-2">&amp;</span>Path) {}
+    </span><span class="kw">pub fn </span>load_metadata_from_all_parquet(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _parquet_path: <span class="kw-2">&amp;</span>Path) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="doccomment">/// Load everything available for the selected variables and samples from the available
     /// metadata database file. Requires 'allow_full_metadata' which depends on a product root
@@ -681,16 +792,19 @@
     /// a Some(metadata_location).
     </span><span class="kw">pub fn </span>load_full_metadata_for_selections(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        variables: <span class="kw-2">&amp;</span>[String],
-        datasets: <span class="kw-2">&amp;</span>[String],
-        metadata_location: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+        _variables: <span class="kw-2">&amp;</span>[String],
+        _datasets: <span class="kw-2">&amp;</span>[String],
+        _metadata_location: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
     ) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
     }
 
     <span class="doccomment">/// Load all variables and samples for the context and the default metadata location unless
     /// you provide Some(metadata_location) to override the default. The result of the load may
     /// be very large, into the gigabyte range.
-    </span><span class="kw">pub fn </span>load_full_metadata(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metadata_location: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) {}
+    </span><span class="kw">pub fn </span>load_full_metadata(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _metadata_location: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) {
+        <span class="macro">todo!</span>(<span class="string">"implement"</span>);
+    }
 
     <span class="kw">pub fn </span>clear_metadata(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
@@ -829,20 +943,29 @@
 }
 
 <span class="kw">impl </span>MetadataEntities {
-    <span class="kw">fn </span>connect_names(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dataset_name: <span class="kw-2">&amp;</span>str, variable_name: <span class="kw-2">&amp;</span>str) {
+    <span class="attr">#[allow(dead_code)]
+    </span><span class="kw">fn </span>connect_names(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dataset_name: <span class="kw-2">&amp;</span>str, variable_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), MdError&gt; {
         <span class="kw">let </span>dataset_id = <span class="self">self</span>.datasets_by_name.get(dataset_name);
         <span class="kw">let </span>variable_id = <span class="self">self</span>.variables_by_name.get(variable_name);
         <span class="kw">if </span>variable_id.is_none() {
-            <span class="macro">panic!</span>(<span class="string">"Internal method connect() should never be called with non-existent metadata names."</span>);
+            <span class="kw">let </span>err = <span class="macro">metadata_error!</span>(
+                <span class="string">"method connect_names() called with variable name {variable_name}, which is not in metadata"
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(err);
         }
 
         <span class="kw">if </span>dataset_id.is_none() {
-            <span class="macro">panic!</span>(<span class="string">"Internal method connect() should never be called with non-existent metadata names."</span>);
+            <span class="kw">let </span>err = <span class="macro">metadata_error!</span>(
+                <span class="string">"method connect_names() called with dataset name {dataset_name}, which is not in metadata"
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(err);
         }
 
         <span class="kw">if let </span>(<span class="prelude-val">Some</span>(did), <span class="prelude-val">Some</span>(vid)) = (dataset_id, variable_id) {
             <span class="self">self</span>.connect(<span class="kw-2">*</span>did, <span class="kw-2">*</span>vid);
         };
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
@@ -853,23 +976,20 @@
     }
 
     <span class="kw">pub fn </span>add_dataset_variable(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dataset: IpumsDataset, variable: IpumsVariable) {
-        <span class="kw">let </span>dataset_name = <span class="kw-2">&amp;</span>dataset.name.clone();
-        <span class="kw">let </span>variable_name = <span class="kw-2">&amp;</span>variable.name.clone();
-
-        <span class="kw">let </span>dataset_id: IpumsDatasetId = <span class="kw">if </span><span class="self">self</span>.datasets_by_name.contains_key(dataset_name) {
-            <span class="kw-2">*</span><span class="self">self</span>.datasets_by_name.get(dataset_name).unwrap()
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.create_dataset(dataset)
+        <span class="kw">let </span>dataset_id = <span class="kw">match </span><span class="self">self</span>.datasets_by_name.get(<span class="kw-2">&amp;</span>dataset.name) {
+            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.create_dataset(dataset),
+            <span class="prelude-val">Some</span>(dataset_id) =&gt; <span class="kw-2">*</span>dataset_id,
         };
 
-        <span class="kw">let </span>variable_id: IpumsVariableId = <span class="kw">if </span><span class="self">self</span>.variables_by_name.contains_key(variable_name) {
-            <span class="kw-2">*</span><span class="self">self</span>.variables_by_name.get(variable_name).unwrap()
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.create_variable(variable)
+        <span class="kw">let </span>variable_id = <span class="kw">match </span><span class="self">self</span>.variables_by_name.get(<span class="kw-2">&amp;</span>variable.name) {
+            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.create_variable(variable),
+            <span class="prelude-val">Some</span>(variable_id) =&gt; <span class="kw-2">*</span>variable_id,
         };
+
         <span class="self">self</span>.connect(dataset_id, variable_id);
     }
 }
+
 <span class="doccomment">/// This is the mutable state  created and passed around holding the loaded metadata if any
 /// and the rest of the information needed to add paths to the data tables used in queries
 /// and data file paths, and where the metadata can be found.
@@ -889,12 +1009,27 @@
 }
 
 <span class="kw">impl </span>Context {
+    <span class="comment">// Convenience method mostly for testing
+    </span><span class="kw">pub fn </span>get_md_variable_by_name(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;IpumsVariable, MdError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>md) = <span class="self">self</span>.settings.metadata {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(var) = md.cloned_variable_from_name(name) {
+                <span class="prelude-val">Ok</span>(var)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"Variable '{name}' not in loaded metadata."</span>,))
+            }
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(
+                <span class="string">"No metadata loaded. Can't get variable '{name}'."
+            </span>))
+        }
+    }
+
     <span class="doccomment">/// Formats the exact paths needed to get data for this dataset, by record type.
     </span><span class="kw">pub fn </span>paths_from_dataset_name(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         dataset_name: <span class="kw-2">&amp;</span>str,
         data_format: <span class="kw-2">&amp;</span>InputType,
-    ) -&gt; HashMap&lt;String, PathBuf&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, PathBuf&gt;, MdError&gt; {
         <span class="kw">let </span>extension = <span class="kw">match </span>data_format {
             InputType::Csv =&gt; <span class="string">"csv"</span>,
             InputType::Parquet =&gt; <span class="string">"parquet"</span>,
@@ -902,11 +1037,10 @@
             InputType::NativeDb =&gt; <span class="string">""</span>,
         };
 
-        <span class="comment">// TODO return errors properly
-        </span><span class="kw">let </span>data_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_root) = <span class="self">self</span>.data_root {
+        <span class="kw">let </span>data_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_root) = <span class="self">self</span>.data_root {
             PathBuf::from(data_root)
         } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"No data root set."</span>);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="string">"No data root set."</span>.to_string()));
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>all_paths = HashMap::new();
@@ -923,13 +1057,15 @@
                         <span class="kw">let </span>full_path = parent_dir.join(full_filename);
                         all_paths.insert(rt.to_string(), full_path);
                     } <span class="kw">else </span>{
-                        <span class="macro">panic!</span>(<span class="string">"InputType of data should have a sub directory name."</span>);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(
+                            <span class="string">"InputType of data should have a sub directory name."</span>.to_string(),
+                        ));
                     }
                 }
             }
             InputType::NativeDb =&gt; {
                 <span class="kw">for </span>rt <span class="kw">in </span><span class="self">self</span>.settings.record_types.keys() {
-                    <span class="kw">let </span>table: PathBuf = <span class="self">self</span>.settings.default_table_name(dataset_name, rt).into();
+                    <span class="kw">let </span>table: PathBuf = <span class="self">self</span>.settings.default_table_name(dataset_name, rt)<span class="question-mark">?</span>.into();
                     all_paths.insert(rt.to_string(), table);
                 }
             }
@@ -940,41 +1076,45 @@
                 all_paths.insert(<span class="string">""</span>.to_string(), full_path);
             }
         } <span class="comment">// match
-        </span>all_paths
+        </span><span class="prelude-val">Ok</span>(all_paths)
     }
 
     <span class="doccomment">/// When called, the context should be already set to read from layouts or full metadata
-    </span><span class="kw">pub fn </span>load_metadata_for_datasets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, datasets: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
+    </span><span class="kw">pub fn </span>load_metadata_for_datasets(<span class="kw-2">&amp;mut </span><span class="self">self</span>, datasets: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Result</span>&lt;(), MdError&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.enable_full_metadata {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_root) = <span class="self">self</span>.data_root {
                 <span class="self">self</span>.settings
-                    .load_metadata_for_selected_datasets_from_layouts(datasets, <span class="kw-2">&amp;</span>data_root);
+                    .load_metadata_for_selected_datasets_from_layouts(datasets, <span class="kw-2">&amp;</span>data_root)
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(<span class="string">"Cannot load any metadata without a data_root or full metadata available ad the product_root."</span>);
+                <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"Cannot load any metadata without a data_root or full metadata available ad the product_root."</span>))
             }
         } <span class="kw">else </span>{
-            <span class="macro">panic!</span>(<span class="string">"Loading metadata from database not implemented."</span>);
+            <span class="macro">todo!</span>(<span class="string">"Loading metadata from database not implemented."</span>);
         }
     }
 
     <span class="doccomment">/// The context should be set to read from layouts or full metadata
     </span><span class="kw">pub fn </span>load_metadata_for_datasets_and_variables(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        datasets: Vec&lt;String&gt;,
-        variables: Vec&lt;String&gt;,
+        _datasets: Vec&lt;String&gt;,
+        _variables: Vec&lt;String&gt;,
     ) {
         <span class="kw">if </span>!<span class="self">self</span>.enable_full_metadata {
+            <span class="macro">todo!</span>(<span class="string">"not implemented."</span>);
         } <span class="kw">else </span>{
+            <span class="macro">todo!</span>(<span class="string">"not implemented."</span>);
         }
     }
 
     <span class="doccomment">/// Based on name, use default data root and product root and initialize with defaults
     /// Optional data root and product root will be used if provided.
+    ///
+    /// Returns an error if the given name isn't the name of a recognized product.
     </span><span class="kw">pub fn </span>from_ipums_collection_name(
         name: <span class="kw-2">&amp;</span>str,
         other_product_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
         other_data_root: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
         <span class="kw">let </span>product_root = <span class="kw">if let </span><span class="prelude-val">Some</span>(prod_root) = other_product_root {
             PathBuf::from(prod_root)
         } <span class="kw">else </span>{
@@ -988,14 +1128,17 @@
                 .join(<span class="string">"output_data"</span>)
                 .join(<span class="string">"current"</span>)
         };
-        <span class="self">Self </span>{
+
+        <span class="kw">let </span>settings = defaults::defaults_for(name)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             name: name.to_string(),
             product_root: <span class="prelude-val">Some</span>(product_root),
             data_root: <span class="prelude-val">Some</span>(data_root),
-            settings: defaults::defaults_for(name),
+            settings,
             allow_full_metadata,
             enable_full_metadata: <span class="bool-val">false</span>,
-        }
+        })
     }
 
     <span class="comment">/*
@@ -1019,14 +1162,16 @@
 
     */
 </span>}
-<span class="kw">mod </span>test {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_context() {
         <span class="comment">// Look in test directory
         </span><span class="kw">let </span>data_root = <span class="prelude-val">Some</span>(String::from(<span class="string">"test/data_root"</span>));
-        <span class="kw">let </span>usa_ctx = Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, data_root);
+        <span class="kw">let </span>usa_ctx = Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, data_root)
+            .expect(<span class="string">"should be able to create USA context"</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>prod_root) = usa_ctx.product_root {
             <span class="kw">if </span>prod_root.exists() {
@@ -1056,8 +1201,11 @@
     <span class="attr">#[test]
     </span><span class="kw">pub fn </span>test_paths_for_dataset_names() {
         <span class="kw">let </span>data_root = <span class="prelude-val">Some</span>(String::from(<span class="string">"test/data_root"</span>));
-        <span class="kw">let </span>usa_ctx = Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, data_root);
-        <span class="kw">let </span>paths_by_rectype = usa_ctx.paths_from_dataset_name(<span class="string">"us2015b"</span>, <span class="kw-2">&amp;</span>InputType::Parquet);
+        <span class="kw">let </span>usa_ctx = Context::from_ipums_collection_name(<span class="string">"usa"</span>, <span class="prelude-val">None</span>, data_root)
+            .expect(<span class="string">"should be able to create USA context"</span>);
+        <span class="kw">let </span>paths_by_rectype = usa_ctx
+            .paths_from_dataset_name(<span class="string">"us2015b"</span>, <span class="kw-2">&amp;</span>InputType::Parquet)
+            .expect(<span class="string">"should be able to get paths from dataset name"</span>);
         <span class="kw">let </span>person_path = paths_by_rectype.get(<span class="string">"P"</span>);
         <span class="kw">let </span>household_path = paths_by_rectype.get(<span class="string">"H"</span>);
         <span class="macro">assert!</span>(person_path.is_some(), <span class="string">"should have a person type path"</span>);
@@ -1068,6 +1216,24 @@
                 <span class="kw-2">&amp;</span>p.to_string_lossy()
             );
         }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_micro_data_collection_default_table_name() {
+        <span class="kw">let </span>collection =
+            defaults::defaults_for(<span class="string">"usa"</span>).expect(<span class="string">"should be able to get defaults for USA"</span>);
+        <span class="kw">let </span>table_name = collection
+            .default_table_name(<span class="string">"us2021a"</span>, <span class="string">"P"</span>)
+            .expect(<span class="string">"should get a table name back because P is a valid record type"</span>);
+        <span class="macro">assert_eq!</span>(table_name, <span class="string">"us2021a_usa_person"</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_micro_data_collection_default_table_name_unknown_rectype_error() {
+        <span class="kw">let </span>collection =
+            defaults::defaults_for(<span class="string">"usa"</span>).expect(<span class="string">"should be able to get defaults for USA"</span>);
+        <span class="kw">let </span>result = collection.default_table_name(<span class="string">"us2021a"</span>, <span class="string">"Z"</span>);
+        <span class="macro">assert!</span>(result.is_err(), <span class="string">"expected an error but got {result:?}"</span>);
     }
 }
 </code></pre></div></section></main></body></html>

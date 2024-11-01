@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CategoryBin","GeneralDetailedSelection"],"struct":["AbacusRequest","RequestCaseSelection","RequestSample","RequestVariable"]};

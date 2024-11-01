@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/query_gen.rs`."><title>query_gen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/query_gen.rs`."><title>query_gen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -422,6 +422,426 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generate queries from a DataRequest . Currently supports cross-tab style queries.
 //!
 //! Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
@@ -433,20 +853,22 @@
 //!
 //! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
 //! SQL.
+
 </span><span class="kw">use </span><span class="kw">crate</span>::conventions::Context;
-<span class="kw">use </span><span class="kw">crate</span>::ipums_data_model::RecordWeight;
-<span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::{<span class="self">self</span>, IpumsDataType};
+
+<span class="kw">use </span><span class="kw">crate</span>::input_schema_tabulation::{<span class="self">self</span>, CategoryBin};
+<span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::{<span class="self">self</span>, IpumsDataType, IpumsVariable};
+<span class="kw">use </span><span class="kw">crate</span>::mderror::{metadata_error, MdError};
+<span class="kw">use </span><span class="kw">crate</span>::request::CaseSelectLogic;
 <span class="kw">use </span><span class="kw">crate</span>::request::DataRequest;
 <span class="kw">use </span><span class="kw">crate</span>::request::InputType;
-<span class="kw">use </span><span class="kw">crate</span>::request::RequestSample;
 <span class="kw">use </span><span class="kw">crate</span>::request::RequestVariable;
-<span class="kw">use </span>parquet::column::reader::get_column_reader;
-<span class="kw">use </span>sql_builder::{prelude::Bind, SqlBuilder};
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::HashSet;
 <span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// The TabBuilder is meant to assist with one or more tabulations from the same data product.
+</span><span class="attr">#[allow(dead_code)]
 </span><span class="kw">struct </span>TabBuilder {
     platform: DataPlatform,
     input_format: InputType,
@@ -460,7 +882,7 @@
         dataset: <span class="kw-2">&amp;</span>str,
         platform: <span class="kw-2">&amp;</span>DataPlatform,
         input_format: <span class="kw-2">&amp;</span>InputType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
         <span class="kw">let </span>data_sources = DataSource::for_dataset(ctx, dataset, input_format)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             data_sources,
@@ -469,40 +891,47 @@
             input_format: input_format.clone(),
         })
     }
-}
 
-<span class="kw">impl </span>TabBuilder {
-    <span class="kw">fn </span>build_from_clause(
+    <span class="attr">#[allow(dead_code)]
+    </span><span class="kw">fn </span>build_from_clause(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>Context,
-        dataset: <span class="kw-2">&amp;</span>str,
+        _dataset: <span class="kw-2">&amp;</span>str,
         uoa: <span class="kw-2">&amp;</span>str,
         all_rectypes: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
-        <span class="kw">let </span>lhs = <span class="kw-2">&amp;</span><span class="self">self</span>.data_sources.get(uoa).unwrap();
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span>lhs = <span class="kw">match </span><span class="self">self</span>.data_sources.get(uoa) {
+            <span class="prelude-val">Some</span>(lhs) =&gt; lhs,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                    <span class="string">"no data source for unit of analysis '{uoa}'"
+                </span>)));
+            }
+        };
+
         <span class="kw">let </span>left_platform_specific_path = lhs.for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>.platform);
         <span class="kw">let </span>left_alias = lhs.table_name();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>q = <span class="macro">format!</span>(<span class="string">"from {} as {}"</span>, left_platform_specific_path, left_alias);
+        <span class="kw">let </span><span class="kw-2">mut </span>q = <span class="macro">format!</span>(<span class="string">"{} as {}"</span>, left_platform_specific_path, left_alias);
 
         <span class="comment">// TODO: Handle the remaining tables. Currently the connections between the joined tables are only
         // generated to connect any two tables where we have foreign and primary keys. Three or more
         // correct joins aren't yet supported.
         </span><span class="kw">if </span><span class="self">self</span>.data_sources.len() &gt; <span class="number">2 </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(
                 <span class="string">"Tabulations across more than two record types not yet supported!"</span>.to_string(),
-            );
+            ));
         }
         <span class="kw">for </span>(rt, ds) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.data_sources {
             <span class="kw">if </span>rt != uoa &amp;&amp; all_rectypes.contains(rt) {
-                <span class="comment">// The uoa should be the lowest record in the hierarchy by definition. The 'foreign_key' will point to the record
+                <span class="comment">// The uoa should be the lowest record in the hierarchy of record types from requested variables by definition. The 'foreign_key' will point to the record
                 // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
                 // should not be allowed in the same tabulation.
-                </span><span class="kw">let </span>left_foreign_key = <span class="self">Self</span>::get_connecting_foreign_key(ctx, uoa, rt)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>left_foreign_key = <span class="self">Self</span>::help_get_connecting_foreign_key(ctx, uoa, rt)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>platform_specific_path = ds.for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>.platform);
                 <span class="kw">let </span>table_alias = ds.table_name();
-                <span class="kw">let </span>table_id = <span class="self">Self</span>::get_id_for_record_type(ctx, rt)<span class="question-mark">?</span>;
+                <span class="kw">let </span>table_id = <span class="self">Self</span>::help_get_id_for_record_type(ctx, rt)<span class="question-mark">?</span>;
                 q = q + <span class="kw-2">&amp;</span><span class="macro">format!</span>(
                     <span class="string">"\n left join  {} {} on {}.{} = {}.{}"</span>,
                     platform_specific_path,
@@ -514,8 +943,39 @@
                 );
             }
         }
-
         <span class="prelude-val">Ok</span>(q)
+    }
+
+    <span class="kw">fn </span>help_bucket(<span class="kw-2">&amp;</span><span class="self">self</span>, rq: <span class="kw-2">&amp;</span>RequestVariable) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>bins) = rq.category_bins <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="string">"No category bins available."</span>.to_string()));
+        };
+        <span class="kw">if </span>bins.len() == <span class="number">0 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="string">"Metadata marks this variable as having category bins but the list of bins is empty."</span>.to_string()));
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>sql = <span class="string">"case\n"</span>.to_string();
+        <span class="kw">let </span>cases = bins
+            .iter()
+            .map(|b| <span class="kw">match </span>b {
+                CategoryBin::LessThan { value, code, .. } =&gt; {
+                    <span class="macro">format!</span>(<span class="string">"\twhen {} &lt;= {} then '{:03}'"</span>, rq.name, value, code)
+                }
+                CategoryBin::MoreThan { value, code, .. } =&gt; {
+                    <span class="macro">format!</span>(<span class="string">"\twhen {} &gt;= {} then '{:03}'"</span>, rq.name, value, code)
+                }
+                CategoryBin::Range {
+                    low, high, code, ..
+                } =&gt; <span class="macro">format!</span>(
+                    <span class="string">"\twhen {} &gt;= {} and {} &lt;= {} then '{:03}'"</span>,
+                    rq.name, low, rq.name, high, code
+                ),
+            })
+            .collect::&lt;Vec&lt;String&gt;&gt;()
+            .join(<span class="string">"\n"</span>);
+        sql.push_str(<span class="kw-2">&amp;</span>cases);
+        sql.push_str(<span class="string">"\nelse '999' end "</span>);
+        sql.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"as {}_bucketed"</span>, <span class="kw-2">&amp;</span>rq.name));
+        <span class="prelude-val">Ok</span>(sql)
     }
 
     <span class="kw">fn </span>build_select_clause(
@@ -523,8 +983,8 @@
         request_variables: <span class="kw-2">&amp;</span>[RequestVariable],
         weight_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
         weight_divisor: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-    ) -&gt; String {
-        <span class="kw">let </span><span class="kw-2">mut </span>select_clause = <span class="string">"select count(*) as ct"</span>.to_string();
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>select_clause = <span class="string">"count(*) as ct"</span>.to_string();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>wt) = weight_name {
             select_clause += <span class="kw-2">&amp;</span><span class="macro">format!</span>(
@@ -535,109 +995,227 @@
         }
 
         <span class="kw">for </span>rq <span class="kw">in </span>request_variables {
-            select_clause += <span class="kw-2">&amp;</span><span class="kw">if </span>!rq.is_general {
-                <span class="macro">format!</span>(<span class="string">", {} as {}"</span>, <span class="kw-2">&amp;</span>rq.variable.name, <span class="kw-2">&amp;</span>rq.name)
-            } <span class="kw">else </span>{
+            <span class="comment">// A request variable can be 'general' or 'bucketed' but not both.
+            </span><span class="kw">if </span>rq.is_general() &amp;&amp; rq.is_bucketed() {
+                <span class="kw">let </span>msg = <span class="macro">format!</span>(
+                    <span class="string">"The variable {} can't be both a general variable and use category bins."</span>,
+                    <span class="kw-2">&amp;</span>rq.name
+                );
+                <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(msg));
+            }
+            select_clause += <span class="kw-2">&amp;</span><span class="kw">if </span>rq.is_general() {
                 <span class="macro">format!</span>(
                     <span class="string">", {}/{} as {}"</span>,
                     <span class="kw-2">&amp;</span>rq.variable.name, <span class="kw-2">&amp;</span>rq.general_divisor, <span class="kw-2">&amp;</span>rq.name
                 )
+            } <span class="kw">else if </span>rq.is_bucketed() {
+                <span class="macro">format!</span>(<span class="string">", {} "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.help_bucket(<span class="kw-2">&amp;</span>rq)<span class="question-mark">?</span>)
+            } <span class="kw">else </span>{
+                <span class="macro">format!</span>(<span class="string">", {} as {}"</span>, <span class="kw-2">&amp;</span>rq.variable.name, <span class="kw-2">&amp;</span>rq.name)
             };
         }
 
-        select_clause
+        <span class="prelude-val">Ok</span>(select_clause)
+    }
+
+    <span class="kw">fn </span>should_use_sample_line_weights(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>Context) -&gt; bool {
+        <span class="macro">matches!</span>(ctx.settings.name.to_lowercase().as_ref(), <span class="string">"usa"</span>)
+            &amp;&amp; <span class="macro">matches!</span>(
+                <span class="self">self</span>.dataset.to_ascii_lowercase().as_ref(),
+                <span class="string">"us1940b" </span>| <span class="string">"us1950b" </span>| <span class="string">"us1940a" </span>| <span class="string">"us1950a"
+            </span>)
+    }
+
+    <span class="kw">fn </span>should_use_selfwtsl(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>Context) -&gt; bool {
+        <span class="self">self</span>.should_use_sample_line_weights(ctx)
+            &amp;&amp; <span class="macro">matches!</span>(<span class="self">self</span>.dataset.to_lowercase().as_ref(), <span class="string">"us1940a"</span>)
+    }
+
+    <span class="kw">fn </span>help_conditions_with_selfwtsl_filter(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;</span>Context,
+        conditions: <span class="prelude-ty">Option</span>&lt;Vec&lt;Condition&gt;&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Condition&gt;, MdError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>existing_conditions = conditions.unwrap_or(Vec::new());
+        <span class="kw">let </span>selfwtsl = ctx.get_md_variable_by_name(<span class="string">"SELFWTSL"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>selfwtsl_cond = Condition::new(<span class="kw-2">&amp;</span>selfwtsl, <span class="kw-2">&amp;</span>[CompareOperation::Equal(<span class="string">"2"</span>.to_string())])<span class="question-mark">?</span>;
+        existing_conditions.push(selfwtsl_cond);
+        <span class="prelude-val">Ok</span>(existing_conditions)
+    }
+
+    <span class="kw">fn </span>build_where_clause(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        conditions: <span class="kw-2">&amp;</span>[Condition],
+        case_select_logic: CaseSelectLogic,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span>w: Vec&lt;String&gt; = conditions
+            .iter()
+            .map(|c| <span class="macro">format!</span>(<span class="string">"({})"</span>, c.to_sql()))
+            .collect();
+
+        <span class="comment">// The case selection logic can be 'or' or 'and' but typically is 'and'.
+        // NOTE: This will apply to the unit of analysis record types / individual. The 'entire household'
+        // behavior isn't here.
+        </span><span class="kw">match </span>case_select_logic {
+            CaseSelectLogic::And =&gt; <span class="prelude-val">Ok</span>(w.join(<span class="string">" and "</span>)),
+            CaseSelectLogic::Or =&gt; <span class="prelude-val">Ok</span>(w.join(<span class="string">" or "</span>)),
+        }
+    }
+
+    <span class="kw">fn </span>help_get_weight(<span class="kw-2">&amp;</span><span class="self">self</span>, ctx: <span class="kw-2">&amp;</span>Context, uoa: <span class="kw-2">&amp;</span>str) -&gt; (<span class="prelude-ty">Option</span>&lt;String&gt;, <span class="prelude-ty">Option</span>&lt;usize&gt;) {
+        <span class="kw">let </span>default_weight = (
+            ctx.settings.weight_for_rectype(uoa),
+            ctx.settings.weight_divisor(uoa),
+        );
+
+        <span class="comment">// non-USA will be (None, None)
+        </span><span class="kw">let </span>sample_line_weight = (
+            ctx.settings.sample_line_weight_for_rectype(uoa),
+            ctx.settings.sample_line_weight_divisor(uoa),
+        );
+
+        <span class="comment">// TODO: here is where, if we had full variable metadata, we could decide when to use
+        // SLWT or PERWT in USA, since each variable has a SLWT50 or SLWT40 value..
+        // It only matters on years with sample line questions: 1940 and 1950 (this could
+        // be set on IpumsDataset metadata but isn't yet.) For now we just need to
+        // use SLWT if the dataset names are 'us1940a' or 'us1950a' or 'us1940b' or 'us1950b'.
+        </span><span class="kw">if </span><span class="self">self</span>.should_use_sample_line_weights(ctx) {
+            sample_line_weight
+        } <span class="kw">else </span>{
+            default_weight
+        }
+    }
+
+    <span class="kw">fn </span>help_final_var_aliases(<span class="kw-2">&amp;</span><span class="self">self</span>, request_variables: <span class="kw-2">&amp;</span>[RequestVariable]) -&gt; Vec&lt;String&gt; {
+        request_variables
+            .iter()
+            .map(|v| {
+                <span class="kw">if </span>v.is_bucketed() {
+                    <span class="macro">format!</span>(<span class="string">"{}_bucketed"</span>, <span class="kw-2">&amp;</span>v.name)
+                } <span class="kw">else </span>{
+                    v.name.to_string()
+                }
+            })
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+    }
+
+    <span class="kw">fn </span>help_get_required_rectypes(
+        request_variables: <span class="kw-2">&amp;</span>[RequestVariable],
+        conditions: <span class="kw-2">&amp;</span>[Condition],
+    ) -&gt; HashSet&lt;String&gt; {
+        <span class="comment">// Find all rectypes used by the requested variables
+        </span><span class="kw">let </span>rectypes_from_vars: Vec&lt;String&gt; = request_variables
+            .iter()
+            .map(|v| <span class="kw-2">&amp;</span>v.variable.record_type)
+            .cloned()
+            .collect();
+
+        <span class="kw">let </span>rectypes_from_conds: Vec&lt;String&gt; = conditions
+            .iter()
+            .map(|c| <span class="kw-2">&amp;</span>c.var.record_type)
+            .cloned()
+            .collect();
+
+        <span class="kw">let </span>all_rectypes = [
+            rectypes_from_vars.as_slice(),
+            rectypes_from_conds.as_slice(),
+        ]
+        .concat();
+        HashSet::from_iter(all_rectypes.iter().cloned())
     }
 
     <span class="kw">pub fn </span>make_query(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         ctx: <span class="kw-2">&amp;</span>Context,
-        request_variables: <span class="kw-2">&amp;</span>[RequestVariable],
-        request_sample: <span class="kw-2">&amp;</span>RequestSample,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+        abacus_request: <span class="kw-2">&amp;</span><span class="kw">impl </span>DataRequest,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span>request_variables = abacus_request.get_request_variables();
+        <span class="kw">let </span>requested_conditions = abacus_request.get_conditions();
+        <span class="kw">let </span>case_select_logic = abacus_request.case_select_logic();
+
         <span class="kw">if </span>request_variables.len() == <span class="number">0 </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Must supply at least one request variable."</span>.to_string());
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(
+                <span class="string">"Must supply at least one request variable."</span>.to_string(),
+            ));
         }
-        <span class="comment">// Find all rectypes used by the requested variables
-        </span><span class="kw">let </span>rectypes_vec = request_variables
-            .iter()
-            .map(|v| v.variable.record_type.clone())
-            .collect::&lt;Vec&lt;String&gt;&gt;();
 
-        <span class="kw">let </span>rectypes: HashSet&lt;String&gt; = HashSet::from_iter(rectypes_vec.iter().cloned());
+        <span class="comment">// Add a condition for SELFWTSL if needed. Yuck.
+        </span><span class="kw">let </span>conditions = <span class="kw">if </span><span class="self">self</span>.should_use_selfwtsl(ctx) {
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.help_conditions_with_selfwtsl_filter(ctx, requested_conditions)<span class="question-mark">?</span>)
+        } <span class="kw">else </span>{
+            requested_conditions
+        };
 
-        <span class="comment">// TODO: Decide the unit of analysis based on variable selection?
-        </span><span class="kw">let </span><span class="kw-2">mut </span>uoa = ctx.settings.default_unit_of_analysis.value.clone();
+        <span class="kw">let </span>rectypes = TabBuilder::help_get_required_rectypes(
+            <span class="kw-2">&amp;</span>request_variables,
+            <span class="kw-2">&amp;</span>conditions.clone().unwrap_or(Vec::new()),
+        );
+
+        <span class="comment">// TODO: Decide the unit of analysis based on variable selection? Or, use the
+        // UOA in the incoming Request JSON
+        </span><span class="kw">let </span>uoa = ctx.settings.default_unit_of_analysis.value.clone();
 
         <span class="kw">if </span>!<span class="self">self</span>.data_sources.contains_key(<span class="kw-2">&amp;</span>uoa) {
             <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'"</span>, uoa, ctx.settings.name);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(msg);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(msg));
         }
 
-        <span class="comment">// What if the default unit of analysis isn't in the requested variables. This covers the common case
-        // where only household type variables are in the request. It doesn't handle all cases, such as
-        // a request with "activity" and "person" variables, where the uoa (could) be "activity". If we
-        // have more than one rectype therefore, we error out.
-        </span><span class="kw">if </span>!rectypes.contains(<span class="kw-2">&amp;</span>uoa) {
-            <span class="kw">if </span>rectypes.len() == <span class="number">1 </span>{
-                uoa = rectypes_vec[<span class="number">0</span>].clone();
-            }
-        }
-
-        <span class="kw">let </span>weight_name = ctx.settings.weight_for_rectype(<span class="kw-2">&amp;</span>uoa);
-        <span class="kw">let </span>weight_divisor = ctx.settings.weight_divisor(<span class="kw-2">&amp;</span>uoa);
+        <span class="kw">let </span>(weight_name, weight_divisor) = <span class="self">self</span>.help_get_weight(ctx, <span class="kw-2">&amp;</span>uoa);
 
         <span class="kw">let </span>select_clause =
-            <span class="self">self</span>.build_select_clause(request_variables, weight_name, weight_divisor);
-        <span class="kw">let </span>from_clause = <span class="kw-2">&amp;</span><span class="self">self</span>.build_from_clause(ctx, <span class="kw-2">&amp;</span>request_sample.name, <span class="kw-2">&amp;</span>uoa, <span class="kw-2">&amp;</span>rectypes)<span class="question-mark">?</span>;
+            <span class="self">self</span>.build_select_clause(<span class="kw-2">&amp;</span>request_variables, weight_name, weight_divisor);
+        <span class="kw">let </span>from_clause = <span class="kw-2">&amp;</span><span class="self">self</span>.build_from_clause(ctx, <span class="kw-2">&amp;</span><span class="self">self</span>.dataset, <span class="kw-2">&amp;</span>uoa, <span class="kw-2">&amp;</span>rectypes)<span class="question-mark">?</span>;
 
-        <span class="comment">// Build this from '.case_selection' on each RequestVariable or other conditions
-        </span><span class="kw">let </span><span class="kw-2">mut </span>where_clause = <span class="string">""</span>.to_string();
+        <span class="kw">let </span>vars_in_order = <span class="self">self</span>.help_final_var_aliases(<span class="kw-2">&amp;</span>request_variables);
 
-        <span class="kw">let </span>vars_in_order = <span class="kw-2">&amp;</span>request_variables
-            .iter()
-            .map(|v| v.name.clone())
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .join(<span class="string">", "</span>);
+        <span class="kw">let </span>group_by_clause = vars_in_order.join(<span class="string">", "</span>);
+        <span class="kw">let </span>order_by_clause = vars_in_order.join(<span class="string">", "</span>);
 
-        <span class="kw">let </span>group_by_clause = <span class="string">"group by "</span>.to_string() + <span class="kw-2">&amp;</span>vars_in_order;
-        <span class="kw">let </span>order_by_clause = <span class="string">"order by "</span>.to_string() + <span class="kw-2">&amp;</span>vars_in_order;
-        <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
-            <span class="string">"{}\n{}\n{}\n{}\n{}"</span>,
-            <span class="kw-2">&amp;</span>select_clause, <span class="kw-2">&amp;</span>from_clause, <span class="kw-2">&amp;</span>where_clause, <span class="kw-2">&amp;</span>group_by_clause, <span class="kw-2">&amp;</span>order_by_clause
-        ))
-    }
-
-    <span class="kw">fn </span>get_connecting_foreign_key(
-        ctx: <span class="kw-2">&amp;</span>Context,
-        from_rt: <span class="kw-2">&amp;</span>str,
-        to_parent: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>child_rt) = ctx.settings.record_types.get(from_rt) {
-            <span class="kw">let </span>fkey_name = child_rt
-                .foreign_keys
-                .iter()
-                .find(|(to_rt, f_)| to_rt == to_parent);
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(key_name) = fkey_name {
-                <span class="prelude-val">Ok</span>(key_name.<span class="number">1</span>.clone())
-            } <span class="kw">else </span>{
-                <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
-                    from_rt, to_parent
-                ))
-            }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>conds) = conditions {
+            <span class="kw">let </span>where_clause = <span class="kw-2">&amp;</span><span class="self">self</span>.build_where_clause(<span class="kw-2">&amp;</span>conds, case_select_logic)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
+                <span class="string">"select \n{}\nfrom {}\nwhere {}\ngroup by {}\norder by {}"</span>,
+                <span class="kw-2">&amp;</span>select_clause<span class="question-mark">?</span>, <span class="kw-2">&amp;</span>from_clause, <span class="kw-2">&amp;</span>where_clause, <span class="kw-2">&amp;</span>group_by_clause, <span class="kw-2">&amp;</span>order_by_clause
+            ))
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
-                from_rt, to_parent
+            <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
+                <span class="string">"select \n{}\nfrom {}\ngroup by {}\norder by {}"</span>,
+                <span class="kw-2">&amp;</span>select_clause<span class="question-mark">?</span>, <span class="kw-2">&amp;</span>from_clause, <span class="kw-2">&amp;</span>group_by_clause, <span class="kw-2">&amp;</span>order_by_clause
             ))
         }
     }
 
-    <span class="kw">fn </span>get_id_for_record_type(ctx: <span class="kw-2">&amp;</span>Context, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
+    <span class="kw">fn </span>help_get_connecting_foreign_key(
+        ctx: <span class="kw-2">&amp;</span>Context,
+        from_rt: <span class="kw-2">&amp;</span>str,
+        to_parent: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>child_rt) = ctx.settings.record_types.get(from_rt) {
+            <span class="kw">let </span>fkey_name = child_rt
+                .foreign_keys
+                .iter()
+                .find(|(to_rt, _f)| to_rt == to_parent);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(key_name) = fkey_name {
+                <span class="prelude-val">Ok</span>(key_name.<span class="number">1</span>.clone())
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                    <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
+                    from_rt, to_parent
+                )))
+            }
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                <span class="string">"Cannot find a connection between '{}' and a parent record type of '{}'"</span>,
+                from_rt, to_parent
+            )))
+        }
+    }
+
+    <span class="kw">fn </span>help_get_id_for_record_type(ctx: <span class="kw-2">&amp;</span>Context, rt: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>record_type) = ctx.settings.record_types.get(rt) {
             <span class="prelude-val">Ok</span>(record_type.unique_id.clone())
         } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"No record type '{}' in current context."</span>, rt))
+            <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"No record type '{rt}' in current context."</span>,))
         }
     }
 }
@@ -660,11 +1238,11 @@
         ctx: <span class="kw-2">&amp;</span>Context,
         dataset: <span class="kw-2">&amp;</span>str,
         input_format: <span class="kw-2">&amp;</span>InputType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, DataSource&gt;, String&gt; {
-        <span class="kw">let </span>paths_by_rectypes = ctx.paths_from_dataset_name(dataset, <span class="kw-2">&amp;</span>input_format);
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, DataSource&gt;, MdError&gt; {
+        <span class="kw">let </span>paths_by_rectypes = ctx.paths_from_dataset_name(dataset, <span class="kw-2">&amp;</span>input_format)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>data_sources = HashMap::new();
         <span class="kw">for </span>rt <span class="kw">in </span>ctx.settings.record_types.keys() {
-            <span class="kw">let </span>table_alias = ctx.settings.default_table_name(dataset, rt);
+            <span class="kw">let </span>table_alias = ctx.settings.default_table_name(dataset, rt)<span class="question-mark">?</span>;
             <span class="kw">let </span>p = paths_by_rectypes.get(rt).cloned();
             <span class="kw">let </span>ds = DataSource::new(table_alias, p)<span class="question-mark">?</span>;
             data_sources.insert(rt.to_string(), ds);
@@ -673,7 +1251,7 @@
         <span class="prelude-val">Ok</span>(data_sources)
     }
 
-    <span class="kw">pub fn </span>new(name: String, full_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+    <span class="kw">pub fn </span>new(name: String, full_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = full_path {
             <span class="kw">if </span>p.to_string_lossy().ends_with(<span class="string">".parquet"</span>) {
                 <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Parquet { name, full_path: p })
@@ -685,7 +1263,7 @@
                     <span class="kw-2">&amp;</span>name,
                     <span class="kw-2">&amp;</span>p.display()
                 );
-                <span class="prelude-val">Err</span>(msg)
+                <span class="prelude-val">Err</span>(MdError::Msg(msg))
             }
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NativeTable { name })
@@ -698,7 +1276,7 @@
     </span><span class="kw">pub fn </span>for_platform(<span class="kw-2">&amp;</span><span class="self">self</span>, platform: <span class="kw-2">&amp;</span>DataPlatform) -&gt; String {
         <span class="kw">match </span>platform {
             DataPlatform::Duckdb =&gt; <span class="kw">match </span><span class="self">self </span>{
-                <span class="self">Self</span>::Parquet { name, full_path } =&gt; {
+                <span class="self">Self</span>::Parquet { full_path, .. } =&gt; {
                     <span class="comment">// Check if full path points to a directory
                     </span><span class="kw">if </span>full_path.is_dir() {
                         <span class="comment">// Duckdb can query a directory of parquet files
@@ -709,7 +1287,7 @@
                         <span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display())
                     }
                 }
-                <span class="self">Self</span>::Csv { name, full_path } =&gt; <span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display()),
+                <span class="self">Self</span>::Csv { full_path, .. } =&gt; <span class="macro">format!</span>(<span class="string">"'{}'"</span>, <span class="kw-2">&amp;</span>full_path.display()),
                 <span class="self">Self</span>::NativeTable { name } =&gt; name.to_owned(),
             },
             <span class="comment">// DataFusion expects the data tables to have been registered already
@@ -718,7 +1296,7 @@
                 <span class="self">Self</span>::Parquet { name, .. } =&gt; name.to_owned(),
                 <span class="self">Self</span>::Csv { name, .. } =&gt; name.to_owned(),
                 <span class="self">Self</span>::NativeTable { name } =&gt; {
-                    <span class="macro">panic!</span>(<span class="string">"No native table type for '{}' in DataFusion."</span>, <span class="kw-2">&amp;</span>name)
+                    <span class="macro">todo!</span>(<span class="string">"No native table type for '{}' in DataFusion yet."</span>, <span class="kw-2">&amp;</span>name)
                 }
             },
         }
@@ -736,94 +1314,352 @@
 <span class="comment">// TODO not yet dealing with escaping string values
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub enum </span>CompareOperation {
-    Equal,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    Between,
-    In,
+    Equal(String),
+    Less(String),
+    Greater(String),
+    LessEqual(String),
+    GreaterEqual(String),
+    NotEqual(String),
+    Between(String, String),
+    In(Vec&lt;String&gt;),
+}
+
+<span class="kw">impl </span>CompareOperation {
+    <span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Equal(<span class="kw">_</span>) =&gt; <span class="string">"equal to"</span>,
+            <span class="self">Self</span>::Less(<span class="kw">_</span>) =&gt; <span class="string">"less than"</span>,
+            <span class="self">Self</span>::Between(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="string">"between"</span>,
+            <span class="self">Self</span>::In(<span class="kw">_</span>) =&gt; <span class="string">"in"</span>,
+            <span class="self">Self</span>::Greater(<span class="kw">_</span>) =&gt; <span class="string">"more than"</span>,
+            <span class="self">Self</span>::GreaterEqual(<span class="kw">_</span>) =&gt; <span class="string">"greater or equal to"</span>,
+            <span class="self">Self</span>::LessEqual(<span class="kw">_</span>) =&gt; <span class="string">"less than or equal to"</span>,
+            <span class="self">Self</span>::NotEqual(<span class="kw">_</span>) =&gt; <span class="string">"not equal to"</span>,
+        }
+        .to_string()
+    }
+
+    <span class="comment">// Mostly to support printing codebooks
+    </span><span class="kw">fn </span>values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Equal(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::Less(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::Greater(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::LessEqual(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::GreaterEqual(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::NotEqual(rhs) =&gt; <span class="macro">vec!</span>[rhs.to_string()],
+            <span class="self">Self</span>::Between(rhsl, rhsr) =&gt; <span class="macro">vec!</span>[rhsl.to_string(), rhsr.to_string()],
+            <span class="self">Self</span>::In(rhs_list) =&gt; rhs_list.to_vec(),
+        }
+    }
+
+    <span class="comment">// The human readable version of the comparison.
+    </span><span class="kw">pub fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="macro">format!</span>(<span class="string">"{} {}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name(), <span class="self">self</span>.values().join(<span class="string">", "</span>))
+    }
+
+    <span class="kw">pub fn </span>to_sql(<span class="kw-2">&amp;</span><span class="self">self</span>, lhs: <span class="kw-2">&amp;</span>str) -&gt; String {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Equal(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} = {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::Less(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} &lt; {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::Greater(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} &gt; {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::LessEqual(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} &lt;= {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::GreaterEqual(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} &gt;= {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::NotEqual(rhs) =&gt; <span class="macro">format!</span>(<span class="string">"{} != {}"</span>, lhs, <span class="kw-2">&amp;</span>rhs),
+            <span class="self">Self</span>::Between(rhsl, rhsr) =&gt; <span class="macro">format!</span>(<span class="string">"{} between {} and {}"</span>, lhs, <span class="kw-2">&amp;</span>rhsl, <span class="kw-2">&amp;</span>rhsr),
+            <span class="self">Self</span>::In(rhs_list) =&gt; <span class="macro">format!</span>(<span class="string">"{} in ({})"</span>, lhs, <span class="kw-2">&amp;</span>rhs_list.join(<span class="string">","</span>)),
+        }
+    }
 }
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>Condition {
     <span class="kw">pub </span>var: ipums_metadata_model::IpumsVariable,
-    <span class="kw">pub </span>comparison: CompareOperation,
-    <span class="kw">pub </span>compare_to: Vec&lt;String&gt;, <span class="comment">// one or more values depending on context
-</span>}
+    <span class="kw">pub </span>comparison: Vec&lt;CompareOperation&gt;,
+    <span class="kw">pub </span>data_type: IpumsDataType,
+}
 
 <span class="kw">impl </span>Condition {
     <span class="kw">pub fn </span>new(
         var: <span class="kw-2">&amp;</span>ipums_metadata_model::IpumsVariable,
-        data_type: IpumsDataType,
-        comparison: CompareOperation,
-        compare_to: Vec&lt;String&gt;,
-    ) -&gt; <span class="self">Self </span>{
+        comparison: <span class="kw-2">&amp;</span>[CompareOperation],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MdError&gt; {
+        <span class="kw">let </span>data_type = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>dt) = var.data_type {
+            dt.clone()
+        } <span class="kw">else </span>{
+            IpumsDataType::Integer
+        };
+
         <span class="comment">// TODO check with data type and compare_to for a  valid representation (parse  into i32 for example)
         // If values are string type add appropriate escaping and quotes (possibly)
-        </span><span class="self">Self </span>{
+        </span><span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             var: var.clone(),
-            comparison,
-            compare_to,
+            comparison: comparison.to_vec(),
+            data_type,
+        })
+    }
+
+    <span class="kw">pub fn </span>try_from_request_case_selections(
+        var: <span class="kw-2">&amp;</span>IpumsVariable,
+        rcs: <span class="kw-2">&amp;</span>[input_schema_tabulation::RequestCaseSelection],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;, MdError&gt; {
+        <span class="kw">let </span>data_type = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>dt) = var.data_type {
+            dt.clone()
+        } <span class="kw">else </span>{
+            IpumsDataType::Integer
+        };
+        <span class="kw">let </span>maybe_comparisons = rcs.iter()
+            .map(|cs| {
+                <span class="kw">if </span>cs.low_code &lt; cs.high_code {
+                    <span class="prelude-val">Ok</span>(CompareOperation::Between(<span class="macro">format!</span>(<span class="string">"{}"</span>,cs.low_code), <span class="macro">format!</span>(<span class="string">"{}"</span>,cs.high_code)))
+                } <span class="kw">else if </span>cs.low_code == cs.high_code {
+                    <span class="prelude-val">Ok</span>(CompareOperation::Equal(<span class="macro">format!</span>(<span class="string">"{}"</span>, cs.low_code)))
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(<span class="string">"Case selection low code must be lower or equal to high code on '{}': {}, {}"</span>, <span class="kw-2">&amp;</span>var.name, cs.low_code, cs.high_code)))
+                }
+            })
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;CompareOperation&gt;, MdError&gt;&gt;();
+        <span class="kw">let </span>comparisons = maybe_comparisons<span class="question-mark">?</span>;
+        <span class="kw">if </span>comparisons.len() == <span class="number">0 </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="self">Self </span>{
+                var: var.clone(),
+                comparison: comparisons,
+                data_type,
+            }))
         }
     }
+
+    <span class="comment">// Pretty sure we'll need this at some point not too far off
+    </span><span class="attr">#[allow(dead_code)]
+    </span><span class="kw">fn </span>lit(<span class="kw-2">&amp;</span><span class="self">self</span>, v: <span class="kw-2">&amp;</span>str) -&gt; String {
+        <span class="kw">match </span><span class="self">self</span>.data_type {
+            IpumsDataType::String =&gt; <span class="macro">format!</span>(<span class="string">"'{}'"</span>, v),
+            <span class="kw">_ </span>=&gt; <span class="macro">format!</span>(<span class="string">"{}"</span>, v),
+        }
+    }
+
+    <span class="comment">// A helper method to generate part of an SQL  'where' clause.
+    </span><span class="kw">pub fn </span>to_sql(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="self">self</span>.comparison
+            .iter()
+            .map(|c| <span class="macro">format!</span>(<span class="string">"({})"</span>, c.to_sql(<span class="kw-2">&amp;</span><span class="self">self</span>.var.name)))
+            .collect::&lt;Vec&lt;String&gt;&gt;()
+            .join(<span class="string">" or "</span>) <span class="comment">// by the definition of Condition, 'or' is, always correct.
+    </span>}
 }
 
 <span class="comment">// Returns one query per dataset in the request; if you wanted to tabulate across
 // datasets that would be a different query that unions thetables of the same record type...
 // You can accomplish the same thing by combining the results of each query.
-</span><span class="kw">pub fn </span>tab_queries(
+</span><span class="kw">pub fn </span>tab_queries&lt;R&gt;(
     ctx: <span class="kw-2">&amp;</span>Context,
-    request: <span class="kw">impl </span>DataRequest,
+    request: R,
     input_format: <span class="kw-2">&amp;</span>InputType,
     platform: <span class="kw-2">&amp;</span>DataPlatform,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, String&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, MdError&gt;
+<span class="kw">where
+    </span>R: DataRequest,
+{
     <span class="kw">let </span><span class="kw-2">mut </span>queries = Vec::new();
     <span class="kw">for </span>dataset <span class="kw">in </span>request.get_request_samples() {
         <span class="kw">let </span>tb = TabBuilder::new(ctx, <span class="kw-2">&amp;</span>dataset.name, platform, input_format)<span class="question-mark">?</span>;
-        <span class="kw">let </span>q = tb.make_query(ctx, <span class="kw-2">&amp;</span>request.get_request_variables(), <span class="kw-2">&amp;</span>dataset)<span class="question-mark">?</span>;
+        <span class="kw">let </span>q = tb.make_query(ctx, <span class="kw-2">&amp;</span>request)<span class="question-mark">?</span>;
         queries.push(q);
     }
     <span class="prelude-val">Ok</span>(queries)
 }
 
-<span class="kw">pub fn </span>frequency(
-    table_name: <span class="kw-2">&amp;</span>str,
-    variable_name: <span class="kw-2">&amp;</span>str,
-    weight: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    divisor: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-) -&gt; String {
-    <span class="comment">// frequency field will differ if we are weighting and if there's a divisor
-    </span><span class="kw">let </span>freq_field: String = <span class="kw">if let </span><span class="prelude-val">Some</span>(w) = weight {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = divisor {
-            <span class="macro">format!</span>(<span class="string">"sum({} / :divisor:)"</span>, <span class="kw-2">&amp;</span>w)
-        } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">"sum({} )"</span>, <span class="kw-2">&amp;</span>w)
-        }
-    } <span class="kw">else </span>{
-        <span class="string">"count(*)"</span>.to_string()
-    } + <span class="string">" as frequency"</span>;
-
-    <span class="kw">let </span>sql = SqlBuilder::select_from(table_name)
-        .field(variable_name)
-        .field(freq_field)
-        .group_by(variable_name)
-        .sql()
-        .unwrap();
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = divisor {
-        sql.bind_name(<span class="kw-2">&amp;</span><span class="string">"divisor"</span>, <span class="kw-2">&amp;</span>d)
-    } <span class="kw">else </span>{
-        sql
-    }
-}
-
-<span class="kw">mod </span>test {
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span><span class="kw">crate</span>::request::context_from_names_helper;
     <span class="kw">use </span><span class="kw">crate</span>::request::SimpleRequest;
 
     <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_bucketing() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(ctx, <span class="kw">_</span>, <span class="kw">_</span>) = context_from_names_helper(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>, <span class="string">"UHRSWORK"</span>],
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .expect(<span class="string">"Should be able to construct this test context."</span>);
+
+        <span class="kw">let </span>tab_builder =
+            TabBuilder::new(<span class="kw-2">&amp;</span>ctx, <span class="string">"us2015b"</span>, <span class="kw-2">&amp;</span>DataPlatform::Duckdb, <span class="kw-2">&amp;</span>InputType::Parquet)
+                .expect(<span class="string">"TabBuilder new() for testing should never error out."</span>);
+
+        <span class="kw">let </span>uhrswork = ctx
+            .get_md_variable_by_name(<span class="string">"UHRSWORK"</span>)
+            .expect(<span class="string">"Expected UHRSWORK to be in the test context."</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>uhrswork_rq = RequestVariable::try_from_ipums_variable(
+            <span class="kw-2">&amp;</span>uhrswork,
+            input_schema_tabulation::GeneralDetailedSelection::Detailed,
+        )
+        .expect(<span class="string">"UHRSWORK should be in the test context."</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>bins = Vec::new();
+        bins.push(CategoryBin::LessThan {
+            value: <span class="number">0</span>,
+            code: <span class="number">0</span>,
+            label: <span class="string">"N/A"</span>.to_string(),
+        });
+        bins.push(CategoryBin::Range {
+            low: <span class="number">1</span>,
+            high: <span class="number">14</span>,
+            code: <span class="number">1</span>,
+            label: <span class="string">"1 to 14 hours worked per week"</span>.to_string(),
+        });
+
+        bins.push(CategoryBin::Range {
+            low: <span class="number">15</span>,
+            high: <span class="number">34</span>,
+            code: <span class="number">2</span>,
+            label: <span class="string">"15 to 34 hours worked per week"</span>.to_string(),
+        });
+
+        bins.push(CategoryBin::Range {
+            low: <span class="number">35</span>,
+            high: <span class="number">99</span>,
+            code: <span class="number">3</span>,
+            label: <span class="string">"35 or more hours worked per week"</span>.to_string(),
+        });
+
+        uhrswork_rq.category_bins = <span class="prelude-val">Some</span>(bins);
+
+        <span class="kw">let </span>bucket_fragment_result = tab_builder.help_bucket(<span class="kw-2">&amp;</span>uhrswork_rq);
+        <span class="macro">assert!</span>(bucket_fragment_result.is_ok());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(sql) = bucket_fragment_result {
+            <span class="kw">let </span>correct = <span class="string">r"case
+	when UHRSWORK &lt;= 0 then '000'
+	when UHRSWORK &gt;= 1 and UHRSWORK &lt;= 14 then '001'
+	when UHRSWORK &gt;= 15 and UHRSWORK &lt;= 34 then '002'
+	when UHRSWORK &gt;= 35 and UHRSWORK &lt;= 99 then '003'
+else '999' end as UHRSWORK_bucketed"</span>;
+
+            <span class="macro">assert_eq!</span>(correct, <span class="kw-2">&amp;</span>sql);
+        }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_new_condition() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(ctx, <span class="kw">_</span>) = SimpleRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .unwrap();
+        <span class="kw">let </span>age_var = ctx
+            .settings
+            .metadata
+            .unwrap()
+            .cloned_variable_from_name(<span class="string">"AGE"</span>)
+            .expect(<span class="string">"'AGE' variable required for tests."</span>);
+
+        <span class="kw">let </span>cond1_age = Condition::new(
+            <span class="kw-2">&amp;</span>age_var,
+            <span class="kw-2">&amp;</span><span class="macro">vec!</span>[CompareOperation::In(<span class="macro">vec!</span>[
+                <span class="string">"1"</span>.to_string(),
+                <span class="string">"2"</span>.to_string(),
+                <span class="string">"3"</span>.to_string(),
+            ])],
+        );
+
+        <span class="macro">assert!</span>(cond1_age.is_ok());
+        <span class="kw">let </span>cond2_age = Condition::new(
+            <span class="kw-2">&amp;</span>age_var,
+            <span class="kw-2">&amp;</span><span class="macro">vec!</span>[
+                CompareOperation::Equal(<span class="string">"1"</span>.to_string()),
+                CompareOperation::Equal(<span class="string">"2"</span>.to_string()),
+                CompareOperation::Equal(<span class="string">"3"</span>.to_string()),
+            ],
+        );
+
+        <span class="macro">assert!</span>(cond2_age.is_ok());
+
+        <span class="kw">let </span>cond3_age = Condition::new(<span class="kw-2">&amp;</span>age_var, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[CompareOperation::Equal(<span class="string">"1"</span>.to_string())]);
+
+        <span class="macro">assert!</span>(cond3_age.is_ok());
+
+        <span class="kw">let </span>cond4_age = Condition::new(
+            <span class="kw-2">&amp;</span>age_var,
+            <span class="kw-2">&amp;</span><span class="macro">vec!</span>[CompareOperation::Between(<span class="string">"1"</span>.to_string(), <span class="string">"9"</span>.to_string())],
+        );
+
+        <span class="macro">assert!</span>(cond4_age.is_ok());
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_build_where_clause() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(ctx, <span class="kw">_</span>) = SimpleRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"AGE"</span>, <span class="string">"MARST"</span>, <span class="string">"GQ"</span>, <span class="string">"YEAR"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .unwrap();
+
+        <span class="kw">let </span>tab_builder =
+            TabBuilder::new(<span class="kw-2">&amp;</span>ctx, <span class="string">"us2015b"</span>, <span class="kw-2">&amp;</span>DataPlatform::Duckdb, <span class="kw-2">&amp;</span>InputType::Parquet)
+                .expect(<span class="string">"TabBuilder new() for testing should never error out."</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>test_conditions: Vec&lt;Condition&gt; = Vec::new();
+
+        <span class="kw">let </span>age_var = ctx
+            .get_md_variable_by_name(<span class="string">"AGE"</span>)
+            .expect(<span class="string">"'AGE' variable required for tests."</span>);
+
+        <span class="kw">let </span>gq_var = ctx
+            .get_md_variable_by_name(<span class="string">"GQ"</span>)
+            .expect(<span class="string">"'GQ' variable required for tests."</span>);
+
+        <span class="kw">let </span>cond1 = Condition::new(
+            <span class="kw-2">&amp;</span>age_var,
+            <span class="kw-2">&amp;</span><span class="macro">vec!</span>[CompareOperation::In(<span class="macro">vec!</span>[
+                <span class="string">"1"</span>.to_string(),
+                <span class="string">"2"</span>.to_string(),
+                <span class="string">"3"</span>.to_string(),
+            ])],
+        )
+        .expect(<span class="string">"Condition should always be  constructed for testing."</span>);
+
+        <span class="macro">assert_eq!</span>(<span class="string">"(AGE in (1,2,3))"</span>, <span class="kw-2">&amp;</span>cond1.to_sql());
+
+        test_conditions.push(cond1);
+        <span class="kw">let </span>maybe_where_clause =
+            tab_builder.build_where_clause(<span class="kw-2">&amp;</span>test_conditions, CaseSelectLogic::And);
+        <span class="macro">assert!</span>(maybe_where_clause.is_ok());
+        <span class="macro">assert_eq!</span>(<span class="string">"((AGE in (1,2,3)))"</span>, <span class="kw-2">&amp;</span>maybe_where_clause.unwrap());
+
+        <span class="kw">let </span>cond2 = Condition::new(<span class="kw-2">&amp;</span>gq_var, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[CompareOperation::Equal(<span class="string">"1"</span>.to_string())])
+            .expect(<span class="string">"Condition should always be  constructed for testing."</span>);
+
+        test_conditions.push(cond2);
+
+        <span class="kw">let </span>maybe_bigger_where_clause =
+            tab_builder.build_where_clause(<span class="kw-2">&amp;</span>test_conditions, CaseSelectLogic::And);
+        <span class="macro">assert!</span>(maybe_bigger_where_clause.is_ok());
+        <span class="macro">assert_eq!</span>(
+            <span class="string">"((AGE in (1,2,3))) and ((GQ = 1))"</span>,
+            <span class="kw-2">&amp;</span>maybe_bigger_where_clause.unwrap()
+        );
+    }
+
+    <span class="attr">#[test]
     </span><span class="kw">fn </span>test_frequency_duckdb_parquet() {
-        <span class="kw">let </span>data_root = String::from(<span class="string">"test/data_root"</span>);
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
         <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
             <span class="string">"usa"</span>,
             <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
@@ -831,12 +1667,16 @@
             <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(data_root),
-        );
+        )
+        .unwrap();
 
         <span class="kw">let </span>queries = tab_queries(<span class="kw-2">&amp;</span>ctx, rq, <span class="kw-2">&amp;</span>InputType::Parquet, <span class="kw-2">&amp;</span>DataPlatform::Duckdb);
         <span class="kw">match </span>queries {
             <span class="comment">// print the error whatever it is.
-            </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; <span class="macro">assert_eq!</span>(<span class="string">"abc"</span>, e),
+            </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; {
+                <span class="macro">println!</span>(<span class="string">"{}"</span>, e);
+                <span class="macro">assert_eq!</span>(<span class="number">1</span>, <span class="number">2</span>);
+            }
             <span class="kw">_ </span>=&gt; (),
         }
         <span class="macro">assert!</span>(queries.is_ok());

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tabulate.rs`."><title>tabulate.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-dd39b87e5fcfba68.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.80.1 (3f5fd8dd4 2024-08-06)" data-channel="1.80.1" data-search-js="search-d52510db62a78183.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-20a3ad099b048cf2.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tabulate.rs`."><title>tabulate.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cimdea" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -332,30 +332,225 @@
 <a href="#332" id="332">332</a>
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The high level module for executing and formatting tabulations.
 //!
 //!   The result of the tabulations are tabulation::Table structs that
 //! carry some metadata information with them to be used by formatters or even codebook
 //! generators.
 //!
-//! use std::fmt::Display;
-</span><span class="kw">use </span>std::io::empty;
+</span><span class="kw">use </span>std::str::FromStr;
 
 <span class="kw">use </span><span class="kw">crate</span>::conventions::Context;
 <span class="kw">use </span><span class="kw">crate</span>::ipums_metadata_model::IpumsDataType;
+<span class="kw">use </span><span class="kw">crate</span>::mderror::{metadata_error, MdError};
 <span class="kw">use </span><span class="kw">crate</span>::query_gen::tab_queries;
 <span class="kw">use </span><span class="kw">crate</span>::query_gen::DataPlatform;
 <span class="kw">use </span><span class="kw">crate</span>::request::DataRequest;
 <span class="kw">use </span><span class="kw">crate</span>::request::InputType;
 <span class="kw">use </span><span class="kw">crate</span>::request::RequestVariable;
-<span class="kw">use </span>duckdb::{params, Connection, <span class="prelude-ty">Result</span>};
-<span class="kw">use </span>serde::Deserialize;
-<span class="kw">use </span>std::time::Instant;
 
+<span class="kw">use </span>duckdb::Connection;
+<span class="kw">use </span>serde::ser::Error;
 <span class="kw">use </span>serde::Serialize;
-<span class="kw">use </span>serde_json::<span class="kw-2">*</span>;
 
-<span class="attr">#[derive(Clone, Debug)]
+<span class="kw">const </span>DEBUG: bool = <span class="bool-val">false</span>;
+
+<span class="attr">#[derive(Clone, Copy, Debug)]
 </span><span class="kw">pub enum </span>TableFormat {
     Csv,
     Html,
@@ -363,21 +558,23 @@
     TextTable,
 }
 
-<span class="kw">impl </span>TableFormat {
-    <span class="kw">pub fn </span>from_str(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+<span class="kw">impl </span>FromStr <span class="kw">for </span>TableFormat {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= MdError;
+
+    <span class="kw">fn </span>from_str(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
         <span class="kw">let </span>tf = <span class="kw">match </span>name.to_ascii_lowercase().as_str() {
             <span class="string">"csv" </span>=&gt; <span class="self">Self</span>::Csv,
             <span class="string">"json" </span>=&gt; <span class="self">Self</span>::Json,
             <span class="string">"text" </span>=&gt; <span class="self">Self</span>::TextTable,
             <span class="string">"html" </span>=&gt; <span class="self">Self</span>::Html,
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"unknown format name."</span>.to_string()),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="string">"unknown format name."</span>.to_string())),
         };
         <span class="prelude-val">Ok</span>(tf)
     }
 }
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">enum </span>OutputColumn {
+</span><span class="kw">pub enum </span>OutputColumn {
     Constructed {
         name: String,
         width: usize,
@@ -412,17 +609,18 @@
             <span class="self">Self</span>::RequestVar(<span class="kw-2">ref </span>v) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>ser =
                     serializer.serialize_struct_variant(<span class="string">"OutputColumn"</span>, <span class="number">1</span>, <span class="string">"RequestVar"</span>, <span class="number">3</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>width = v.requested_width().map_err(S::Error::custom)<span class="question-mark">?</span>;
+                <span class="kw">let </span>data_type = <span class="kw">match </span>v.variable.data_type {
+                    <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>data_type) =&gt; data_type.to_string(),
+                    <span class="prelude-val">None </span>=&gt; {
+                        <span class="kw">let </span>err = <span class="macro">metadata_error!</span>(<span class="string">"missing data type for variable {}"</span>, v.name);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(S::Error::custom(err));
+                    }
+                };
+
                 ser.serialize_field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span>v.name)<span class="question-mark">?</span>;
-                ser.serialize_field(<span class="string">"width"</span>, <span class="kw-2">&amp;</span>v.requested_width().expect(<span class="string">"Width not available."</span>))<span class="question-mark">?</span>;
-                ser.serialize_field(
-                    <span class="string">"data_type"</span>,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                        <span class="string">"{}"</span>,
-                        <span class="kw-2">&amp;</span>v.variable.data_type.clone().expect(
-                            <span class="string">"Variables must have data types to allow serializing of table data."
-                        </span>)
-                    ),
-                )<span class="question-mark">?</span>;
+                ser.serialize_field(<span class="string">"width"</span>, <span class="kw-2">&amp;</span>width)<span class="question-mark">?</span>;
+                ser.serialize_field(<span class="string">"data_type"</span>, <span class="kw-2">&amp;</span>data_type)<span class="question-mark">?</span>;
                 ser.end()
             }
         }
@@ -437,18 +635,18 @@
         }
     }
 
-    <span class="kw">pub fn </span>width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="kw">pub fn </span>width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MdError&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Constructed { <span class="kw-2">ref </span>width, .. } =&gt; <span class="kw-2">*</span>width,
+            <span class="self">Self</span>::Constructed { <span class="kw-2">ref </span>width, .. } =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>width),
             <span class="self">Self</span>::RequestVar(<span class="kw-2">ref </span>v) =&gt; {
-                <span class="kw">if </span>!v.is_general {
+                <span class="kw">if </span>!v.is_general() {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, wid)) = v.variable.formatting {
-                        wid
+                        <span class="prelude-val">Ok</span>(wid)
                     } <span class="kw">else </span>{
-                        <span class="macro">panic!</span>(<span class="string">"Width from metadata Variable required."</span>);
+                        <span class="prelude-val">Err</span>(<span class="macro">metadata_error!</span>(<span class="string">"width from metadata variable required"</span>))
                     }
                 } <span class="kw">else </span>{
-                    v.variable.general_width
+                    <span class="prelude-val">Ok</span>(v.variable.general_width)
                 }
             }
         }
@@ -457,6 +655,7 @@
 
 // If we want we can use the IpumsVariable categories to replace the numbers in the results (rows)
 // with category labels and use the data type and width information to better format the table.
+
 </span><span class="attr">#[derive(Clone, Debug, Serialize)]
 </span><span class="kw">pub struct </span>Table {
     <span class="kw">pub </span>heading: Vec&lt;OutputColumn&gt;, <span class="comment">// variable name columns
@@ -464,29 +663,10 @@
 }
 
 <span class="kw">impl </span>Table {
-    <span class="kw">pub fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>, format: TableFormat) -&gt; String {
-        <span class="kw">match </span>format {
-            TableFormat::Html | TableFormat::Csv =&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Output format not implemented yet."</span>)
-            }
-            TableFormat::Json =&gt; <span class="self">self</span>.format_as_json(),
-            TableFormat::TextTable =&gt; <span class="self">self</span>.formatAsText(),
-        }
-    }
-
-    <span class="kw">pub fn </span>format_as_json(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">match </span>serde_json::to_string_pretty(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-            <span class="prelude-val">Ok</span>(j) =&gt; j,
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">panic!</span>(<span class="string">"Cannot serialize result into json: {}"</span>, e);
-            }
-        }
-    }
-
-    <span class="kw">pub fn </span>formatAsText(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+    <span class="kw">pub fn </span>format_as_text(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
-        <span class="kw">let </span>widths = <span class="self">self</span>.column_widths();
-        <span class="kw">for </span>(column, v) <span class="kw">in </span><span class="self">self</span>.heading.iter().enumerate() {
+        <span class="kw">let </span>widths = <span class="self">self</span>.column_widths()<span class="question-mark">?</span>;
+        <span class="kw">for </span>(column, _v) <span class="kw">in </span><span class="self">self</span>.heading.iter().enumerate() {
             <span class="kw">let </span>name = <span class="self">self</span>.heading[column].name();
             <span class="kw">let </span>column_header = <span class="macro">format!</span>(<span class="string">"| {n:&gt;w$} "</span>, n = <span class="kw-2">&amp;</span>name, w = widths[column]);
             out.push_str(<span class="kw-2">&amp;</span>column_header);
@@ -494,7 +674,7 @@
         out.push_str(<span class="string">"|\n"</span>);
         out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
             <span class="string">"|{:}|"</span>,
-            str::repeat(<span class="kw-2">&amp;</span><span class="string">"-"</span>, <span class="self">self</span>.text_table_width() - <span class="number">2</span>)
+            str::repeat(<span class="kw-2">&amp;</span><span class="string">"-"</span>, <span class="self">self</span>.text_table_width()<span class="question-mark">? </span>- <span class="number">2</span>)
         ));
         out.push_str(<span class="string">"\n"</span>);
 
@@ -506,18 +686,18 @@
             }
             out.push_str(<span class="string">"|\n"</span>);
         }
-        <span class="kw">return </span>out;
+        <span class="prelude-val">Ok</span>(out)
     }
 
-    <span class="kw">pub fn </span>text_table_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">1 </span>+ <span class="number">3 </span>* <span class="self">self</span>.heading.len() + <span class="self">self</span>.column_widths().iter().sum::&lt;usize&gt;()
+    <span class="kw">pub fn </span>text_table_width(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, MdError&gt; {
+        <span class="prelude-val">Ok</span>(<span class="number">1 </span>+ <span class="number">3 </span>* <span class="self">self</span>.heading.len() + <span class="self">self</span>.column_widths()<span class="question-mark">?</span>.iter().sum::&lt;usize&gt;())
     }
 
-    <span class="kw">fn </span>column_widths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;usize&gt; {
+    <span class="kw">fn </span>column_widths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;usize&gt;, MdError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>widths = Vec::new();
-        <span class="kw">for </span>(column, var) <span class="kw">in </span><span class="self">self</span>.heading.iter().enumerate() {
+        <span class="kw">for </span>(_column, var) <span class="kw">in </span><span class="self">self</span>.heading.iter().enumerate() {
             <span class="kw">let </span>name_width = var.name().len();
-            <span class="kw">let </span>width = var.width();
+            <span class="kw">let </span>width = var.width()<span class="question-mark">?</span>;
             <span class="kw">if </span>name_width &lt; width {
                 widths.push(width);
             } <span class="kw">else </span>{
@@ -531,15 +711,16 @@
                         widths.push(name_width);
                     }
                 } else {
-                    panic!("Can't determine column width of data.");
+                    return Err(MdError::Msg("Can't determine column width of data.".to_string()));
                 }
             }
             */
         </span>}
-        widths
+        <span class="prelude-val">Ok</span>(widths)
     }
 
-    <span class="kw">fn </span>width_from_data(<span class="kw-2">&amp;</span><span class="self">self</span>, column: usize) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+    <span class="attr">#[allow(unused)]
+    </span><span class="kw">fn </span>width_from_data(<span class="kw-2">&amp;</span><span class="self">self</span>, column: usize) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
         <span class="self">self</span>.rows.iter().map(|r| r[column].len()).max()
     }
 
@@ -551,13 +732,51 @@
     }
 }
 
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>Tabulation(<span class="kw">pub </span>Vec&lt;Table&gt;);
+
+<span class="kw">impl </span>Tabulation {
+    <span class="kw">pub fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>, format: TableFormat) -&gt; <span class="prelude-ty">Result</span>&lt;String, MdError&gt; {
+        <span class="kw">let </span>output = <span class="kw">match </span>format {
+            TableFormat::Html | TableFormat::Csv =&gt; {
+                <span class="macro">todo!</span>(<span class="string">"Output format {:?} not implemented yet."</span>, format)
+            }
+            TableFormat::Json =&gt; <span class="kw">match </span>serde_json::to_string_pretty(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>) {
+                <span class="prelude-val">Ok</span>(output) =&gt; output,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
+                        <span class="string">"Cannot serialize result into json: {err}"
+                    </span>)));
+                }
+            },
+            TableFormat::TextTable =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>output = String::new();
+                <span class="kw">for </span>table <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+                    <span class="kw">let </span>table_text = table.format_as_text()<span class="question-mark">?</span>;
+                    output.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{table_text}\n"</span>));
+                }
+                output
+            }
+        };
+
+        <span class="prelude-val">Ok</span>(output)
+    }
+
+    <span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; Vec&lt;Table&gt; {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
+}
+
 <span class="doccomment">/// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
-/// the request.Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
+/// the request. Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
 /// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
 /// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
 /// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
-</span><span class="kw">pub fn </span>tabulate(ctx: <span class="kw-2">&amp;</span>Context, rq: <span class="kw">impl </span>DataRequest) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Table&gt;, String&gt; {
-    <span class="kw">let </span>requested_output_columns = <span class="kw-2">&amp;</span>rq
+</span><span class="kw">pub fn </span>tabulate&lt;R&gt;(ctx: <span class="kw-2">&amp;</span>Context, rq: R) -&gt; <span class="prelude-ty">Result</span>&lt;Tabulation, MdError&gt;
+<span class="kw">where
+    </span>R: DataRequest,
+{
+    <span class="kw">let </span>requested_output_columns = rq
         .get_request_variables()
         .iter()
         .map(|v| OutputColumn::RequestVar(v.clone()))
@@ -565,20 +784,13 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>tables: Vec&lt;Table&gt; = Vec::new();
     <span class="kw">let </span>sql_queries = tab_queries(ctx, rq, <span class="kw-2">&amp;</span>InputType::Parquet, <span class="kw-2">&amp;</span>DataPlatform::Duckdb)<span class="question-mark">?</span>;
-    <span class="kw">let </span>conn = <span class="kw">match </span>Connection::open_in_memory() {
-        <span class="prelude-val">Ok</span>(c) =&gt; c,
-        <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, e)),
-    };
+    <span class="kw">let </span>conn = Connection::open_in_memory()<span class="question-mark">?</span>;
     <span class="kw">for </span>q <span class="kw">in </span>sql_queries {
-        <span class="kw">let </span><span class="kw-2">mut </span>stmt = <span class="kw">match </span>conn.prepare(<span class="kw-2">&amp;</span>q) {
-            <span class="prelude-val">Ok</span>(results) =&gt; results,
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, e)),
-        };
-
-        <span class="kw">let </span><span class="kw-2">mut </span>rows = <span class="kw">match </span>stmt.query([]) {
-            <span class="prelude-val">Ok</span>(r) =&gt; r,
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, e)),
-        };
+        <span class="kw">if </span>DEBUG {
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>q);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(<span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>rows = stmt.query([])<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>output = Table {
             heading: Vec::new(),
@@ -596,7 +808,7 @@
         });
         output.heading.extend(requested_output_columns.clone());
 
-        <span class="kw">while let </span><span class="prelude-val">Some</span>(row) = rows.next().expect(<span class="string">"Error reading row."</span>) {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(row) = rows.next()<span class="question-mark">? </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>this_row = Vec::new();
             <span class="comment">// Must do this here on row rather than getting column_names() from
             // stmt.column_names() because of a bug in the DuckDB API -- it
@@ -604,13 +816,22 @@
             // See https://github.com/duckdb/duckdb-rs/issues/251
             </span><span class="kw">let </span>column_names = row.as_ref().column_names();
             <span class="kw">for </span>(column_number, column_name) <span class="kw">in </span>column_names.iter().enumerate() {
-                <span class="kw">let </span>item: usize = <span class="kw">match </span>row.get(column_number) {
+                <span class="comment">/*
+                // Leaving this here as a reminder of how to debug the DuckDB result
+                // set values; it's different than Rqlite.
+                match row.get_ref(column_number) {
+                    Ok(d) =&gt;println!("{}: {:?}", &amp;column_name, &amp;d),
+                    Err(e) =&gt; println!("{}: error: {}", &amp;column_name, e),
+
+                }
+                */
+                </span><span class="kw">let </span>item: isize = <span class="kw">match </span>row.get(column_number) {
                     <span class="prelude-val">Ok</span>(i) =&gt; i,
                     <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(MdError::Msg(<span class="macro">format!</span>(
                             <span class="string">"Can't extract value for '{}', error was '{}'"</span>,
                             <span class="kw-2">&amp;</span>column_name, e
-                        ))
+                        )))
                     }
                 };
                 this_row.push(<span class="macro">format!</span>(<span class="string">"{}"</span>, item));
@@ -620,19 +841,180 @@
         tables.push(output);
     }
 
-    <span class="prelude-val">Ok</span>(tables)
+    <span class="prelude-val">Ok</span>(Tabulation(tables))
 }
 
-<span class="kw">mod </span>test {
-
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::request::SimpleRequest;
+    <span class="kw">use </span><span class="kw">crate</span>::request::{AbacusRequest, SimpleRequest};
+    <span class="kw">use </span>std::time::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_tabulation() {
+    </span><span class="kw">fn </span>test_complex_tabulation() {
+        <span class="kw">let </span>tabtime = Instant::now();
+        <span class="kw">let </span>json_request = <span class="macro">include_str!</span>(<span class="string">"../tests/requests/incwage_marst_example.json"</span>);
+
+        <span class="kw">let </span>(ctx, rq) = AbacusRequest::try_from_json(<span class="kw-2">&amp;</span>json_request)
+            .expect(<span class="string">"Error loading test context and deserializing test request."</span>);
+
+        <span class="comment">//println!("Codebook: {}", rq.print_codebook());
+
+        </span><span class="kw">let </span>result = tabulate(<span class="kw-2">&amp;</span>ctx, rq);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = result {
+            <span class="macro">eprintln!</span>(<span class="string">"Error setting up test: {:?}"</span>, e);
+        }
+        <span class="macro">println!</span>(<span class="string">"Test tabulation took {} ms"</span>, tabtime.elapsed().as_millis());
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tab) = result {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(output) = tab.output(TableFormat::TextTable) {
+                <span class="macro">println!</span>(<span class="string">"{output}"</span>);
+            }
+
+            <span class="kw">let </span>tables = tab.into_inner();
+            <span class="macro">assert_eq!</span>(<span class="number">2</span>, tables.len());
+
+            <span class="kw">for </span>(index, table) <span class="kw">in </span>tables.iter().enumerate() {
+                <span class="comment">// There are some category combinations  rare enough not to exist on every sample
+                </span><span class="kw">if </span>index == <span class="number">0 </span>{
+                    <span class="macro">assert_eq!</span>(
+                        <span class="number">79</span>,
+                        table.rows.len(),
+                        <span class="string">"6 marst X 15 incwage - a few combinations"
+                    </span>);
+                }
+                <span class="kw">if </span>index == <span class="number">1 </span>{
+                    <span class="macro">assert_eq!</span>(
+                        <span class="number">77</span>,
+                        table.rows.len(),
+                        <span class="string">"6 marst X 15 incwage - a few combinations"
+                    </span>);
+                }
+            }
+        }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_subpopulation() {
+        <span class="kw">let </span>json_request =
+            <span class="macro">include_str!</span>(<span class="string">"../tests/requests/single_condition_subpop_abacus_request.json"</span>);
+
+        <span class="kw">let </span>(ctx, rq) = AbacusRequest::try_from_json(json_request)
+            .expect(<span class="string">"Error loading test context and deserializing test request."</span>);
+
+        <span class="kw">let </span>result = tabulate(<span class="kw-2">&amp;</span>ctx, rq);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = result {
+            <span class="macro">eprintln!</span>(<span class="string">"Error setting up test: {:?}"</span>, e);
+        }
+
+        <span class="macro">assert!</span>(result.is_ok());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tab) = result {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(output) = tab.output(TableFormat::TextTable) {
+                <span class="macro">println!</span>(<span class="string">"{output}"</span>);
+            }
+
+            <span class="kw">let </span>tables = tab.into_inner();
+            <span class="kw">for </span>table <span class="kw">in </span>tables {
+                <span class="comment">// Three categories of SCHOOL
+                </span><span class="macro">assert_eq!</span>(<span class="number">3</span>, table.rows.len(), <span class="string">"Three SCHOOL categories"</span>);
+            }
+        }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_sample_line_weights() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us1940a"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"VETSTAT"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .expect(
+            <span class="string">"Setting up this request and context is for a subsequent test and should always work."</span>,
+        );
+
+        <span class="kw">let </span>result = tabulate(<span class="kw-2">&amp;</span>ctx, rq);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = result {
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, e);
+        }
+
+        <span class="macro">assert!</span>(result.is_ok(), <span class="string">"Should have tabulated."</span>);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tab) = result {
+            <span class="kw">let </span>tables = tab.into_inner();
+            <span class="macro">assert_eq!</span>(<span class="number">1</span>, tables.len());
+            <span class="kw">for </span>t <span class="kw">in </span>tables {
+                <span class="macro">println!</span>(
+                    <span class="string">"{}"</span>,
+                    t.format_as_text()
+                        .expect(<span class="string">"should be able to format as text"</span>)
+                );
+                <span class="macro">assert_eq!</span>(<span class="number">4</span>, t.rows.len());
+                <span class="macro">assert_eq!</span>(<span class="number">3</span>, t.rows[<span class="number">0</span>].len());
+
+                <span class="macro">assert_eq!</span>(
+                    <span class="string">"98"</span>, t.rows[<span class="number">0</span>][<span class="number">0</span>],
+                    <span class="string">"Should be the number of person records in the data for this category."
+                </span>);
+
+                <span class="macro">assert_eq!</span>(<span class="string">"42300"</span>, t.rows[<span class="number">0</span>][<span class="number">1</span>], <span class="string">"98 should get weighted to 42300"</span>);
+            }
+        }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_hh_only() {
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
+        <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
+            <span class="string">"usa"</span>,
+            <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
+            <span class="kw-2">&amp;</span>[<span class="string">"GQ"</span>, <span class="string">"STATEFIP"</span>],
+            <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(data_root),
+        )
+        .expect(
+            <span class="string">"Setting up this request and context is for a subsequent test and should always work."</span>,
+        );
+
+        <span class="macro">println!</span>(<span class="string">"Tab with only hh vars:"</span>);
+
+        <span class="kw">let </span>result = tabulate(<span class="kw-2">&amp;</span>ctx, rq);
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = result {
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, e);
+        }
+
+        <span class="macro">assert!</span>(result.is_ok(), <span class="string">"Should have tabulated."</span>);
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tab) = result {
+            <span class="kw">let </span>tables = tab.into_inner();
+            <span class="macro">assert_eq!</span>(<span class="number">1</span>, tables.len());
+            <span class="kw">for </span>t <span class="kw">in </span>tables {
+                <span class="macro">println!</span>(
+                    <span class="string">"{}"</span>,
+                    t.format_as_text()
+                        .expect(<span class="string">"should be able to format as text"</span>)
+                );
+                <span class="macro">assert_eq!</span>(<span class="number">4</span>, t.rows.len());
+                <span class="macro">assert_eq!</span>(<span class="number">4</span>, t.rows[<span class="number">0</span>].len());
+                <span class="comment">// The unweighted count of people in GQ == 1 in PR
+                </span><span class="macro">assert_eq!</span>(
+                    <span class="string">"29846"</span>, t.rows[<span class="number">0</span>][<span class="number">0</span>],
+                    <span class="string">"Should be the number of person records in the data, not number of households."
+                </span>);
+
+                <span class="comment">// The STATEFIP code should be 72 for PR
+                </span><span class="macro">assert_eq!</span>(<span class="string">"72"</span>, t.rows[<span class="number">0</span>][<span class="number">3</span>]);
+            }
+        }
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_basic_tabulation() {
         <span class="kw">let </span>start = Instant::now();
 
-        <span class="kw">let </span>data_root = String::from(<span class="string">"test/data_root"</span>);
+        <span class="kw">let </span>data_root = String::from(<span class="string">"tests/data_root"</span>);
         <span class="kw">let </span>(ctx, rq) = SimpleRequest::from_names(
             <span class="string">"usa"</span>,
             <span class="kw-2">&amp;</span>[<span class="string">"us2015b"</span>],
@@ -640,6 +1022,9 @@
             <span class="prelude-val">Some</span>(<span class="string">"P"</span>.to_string()),
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(data_root),
+        )
+        .expect(
+            <span class="string">"Setting up this request and context is for a subsequent test and should always work."</span>,
         );
 
         <span class="macro">println!</span>(
@@ -656,10 +1041,15 @@
         }
 
         <span class="macro">assert!</span>(result.is_ok(), <span class="string">"Should have tabulated."</span>);
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tables) = result {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(tab) = result {
+            <span class="kw">let </span>tables = tab.into_inner();
             <span class="macro">assert_eq!</span>(<span class="number">1</span>, tables.len());
             <span class="kw">for </span>t <span class="kw">in </span>tables {
-                <span class="macro">println!</span>(<span class="string">"{}"</span>, t.formatAsText());
+                <span class="macro">println!</span>(
+                    <span class="string">"{}"</span>,
+                    t.format_as_text()
+                        .expect(<span class="string">"should be able to format as text"</span>)
+                );
                 <span class="macro">assert_eq!</span>(<span class="number">18</span>, t.rows.len());
                 <span class="macro">assert_eq!</span>(<span class="number">4</span>, t.rows[<span class="number">0</span>].len());
             }

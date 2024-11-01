@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TableFormat"],"fn":["tabulate"],"struct":["Table"]};
+window.SIDEBAR_ITEMS = {"enum":["OutputColumn","TableFormat"],"fn":["tabulate"],"struct":["Table","Tabulation"]};

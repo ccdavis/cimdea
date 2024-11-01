@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["global","shared"],"struct":["Pooled"],"trait":["PoolKind"]};
