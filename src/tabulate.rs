@@ -393,6 +393,49 @@ mod test {
     }
 
     #[test]
+    fn test_sample_line_weights() {
+        let data_root = String::from("tests/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us1940a"],
+            &["VETSTAT"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect(
+            "Setting up this request and context is for a subsequent test and should always work.",
+        );
+
+        let result = tabulate(&ctx, rq);
+        if let Err(ref e) = result {
+            println!("{}", e);
+        }
+
+        assert!(result.is_ok(), "Should have tabulated.");
+        if let Ok(tab) = result {
+            let tables = tab.into_inner();
+            assert_eq!(1, tables.len());
+            for t in tables {
+                println!(
+                    "{}",
+                    t.format_as_text()
+                        .expect("should be able to format as text")
+                );
+                assert_eq!(4, t.rows.len());
+                assert_eq!(3, t.rows[0].len());
+
+                assert_eq!(
+                    "98", t.rows[0][0],
+                    "Should be the number of person records in the data for this category."
+                );
+
+                assert_eq!("42300", t.rows[0][1], "98 should get weighted to 42300");
+            }
+        }
+    }
+
+    #[test]
     fn test_hh_only() {
         let data_root = String::from("tests/data_root");
         let (ctx, rq) = SimpleRequest::from_names(
