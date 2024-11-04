@@ -117,7 +117,14 @@ impl OutputColumn {
                         Err(metadata_error!("width from metadata variable required"))
                     }
                 } else {
-                    Ok(v.variable.general_width)
+                    if let Some(general_width) = v.variable.general_width {
+                        Ok(general_width)
+                    } else {
+                        Err(MdError::Msg(format!(
+                            "cannot determine general width for variable {}",
+                            self.name()
+                        )))
+                    }
                 }
             }
         }

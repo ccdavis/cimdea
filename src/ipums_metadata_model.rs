@@ -89,7 +89,7 @@ pub struct IpumsVariable {
     pub record_type: String, // a value like 'H', 'P'
     pub categories: Option<Vec<IpumsCategory>>,
     pub formatting: Option<(usize, usize)>,
-    pub general_width: usize,
+    pub general_width: Option<usize>,
     pub description: Option<ComprString>,
     pub category_bins: Option<Vec<CategoryBin>>,
     pub id: IpumsVariableId, // auto-assigned in load order
@@ -106,7 +106,7 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             categories: None,
             category_bins: None,
             formatting: Some((value.0.start, value.0.width)),
-            general_width: value.0.width,
+            general_width: None,
             description: None,
         }
     }
@@ -275,5 +275,35 @@ mod test {
                 "data type '{data_type:?}' should round trip to a string and back unchanged"
             );
         }
+    }
+
+    /// Layout variables have information on detailed widths, but not on general
+    /// widths. So if we create an IpumsVariable from a LayoutVar, we won't have
+    /// a general width.
+    #[test]
+    fn test_ipums_variable_cannot_determine_general_width_from_layout_variable() {
+        let layout_var = LayoutVar {
+            name: "RELATE".to_string(),
+            rectype: "P".to_string(),
+            start: 54,
+            // This is the detailed width of RELATE
+            width: 4,
+            col: 0,
+            data_type: IpumsDataType::Integer,
+        };
+        let ipums_var = IpumsVariable::from((&layout_var, 1));
+        let formatting = ipums_var.formatting.expect("should have formatting data");
+
+        assert_eq!(formatting.0, 54, "start should be 54, got {}", formatting.0);
+        assert_eq!(
+            formatting.1, 4,
+            "detailed width should be 4, got {}",
+            formatting.1
+        );
+        assert_eq!(
+            ipums_var.general_width, None,
+            "general width should be None, got {:?}",
+            ipums_var.general_width
+        );
     }
 }

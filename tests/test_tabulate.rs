@@ -82,6 +82,43 @@ fn test_no_category_bins_subpop_h_variable() {
     key.check(&table);
 }
 
+/// The variable RELATE has a detailed version which has a width of 4 bytes and
+/// a general version with a width of 2 bytes. When a request specifies the general
+/// version for RELATE, the results are aggregated on the general codes, which
+/// each have width 2.
+#[test]
+fn test_general_selection_for_general_detailed_variable() {
+    let input_json = include_str!("requests/relate_general_detailed.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("tabulation should run without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "RELATE"],
+        rows: [
+            [12408, 1221850, 1],
+            [4844, 471843, 2],
+            [8757, 1249147, 3],
+            [205, 30813, 4],
+            [351, 47899, 5],
+            [53, 7590, 6],
+            [392, 54531, 7],
+            [31, 3992, 8],
+            [1297, 161163, 9],
+            [358, 46511, 10],
+            [1006, 117082, 11],
+            [478, 36484, 12],
+            [587, 25277, 13],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table. Has its own tests in this file.

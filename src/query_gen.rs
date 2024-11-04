@@ -161,7 +161,7 @@ impl TabBuilder {
             }
             select_clause += &if rq.is_general() {
                 format!(
-                    ", {}/{} as {}",
+                    ", {}//{} as {}",
                     &rq.variable.name, &rq.general_divisor, &rq.name
                 )
             } else if rq.is_bucketed() {
@@ -324,7 +324,14 @@ impl TabBuilder {
 
         let vars_in_order = self.help_final_var_aliases(&request_variables);
 
-        let group_by_clause = vars_in_order.join(", ");
+        /// The first column in the query that is a request variable. Column 1
+        /// is ct and column 2 is weighted_ct.
+        const FIRST_RQV_COLUMN: usize = 3;
+        let group_by_columns: Vec<_> = (0..vars_in_order.len())
+            .map(|index| index + FIRST_RQV_COLUMN)
+            .map(|x| x.to_string())
+            .collect();
+        let group_by_clause = group_by_columns.join(", ");
         let order_by_clause = vars_in_order.join(", ");
 
         if let Some(ref conds) = conditions {

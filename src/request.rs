@@ -94,7 +94,10 @@ impl RequestVariable {
         category_bins: &Option<&Vec<CategoryBin>>,
         input_rq: input_schema_tabulation::RequestVariable,
     ) -> Result<Self, MdError> {
-        let var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
+        let mut var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
+        // Currently we determine the general width from the input request, not
+        // from metadata
+        var.general_width = Some(input_rq.extract_width);
         let mut rq = Self::try_from_ipums_variable(&var, input_rq.general_detailed_selection)?;
 
         // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
@@ -119,24 +122,34 @@ impl RequestVariable {
         var: &IpumsVariable,
         use_general: GeneralDetailedSelection,
     ) -> Result<Self, MdError> {
+        if use_general == GeneralDetailedSelection::General && var.general_width == None {
+            return Err(MdError::Msg(format!(
+                "requested the general version of variable {} which has no general width",
+                var.name
+            )));
+        }
         let general_divisor: usize = if let Some((_, w)) = var.formatting {
-            if w == var.general_width {
-                1
-            } else if var.general_width < w {
-                // We could avoid this unwrap() by using u32s instead of usizes
-                // during parsing and metadata loading. But as it is, this is
-                // technically a fallible conversion. It's not likely to fail
-                // with normal metadata; we'd need to overflow a u32.
-                let exponent: u32 = (w - var.general_width).try_into().unwrap();
-                let base: usize = 10;
-                base.pow(exponent)
+            if let Some(general_width) = var.general_width {
+                if w == general_width {
+                    1
+                } else if general_width < w {
+                    // We could avoid this unwrap() by using u32s instead of usizes
+                    // during parsing and metadata loading. But as it is, this is
+                    // technically a fallible conversion. It's not likely to fail
+                    // with normal metadata; we'd need to overflow a u32.
+                    let exponent: u32 = (w - general_width).try_into().unwrap();
+                    let base: usize = 10;
+                    base.pow(exponent)
+                } else {
+                    return Err(metadata_error!(
+                        "variable {} has general width {}, which is larger than its detailed width {}",
+                        var.name,
+                        general_width,
+                        w
+                    ));
+                }
             } else {
-                return Err(metadata_error!(
-                    "variable {} has general width {}, which is larger than its detailed width {}",
-                    var.name,
-                    var.general_width,
-                    w
-                ));
+                1
             }
         } else {
             1
@@ -151,7 +164,7 @@ impl RequestVariable {
             attached_variable_pointer: None,
             category_bins: var.category_bins.clone(),
             extract_start: None,
-            extract_width: None,
+            extract_width: var.general_width,
         })
     }
 
@@ -917,7 +930,7 @@ mod test {
             formatting: Some((100, 4)),
             // This is invalid because it's greater than the width in the formatting
             // field. This will cause the error later.
-            general_width: 5,
+            general_width: Some(5),
             description: None,
             category_bins: None,
         };
@@ -937,7 +950,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: Some((100, 4)),
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };
@@ -961,7 +974,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: Some((5, 2)),
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };
@@ -985,7 +998,7 @@ mod test {
             record_type: "P".to_string(),
             categories: None,
             formatting: None,
-            general_width: 2,
+            general_width: Some(2),
             description: None,
             category_bins: None,
         };
@@ -996,6 +1009,60 @@ mod test {
         assert_eq!(
             rqv.general_divisor, 1,
             "expected a general divisor of 1 because there was no detailed width provided"
+        );
+    }
+
+    /// It's not a problem if we don't know the variable's general width, but we
+    /// request its detailed version.
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_general_width_use_detailed() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: None,
+            description: None,
+            category_bins: None,
+        };
+
+        let rqv =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::Detailed)
+                .expect("should convert into a RequestVariable");
+
+        let detailed_width = rqv
+            .detailed_width()
+            .expect("should be able to get detailed width");
+        assert_eq!(detailed_width, 2);
+        rqv.general_width()
+            .expect_err("general width should not be available");
+    }
+
+    /// It's an error if we don't know the variable's general width, and we still
+    /// request the general version of the variable.
+    #[test]
+    fn test_request_variable_from_ipums_variable_no_general_width_use_general() {
+        let variable = IpumsVariable {
+            id: 0,
+            name: "AGE".to_string(),
+            data_type: None,
+            label: None,
+            record_type: "P".to_string(),
+            categories: None,
+            formatting: Some((5, 2)),
+            general_width: None,
+            description: None,
+            category_bins: None,
+        };
+
+        let result =
+            RequestVariable::try_from_ipums_variable(&variable, GeneralDetailedSelection::General);
+        result.expect_err(
+            "should not convert into a RequestVariable because we don't have a \
+            general width but requested the general version of the variable",
         );
     }
 }
