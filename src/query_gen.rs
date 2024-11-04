@@ -30,6 +30,12 @@ struct TabBuilder {
     input_format: InputType,
     dataset: String,
     data_sources: HashMap<String, DataSource>,
+    // If doing only an unweighted count you need to filter by SELFWTSL
+    // in us1940a; for a weighted count apply SLWT instead of PERWT if
+    // any variables are sample line questions.
+    // It doesn't seem possible to return both an accurate  unweighted count
+    // and a accurately weighted count for us1940a in one request.
+    unweighted_count_only: bool,
 }
 
 impl TabBuilder {
@@ -45,6 +51,7 @@ impl TabBuilder {
             dataset: dataset.to_string(),
             platform: platform.clone(),
             input_format: input_format.clone(),
+            unweighted_count_only: false,
         })
     }
 
@@ -185,8 +192,11 @@ impl TabBuilder {
     fn should_use_selfwtsl(&self, ctx: &Context) -> bool {
         self.should_use_sample_line_weights(ctx)
             && matches!(self.dataset.to_lowercase().as_ref(), "us1940a")
+            && self.unweighted_count_only
     }
 
+    // This only matters when doing an unweighted count on us1940a -- SELFWTSL is necessary
+    // to get a flat sample if you aren't applying weights.
     fn help_conditions_with_selfwtsl_filter(
         &self,
         ctx: &Context,

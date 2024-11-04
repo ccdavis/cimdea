@@ -432,12 +432,16 @@ mod test {
                 assert_eq!(4, t.rows.len());
                 assert_eq!(3, t.rows[0].len());
 
+                // The counts of rows should add up to all the rows
+                // in the test person file, about 1% of the 1% sample.
+                // Previously I had '98' because I was wrongly applying
+                // the SELFWTSL == 2 filter before counting.
                 assert_eq!(
-                    "98", t.rows[0][0],
+                    "1118", t.rows[0][0],
                     "Should be the number of person records in the data for this category."
                 );
 
-                assert_eq!("42300", t.rows[0][1], "98 should get weighted to 42300");
+                assert_eq!("76100", t.rows[0][1], "98 should get weighted to 42300");
             }
         }
     }
