@@ -19,6 +19,7 @@ encoding = "*"
 serde ={version =  "1.0.201", features=["derive"]}
 serde_json = "1.0.117"
 clap = {version="4.0.0", features=["derive"]}
+glob = "0.3.1"
 
 [dev-dependencies]
 criterion = {version = "0.5", features = ["html_reports"]}

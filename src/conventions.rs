@@ -34,6 +34,7 @@ use crate::layout;
 use crate::mderror::{metadata_error, MdError};
 use crate::request::InputType;
 
+use glob::glob;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -187,7 +188,9 @@ impl MicroDataCollection {
         todo!("implement");
     }
 
-    pub fn clear_metadata(&mut self) {}
+    pub fn clear_metadata(&mut self) {
+        todo!("Implemented.");
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -390,6 +393,81 @@ pub struct Context {
 }
 
 impl Context {
+    fn help_get_all_layout_files_and_datasets(
+        &self,
+        data_root: Option<PathBuf>,
+    ) -> Result<Vec<(String, PathBuf)>, MdError> {
+        let chosen_data_root = if data_root.is_some() {
+            data_root
+        } else {
+            self.data_root.clone()
+        };
+        let Some(use_data_root) = chosen_data_root else {
+            return Err(MdError::Msg(format!(
+                "Must supply some value for the data root."
+            )));
+        };
+
+        let layouts_path = use_data_root.to_path_buf().join("layouts");
+        let search_pattern = layouts_path.join("*.layout.txt");
+
+        let layout_files = match glob(&search_pattern.to_string_lossy()) {
+            Ok(l) => l,
+            // A PatternError gets returned
+            Err(e) => return Err(MdError::Msg(e.to_string())),
+        };
+
+        let mut layout_paths: Vec<(String, PathBuf)> = Vec::new();
+
+        for l in layout_files {
+            match l {
+                Ok(actual_layout) => {
+                    layout_paths.push((
+                        actual_layout
+                            .to_string_lossy()
+                            .strip_suffix(".layout.txt")
+                            .expect("Can't unwrap String from a dataset PathBuf.")
+                            .to_owned(),
+                        layouts_path.join(PathBuf::from(actual_layout)),
+                    ));
+                }
+                Err(e) => return Err(MdError::Msg(format!("Error getting layout: {}", e))),
+            }
+        }
+        Ok(layout_paths)
+    }
+
+    pub fn discover_datasets_from_output_data(
+        &self,
+        data_root: Option<PathBuf>,
+    ) -> Result<Vec<String>, MdError> {
+        let datasets = self.help_get_all_layout_files_and_datasets(data_root)?;
+        Ok(datasets.iter().map(|p| p.0.clone()).collect())
+    }
+
+    pub fn discover_record_types_from_layouts(
+        &self,
+        data_root: Option<PathBuf>,
+    ) -> Result<HashSet<String>, MdError> {
+        let datasets = self.help_get_all_layout_files_and_datasets(data_root)?;
+        let mut rectypes = HashSet::new();
+        for (_dataset, layout_path) in datasets {
+            let layout = layout::DatasetLayout::try_from_layout_file(&layout_path)?;
+            for rt in layout.record_types() {
+                rectypes.insert(rt);
+            }
+        }
+
+        Ok(rectypes)
+    }
+
+    pub fn load_settings_from_discovered_data(&mut self) -> Result<(), MdError> {
+        let datasets = self.discover_datasets_from_output_data(None)?;
+        let dataset_refs: Vec<&str> = datasets.iter().map(AsRef::as_ref).collect();
+        self.load_metadata_for_datasets(&dataset_refs)?;
+        Ok(())
+    }
+
     // Convenience method mostly for testing
     pub fn get_md_variable_by_name(&self, name: &str) -> Result<IpumsVariable, MdError> {
         if let Some(ref md) = self.settings.metadata {
@@ -547,6 +625,28 @@ impl Context {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+
+    pub fn test_discover() {
+        let data_root = Some(String::from("test/data_root"));
+        let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
+
+        let datasets = usa_ctx.discover_datasets_from_output_data(None);
+        assert!(datasets.is_ok());
+        if let Ok(ds) = datasets {
+            assert_eq!(255, ds.len());
+        }
+        let rectypes = usa_ctx.discover_record_types_from_layouts(None);
+        assert!(rectypes.is_ok());
+        if let Ok(rt) = rectypes {
+            assert!(rt.contains("H"));
+            assert!(rt.contains("P"));
+            assert_eq!(2, rt.len());
+        }
+    }
+
     #[test]
     pub fn test_context() {
         // Look in test directory
