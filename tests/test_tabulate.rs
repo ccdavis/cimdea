@@ -148,6 +148,45 @@ fn test_general_selection_for_general_detailed_variable() {
     key.check(&table);
 }
 
+/// The variable FTOTINC is a P variable, and in this request it has 17 category
+/// bins.
+#[test]
+fn test_category_bins_no_subpops() {
+    let input_json = include_str!("requests/ftotinc_category_bins_no_subpops.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should be able to tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "FTOTINC"],
+        rows: [
+            [908, 40725, 0],
+            [7532, 880096, 1],
+            [3264, 371129, 2],
+            [2871, 327968, 3],
+            [2355, 271148, 4],
+            [1821, 214895, 5],
+            [1803, 200163, 6],
+            [1565, 179681, 7],
+            [1342, 147771, 8],
+            [1118, 126565, 9],
+            [1682, 190799, 10],
+            [1601, 195258, 11],
+            [1334, 155015, 12],
+            [608, 65219, 13],
+            [243, 29161, 14],
+            [179, 18680, 15],
+            [541, 59909, 16],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table. Has its own tests in this file.
