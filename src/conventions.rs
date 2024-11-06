@@ -38,6 +38,7 @@ use glob::glob;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+const DEBUG: bool = true;
 
 /// Key characteristics of collections like all USA Census data, all Time-Use Survey data etc.
 ///
@@ -410,6 +411,7 @@ impl Context {
 
         let layouts_path = use_data_root.to_path_buf().join("layouts");
         let search_pattern = layouts_path.join("*.layout.txt");
+        if DEBUG{println!("search pattern: {}", &search_pattern.display());}
 
         let layout_files = match glob(&search_pattern.to_string_lossy()) {
             Ok(l) => l,
@@ -629,14 +631,14 @@ mod test {
     #[test]
 
     pub fn test_discover() {
-        let data_root = Some(String::from("test/data_root"));
+        let data_root = Some(String::from("tests/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
             .expect("should be able to create USA context");
 
         let datasets = usa_ctx.discover_datasets_from_output_data(None);
         assert!(datasets.is_ok());
         if let Ok(ds) = datasets {
-            assert_eq!(255, ds.len());
+            assert_eq!(146, ds.len());
         }
         let rectypes = usa_ctx.discover_record_types_from_layouts(None);
         assert!(rectypes.is_ok());
@@ -650,7 +652,7 @@ mod test {
     #[test]
     pub fn test_context() {
         // Look in test directory
-        let data_root = Some(String::from("test/data_root"));
+        let data_root = Some(String::from("tests/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
             .expect("should be able to create USA context");
 
@@ -681,7 +683,7 @@ mod test {
 
     #[test]
     pub fn test_paths_for_dataset_names() {
-        let data_root = Some(String::from("test/data_root"));
+        let data_root = Some(String::from("tests/data_root"));
         let usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
             .expect("should be able to create USA context");
         let paths_by_rectype = usa_ctx
@@ -693,7 +695,7 @@ mod test {
         assert!(household_path.is_some(), "should have a household path");
         if let Some(ref p) = person_path {
             assert_eq!(
-                "test/data_root/parquet/us2015b/us2015b_usa.P.parquet",
+                "tests/data_root/parquet/us2015b/us2015b_usa.P.parquet",
                 &p.to_string_lossy()
             );
         }
