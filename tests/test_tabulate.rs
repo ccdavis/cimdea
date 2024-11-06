@@ -82,6 +82,35 @@ fn test_no_category_bins_subpop_h_variable() {
     key.check(&table);
 }
 
+/// This request has a complex subpopulation of "METRO (an H variable) is either
+/// 1 or 3, and SEX (a P variable) is 2".
+#[test]
+fn test_no_category_bins_complex_subpop() {
+    let input_json = include_str!("requests/no_category_bins_complex_subpop.json");
+
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("tabulation should run without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "MARST"],
+        rows: [
+            [2270, 234510, 1],
+            [127, 016015, 2],
+            [186, 23503, 3],
+            [922, 104773, 4],
+            [752, 66727, 5],
+            [2663, 365164, 6],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// The variable RELATE has a detailed version which has a width of 4 bytes and
 /// a general version with a width of 2 bytes. When a request specifies the general
 /// version for RELATE, the results are aggregated on the general codes, which
