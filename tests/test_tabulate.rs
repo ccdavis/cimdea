@@ -334,6 +334,45 @@ fn test_multiple_request_samples() {
     key_us2016b.check(&table_us2016b);
 }
 
+/// This test tabulates the two variables GQ and UHRSWORK. GQ does not have
+/// category bins applied, but UHRSWORK does. There is no subpopulation requested.
+#[test]
+fn test_multiple_variables_mixed_category_bins_no_subpops() {
+    let input_json =
+        include_str!("requests/multiple_variables_mixed_category_bins_no_subpops.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "GQ", "UHRSWORK"],
+        rows: [
+            [20527, 2328045, 1, 0],
+            [549, 60884, 1, 1],
+            [2318, 279919, 1, 2],
+            [6452, 762702, 1, 3],
+            [19, 2369, 2, 0],
+            [2, 435, 2, 1],
+            [1, 112, 2, 2],
+            [2, 256, 2, 3],
+            [484, 21902, 3, 0],
+            [8, 258, 3, 1],
+            [38, 1257, 3, 2],
+            [57, 1860, 3, 3],
+            [242, 10719, 4, 0],
+            [15, 676, 4, 1],
+            [37, 1850, 4, 2],
+            [16, 938, 4, 3],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table.
@@ -349,6 +388,9 @@ struct KeyTable<'a, const W: usize, const H: usize> {
 
 impl<'a, const W: usize, const H: usize> KeyTable<'a, W, H> {
     pub fn check(&self, table: &Table) {
+        dbg!(self);
+        dbg!(table);
+
         self.check_heading(table);
         self.check_row_dimensions(table);
         self.check_row_entries(table);
