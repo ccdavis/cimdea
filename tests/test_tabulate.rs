@@ -255,6 +255,48 @@ fn test_category_bins_subpop_h_variable() {
     key.check(&table);
 }
 
+/// This test tabulates the FTOTINC variable with category bins and a fairly
+/// complex subpopulation. The subpopulation is "people who don't live on a farm, and
+/// whose educational attainment is either Grade 12 or 1-4 years of college".
+/// This subpopulation involves the H variable FARM and multiple conditions on
+/// the P variable EDUC.
+#[test]
+fn test_category_bins_complex_subpop() {
+    let input_json = include_str!("requests/ftotinc_category_bins_complex_subpop.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should be able to tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "FTOTINC"],
+        rows: [
+            [438, 18273, 0],
+            [3464, 397424, 1],
+            [1721, 191838, 2],
+            [1674, 191139, 3],
+            [1447, 161257, 4],
+            [1195, 139253, 5],
+            [1164, 127114, 6],
+            [1077, 121966, 7],
+            [885, 96782, 8],
+            [749, 84157, 9],
+            [1118, 125347, 10],
+            [1042, 125185, 11],
+            [838, 96101, 12],
+            [377, 39820, 13],
+            [142, 17098, 14],
+            [84, 8735, 15],
+            [265, 29556, 16],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table. Has its own tests in this file.
