@@ -297,9 +297,46 @@ fn test_category_bins_complex_subpop() {
     key.check(&table);
 }
 
+/// Each request sample gets its own output table.
+#[test]
+fn test_multiple_request_samples() {
+    let input_json = include_str!("requests/multiple_request_samples.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should run tabulation without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 2, "expected exactly 2 output tables");
+    let table_us2015b = tables[0].clone();
+    let table_us2016b = tables[1].clone();
+
+    let key_us2015b = KeyTable {
+        column_names: ["ct", "weighted_ct", "CINETHH"],
+        rows: [
+            [897, 39460, 0],
+            [17698, 2042631, 1],
+            [1262, 162305, 2],
+            [10910, 1229786, 3],
+        ],
+    };
+
+    let key_us2016b = KeyTable {
+        column_names: ["ct", "weighted_ct", "CINETHH"],
+        rows: [
+            [801, 39617, 0],
+            [19634, 2271203, 1],
+            [598, 70448, 2],
+            [9191, 1030039, 3],
+        ],
+    };
+
+    key_us2015b.check(&table_us2015b);
+    key_us2016b.check(&table_us2016b);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
-/// and height of the table. Has its own tests in this file.
+/// and height of the table.
 ///
 /// Rows are type usize for convenience. If necessary we can switch this to &'a str
 /// to preserve formatting of integers. Or we could create a new type parameter
