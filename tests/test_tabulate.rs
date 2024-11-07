@@ -225,6 +225,36 @@ fn test_category_bins_subpop_p_variable() {
     key.check(&table);
 }
 
+/// This test tabulates FTOTINC over the subpopulation FARM = 2 (which is households
+/// that are on farms; FARM is an H variable). Since us2015b is a relatively
+/// small sample, there are several category bins of FTOTINC which have a count
+/// of 0. These categories do not appear in the output table.
+#[test]
+fn test_category_bins_subpop_h_variable() {
+    let input_json = include_str!("requests/ftotinc_category_bins_subpop_H_variable.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "FTOTINC"],
+        rows: [
+            [7, 498, 1],
+            [9, 1187, 4],
+            [6, 507, 7],
+            [2, 259, 8],
+            [6, 389, 10],
+            [4, 925, 12],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table. Has its own tests in this file.
