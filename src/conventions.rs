@@ -411,7 +411,9 @@ impl Context {
 
         let layouts_path = use_data_root.to_path_buf().join("layouts");
         let search_pattern = layouts_path.join("*.layout.txt");
-        if DEBUG{println!("search pattern: {}", &search_pattern.display());}
+        if DEBUG {
+            println!("search pattern: {}", &search_pattern.display());
+        }
 
         let layout_files = match glob(&search_pattern.to_string_lossy()) {
             Ok(l) => l,
@@ -486,9 +488,13 @@ impl Context {
     }
 
     /// Formats the exact paths needed to get data for this dataset, by record type.
-    pub fn paths_from_dataset_name(
+    ///
+    ///
+    ///
+    pub fn paths_for_dataset_and_rectypes(
         &self,
         dataset_name: &str,
+        rectypes: &[String],
         data_format: &InputType,
     ) -> Result<HashMap<String, PathBuf>, MdError> {
         let extension = match data_format {
@@ -508,7 +514,7 @@ impl Context {
 
         match data_format {
             InputType::Csv | InputType::Parquet => {
-                for rt in self.settings.record_types.keys() {
+                for rt in rectypes {
                     if let Some(ref sub_dir) = data_format.data_sub_directory() {
                         let parent_dir = data_path.join(sub_dir).join(dataset_name);
                         let base_filename = self
@@ -525,7 +531,7 @@ impl Context {
                 }
             }
             InputType::NativeDb => {
-                for rt in self.settings.record_types.keys() {
+                for rt in rectypes {
                     let table: PathBuf = self.settings.default_table_name(dataset_name, rt)?.into();
                     all_paths.insert(rt.to_string(), table);
                 }
@@ -538,6 +544,20 @@ impl Context {
             }
         } // match
         Ok(all_paths)
+    }
+
+    pub fn paths_from_dataset_name(
+        &self,
+        dataset_name: &str,
+        data_format: &InputType,
+    ) -> Result<HashMap<String, PathBuf>, MdError> {
+        let rectypes = self
+            .settings
+            .record_types
+            .keys()
+            .cloned()
+            .collect::<Vec<String>>();
+        self.paths_for_dataset_and_rectypes(dataset_name, &rectypes, data_format)
     }
 
     /// When called, the context should be already set to read from layouts or full metadata

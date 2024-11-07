@@ -424,8 +424,36 @@ impl DataSource {
         Ok(data_sources)
     }
 
+    /// From a list of record types we expect each dataset may have, create a data source. If the
+    /// file for the data source is missing it's a None. Not all data sources have files for all
+    /// possible record types.
+    pub fn discover_for_rectypes(
+        ctx: &Context,
+        dataset: &str,
+        rectypes: &[String],
+        input_format: &InputType,
+    ) -> Result<HashMap<String, Option<DataSource>>, MdError> {
+        let paths_by_rectypes =
+            ctx.paths_for_dataset_and_rectypes(dataset, rectypes, &input_format)?;
+        let mut data_sources = HashMap::new();
+        for rt in rectypes {
+            let table_alias = ctx.settings.default_table_name(dataset, rt)?;
+            let p = paths_by_rectypes.get(rt).cloned();
+
+            match DataSource::new(table_alias, p) {
+                Err(_) => data_sources.insert(rt.to_string(), None),
+                Ok(ds) => data_sources.insert(rt.to_string(), Some(ds)),
+            };
+        }
+        Ok(data_sources)
+    }
+
     pub fn new(name: String, full_path: Option<PathBuf>) -> Result<Self, MdError> {
         if let Some(p) = full_path {
+            if !p.exists() {
+                let msg = format!("No actual file for datasource '{}'", p.display());
+                return Err(MdError::Msg(msg));
+            }
             if p.to_string_lossy().ends_with(".parquet") {
                 Ok(Self::Parquet { name, full_path: p })
             } else if p.to_string_lossy().ends_with(".csv") {

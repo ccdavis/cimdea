@@ -18,6 +18,7 @@ use crate::request::RequestVariable;
 use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
+use std::collections::HashMap;
 
 const DEBUG: bool = false;
 
@@ -243,6 +244,45 @@ impl Tabulation {
     pub fn into_inner(self) -> Vec<Table> {
         self.0
     }
+}
+
+/// Count records for a dataset for each record type
+pub fn count_records(
+    ctx: &Context,
+    dataset: &str,
+    rectypes: &[String],
+) -> Result<HashMap<String, usize>, MdError> {
+    let counts = HashMap::new();
+
+    Ok(counts)
+}
+
+pub fn count_records_in_product(ctx: &Context) -> Result<(), MdError> {
+    let rectypes = ctx
+        .discover_record_types_from_layouts(None)?
+        .into_iter()
+        .collect::<Vec<String>>();
+    let datasets = ctx.discover_datasets_from_output_data(None)?;
+    let mut all_counts: HashMap<String, usize> = HashMap::new();
+    for dataset_name in &datasets {
+        let counts = count_records(ctx, dataset_name, &rectypes)?;
+        for p in counts.keys() {
+            if let Some(rec_count) = counts.get(p) {
+                if let Some(total) = all_counts.get(p) {
+                    all_counts.insert(p.to_string(), *total + *rec_count);
+                } else {
+                    all_counts.insert(p.to_string(), *rec_count);
+                }
+            }
+        }
+    }
+    for rt in all_counts.keys() {
+        if let Some(c) = all_counts.get(rt) {
+            println!("{}: {}", rt, *c);
+        }
+    }
+
+    Ok(())
 }
 
 /// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
