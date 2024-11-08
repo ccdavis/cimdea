@@ -152,13 +152,13 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
     type Error = MdError;
 
     fn try_from(value: RequestCaseSelectionRaw) -> Result<Self, Self::Error> {
-        let Ok(low_code) = value.low_code.parse() else {
+        let Ok(low_code) = value.low_code.expect("low_code is missing").parse() else {
             return Err(parsing_error!(
                 "request_case_selections: cannot parse low_code as an unsigned integer",
             ));
         };
 
-        let Ok(high_code) = value.high_code.parse() else {
+        let Ok(high_code) = value.high_code.expect("high_code is missing").parse() else {
             return Err(parsing_error!(
                 "request_case_selections: cannot parse high_code as an unsigned integer"
             ));
@@ -177,15 +177,15 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
 
 #[derive(Deserialize, Serialize)]
 struct RequestCaseSelectionRaw {
-    low_code: String,
-    high_code: String,
+    low_code: Option<String>,
+    high_code: Option<String>,
 }
 
 impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     fn from(value: RequestCaseSelection) -> Self {
         Self {
-            low_code: value.low_code.to_string(),
-            high_code: value.high_code.to_string(),
+            low_code: Some(value.low_code.to_string()),
+            high_code: Some(value.high_code.to_string()),
         }
     }
 }
@@ -347,6 +347,24 @@ mod tests {
     }
 
     #[test]
+    fn test_request_case_selection_low_code_may_be_null() {
+        let json_str = "{\"low_code\": null, \"high_code\": \"9999\"}";
+        let rcs: RequestCaseSelection =
+            serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
+
+        assert_eq!(rcs.high_code, 9999);
+    }
+
+    #[test]
+    fn test_request_case_selection_high_code_may_be_null() {
+        let json_str = "{\"low_code\": \"200000\", \"high_code\": null}";
+        let rcs: RequestCaseSelection =
+            serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
+
+        assert_eq!(rcs.low_code, 200000);
+    }
+
+    #[test]
     fn test_request_case_selection_high_less_than_low_error() {
         let json_str = "{\"low_code\": \"065\", \"high_code\": \"060\"}";
         let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
@@ -358,6 +376,19 @@ mod tests {
         let json_str = "{\"low_code\": \"A\", \"high_code\": \"B\"}";
         let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
         assert!(result.is_err());
+    }
+
+    /// If both low_code and high_code are null, then the request case selection
+    /// doesn't contain any information and doesn't really make sense. This is
+    /// an error.
+    #[test]
+    fn test_request_case_selection_must_have_a_bound_error() {
+        let json_str = "{\"low_code\": null, \"high_code\": null}";
+        let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
+        assert!(
+            result.is_err(),
+            "expected an error because both low_code and high_code are null, got {result:?}"
+        );
     }
 
     #[test]
