@@ -12,7 +12,7 @@
 
 use crate::conventions::Context;
 
-use crate::input_schema_tabulation::{self, CategoryBin, RequestCaseSelection};
+use crate::input_schema_tabulation::{CategoryBin, RequestCaseSelection};
 use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
 use crate::mderror::{metadata_error, MdError};
 use crate::request::CaseSelectLogic;
@@ -574,31 +574,31 @@ impl Condition {
 
     pub fn try_from_request_case_selections(
         var: &IpumsVariable,
-        rcs: &[input_schema_tabulation::RequestCaseSelection],
+        rcs: &[RequestCaseSelection],
     ) -> Result<Option<Self>, MdError> {
         let data_type = if let Some(ref dt) = var.data_type {
             dt.clone()
         } else {
             IpumsDataType::Integer
         };
-        let maybe_comparisons = rcs
+        let comparisons: Vec<CompareOperation> = rcs
             .iter()
             .map(|cs| match cs {
                 RequestCaseSelection::LessEqual(code) => {
-                    Ok(CompareOperation::LessEqual(code.to_string()))
+                    CompareOperation::LessEqual(code.to_string())
                 }
                 RequestCaseSelection::GreaterEqual(code) => {
-                    Ok(CompareOperation::GreaterEqual(code.to_string()))
+                    CompareOperation::GreaterEqual(code.to_string())
                 }
                 RequestCaseSelection::Between(low, high) if low == high => {
-                    Ok(CompareOperation::Equal(low.to_string()))
+                    CompareOperation::Equal(low.to_string())
                 }
                 RequestCaseSelection::Between(low, high) => {
-                    Ok(CompareOperation::Between(low.to_string(), high.to_string()))
+                    CompareOperation::Between(low.to_string(), high.to_string())
                 }
             })
-            .collect::<Result<Vec<CompareOperation>, MdError>>();
-        let comparisons = maybe_comparisons?;
+            .collect();
+
         if comparisons.len() == 0 {
             Ok(None)
         } else {
@@ -653,6 +653,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::input_schema_tabulation;
     use crate::request::context_from_names_helper;
     use crate::request::SimpleRequest;
 
