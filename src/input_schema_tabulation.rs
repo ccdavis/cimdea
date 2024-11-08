@@ -153,22 +153,38 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
     type Error = MdError;
 
     fn try_from(value: RequestCaseSelectionRaw) -> Result<Self, Self::Error> {
-        let Ok(low_code) = value.low_code.expect("low_code is missing").parse() else {
-            return Err(parsing_error!(
-                "request_case_selections: cannot parse low_code as an unsigned integer",
-            ));
-        };
+        let low_code: Option<u64> = value
+            .low_code
+            .map(|s| {
+                s.parse().map_err(|err| {
+                    parsing_error!(
+                    "cannot parse request_case_selections low_code as an unsigned integer: {err}"
+                )
+                })
+            })
+            .transpose()?;
 
-        let Ok(high_code) = value.high_code.expect("high_code is missing").parse() else {
-            return Err(parsing_error!(
-                "request_case_selections: cannot parse high_code as an unsigned integer"
-            ));
-        };
+        let high_code: Option<u64> = value
+            .high_code
+            .map(|s| {
+                s.parse().map_err(|err| {
+                    parsing_error!(
+                "cannot parse request_case_selections high_code as an unsigned integer: {err}"
+                )
+                })
+            })
+            .transpose()?;
+
+        println!("{low_code:?}");
+        println!("{high_code:?}");
 
         if high_code < low_code {
-            Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code} and high_code of {high_code} do not satisfy low_code <= high_code")))
+            Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code:?} and high_code of {high_code:?} do not satisfy low_code <= high_code")))
         } else {
-            Ok(Self::Between(low_code, high_code))
+            Ok(Self::Between(
+                low_code.expect("low_code is missing"),
+                high_code.expect("high_code is missing"),
+            ))
         }
     }
 }
