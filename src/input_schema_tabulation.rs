@@ -149,6 +149,21 @@ pub enum RequestCaseSelection {
     Between(u64, u64),
 }
 
+impl RequestCaseSelection {
+    pub fn try_new(low_code: Option<u64>, high_code: Option<u64>) -> Result<Self, MdError> {
+        match (low_code, high_code) {
+            (None, None) => Err(parsing_error!(
+                "at most one of request_case_selections low_code and high_code may be null"
+            )),
+            (Some(low_code), None) => Ok(Self::GreaterEqual(low_code)),
+            (None, Some(high_code)) => Ok(Self::LessEqual(high_code)),
+            (Some(low_code), Some(high_code)) if low_code <= high_code => {
+                Ok(Self::Between(low_code, high_code))
+            }
+            (Some(low_code), Some(high_code)) => Err(parsing_error!("request_case_selections low_code must be <= high_code; got low_code={low_code}, high_code={high_code}")),
+        }
+    }
+}
 impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
     type Error = MdError;
 
@@ -175,17 +190,7 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
             })
             .transpose()?;
 
-        match (low_code, high_code) {
-            (None, None) => Err(parsing_error!(
-                "at most one of request_case_selections low_code and high_code may be null"
-            )),
-            (Some(low_code), None) => Ok(Self::GreaterEqual(low_code)),
-            (None, Some(high_code)) => Ok(Self::LessEqual(high_code)),
-            (Some(low_code), Some(high_code)) if low_code <= high_code => {
-                Ok(Self::Between(low_code, high_code))
-            }
-            (Some(low_code), Some(high_code)) => Err(parsing_error!("request_case_selections low_code must be <= high_code; got low_code={low_code}, high_code={high_code}")),
-        }
+        Self::try_new(low_code, high_code)
     }
 }
 
