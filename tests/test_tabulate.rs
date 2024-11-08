@@ -148,6 +148,26 @@ fn test_general_selection_for_general_detailed_variable() {
     key.check(&table);
 }
 
+/// The low_code attribute can be null for request_case_selections. This indicates
+/// that there is no lower bound, so it's a <= comparison.
+#[test]
+fn test_request_case_selections_no_low_code() {
+    let input_json = include_str!("requests/request_case_selections_no_low_code.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "FARM"],
+        rows: [[7525, 879598, 1], [7, 498, 2]],
+    };
+
+    key.check(&table);
+}
+
 /// The variable FTOTINC is a P variable, and in this request it has 17 category
 /// bins.
 #[test]
@@ -401,6 +421,7 @@ fn test_multiple_variables_mixed_category_bins_subpop_p_variable() {
 
     key.check(&table);
 }
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table.
