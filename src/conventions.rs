@@ -557,19 +557,19 @@ mod test {
         if let Some(ref prod_root) = usa_ctx.product_root {
             if prod_root.exists() {
                 assert!(
-                    !usa_ctx.allow_full_metadata,
-                    "Default allow_full_metadata should be false"
+                    usa_ctx.allow_full_metadata,
+                    "Default allow_full_metadata should be true when product root dir was found."
                 );
             } else {
                 assert!(
                     !usa_ctx.allow_full_metadata,
-                    "Default allow_full_metadata should be true when product root dir was found."
+                    "Default allow_full_metadata should be false"
                 );
             }
         } else {
             assert!(
                 !usa_ctx.allow_full_metadata,
-                "Default allow_full_metadata should be true when product root dir was found."
+                "Default allow_full_metadata should be false"
             );
         }
         assert!(usa_ctx.data_root.is_some());

@@ -422,6 +422,136 @@ fn test_multiple_variables_mixed_category_bins_subpop_p_variable() {
     key.check(&table);
 }
 
+#[test]
+fn test_multiple_variables_mixed_category_bins_subpop_h_variable() {
+    let input_json =
+        include_str!("requests/multiple_variables_mixed_category_bins_subpop_H_variable.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "GQ", "UHRSWORK"],
+        rows: [
+            [9109, 1043079, 1, 0],
+            [329, 35376, 1, 1],
+            [1339, 161551, 1, 2],
+            [4406, 509826, 1, 3],
+            [14, 1922, 2, 0],
+            [2, 435, 2, 1],
+            [1, 112, 2, 2],
+        ],
+    };
+
+    key.check(&table);
+}
+
+/// This test tabulates GQ and UHRSWORK with the subpopulation CILAPTOP = 1 and
+/// LOOKING = 2.
+#[test]
+fn test_multiple_variables_mixed_category_bins_complex_subpop() {
+    let input_json =
+        include_str!("requests/multiple_variables_mixed_category_bins_complex_subpop.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "GQ", "UHRSWORK"],
+        rows: [
+            [703, 88849, 1, 0],
+            [36, 3457, 1, 1],
+            [107, 12433, 1, 2],
+            [137, 15493, 1, 3],
+        ],
+    };
+
+    key.check(&table);
+}
+
+/// Tabulate the general version of RELATE and the detailed version of SEX (there
+/// is no general version of SEX).
+///
+/// The output table is quite large because even though SEX only has 2 categories,
+/// RELATE has 13 categories in its general form.
+#[test]
+fn test_multiple_variables_mixed_general_detailed() {
+    let input_json = include_str!("requests/multiple_variables_mixed_general_detailed.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "RELATE", "SEX"],
+        rows: [
+            [5515, 545789, 1, 1],
+            [6893, 676061, 1, 2],
+            [1611, 167261, 2, 1],
+            [3233, 304582, 2, 2],
+            [4658, 669940, 3, 1],
+            [4099, 579207, 3, 2],
+            [95, 15586, 4, 1],
+            [110, 15227, 4, 2],
+            [92, 13070, 5, 1],
+            [259, 34829, 5, 2],
+            [12, 1756, 6, 1],
+            [41, 5834, 6, 2],
+            [218, 31945, 7, 1],
+            [174, 22586, 7, 2],
+            [16, 2473, 8, 1],
+            [15, 1519, 8, 2],
+            [721, 89682, 9, 1],
+            [576, 71481, 9, 2],
+            [160, 20449, 10, 1],
+            [198, 26062, 10, 2],
+            [542, 62373, 11, 1],
+            [464, 54709, 11, 2],
+            [238, 19745, 12, 1],
+            [240, 16739, 12, 2],
+            [430, 17393, 13, 1],
+            [157, 7884, 13, 2],
+        ],
+    };
+
+    key.check(&table);
+}
+
+/// Runs a tabulation of RACE by HISPAN on a small sample of us1900m. The
+/// subpopulation is STATEFIP = 48, which is the state of Texas.
+///
+/// Since us1900m is originally a 100% sample, the weighted counts are the same
+/// as the raw counts.
+#[test]
+fn test_filter_on_statefip() {
+    let input_json = include_str!("requests/race_hispan_subpop_statefip.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "RACE", "HISPAN"],
+        rows: [[199, 199, 1, 0], [6, 6, 1, 1], [91, 91, 2, 0]],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table.
