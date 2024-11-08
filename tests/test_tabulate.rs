@@ -401,6 +401,35 @@ fn test_multiple_variables_mixed_category_bins_subpop_p_variable() {
 
     key.check(&table);
 }
+
+#[test]
+fn test_multiple_variables_mixed_category_bins_subpop_h_variable() {
+    let input_json =
+        include_str!("requests/multiple_variables_mixed_category_bins_subpop_H_variable.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly 1 output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "GQ", "UHRSWORK"],
+        rows: [
+            [9109, 1043079, 1, 0],
+            [329, 35376, 1, 1],
+            [1339, 161551, 1, 2],
+            [4406, 509826, 1, 3],
+            [14, 1922, 2, 0],
+            [2, 435, 2, 1],
+            [1, 112, 2, 2],
+        ],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table.

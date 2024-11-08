@@ -1,0 +1,86 @@
+{
+  "product": "usa",
+  "data_root": "tests/data_root",
+  "uoa": "P",
+  "output_format": "json",
+  "subpopulation": [
+    {
+      "variable_mnemonic": "CILAPTOP",
+      "mnemonic": "CILAPTOP",
+      "general_detailed_selection": "",
+      "standardization_index": null,
+      "attached_variable_pointer": null,
+      "case_selection": true,
+      "request_case_selections": [
+        {
+          "low_code": "1",
+          "high_code": "1"
+        }
+      ],
+      "include_dq_flags": false,
+      "extract_start": 4,
+      "extract_width": 1
+    }
+  ],
+  "category_bins": {
+    "UHRSWORK": [
+      {
+        "code": 0,
+        "value_label": "N/A",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "code": 1,
+        "value_label": "1 to 14 hours worked per week",
+        "low": 1,
+        "high": 14
+      },
+      {
+        "code": 2,
+        "value_label": "15 to 34 hours worked per week",
+        "low": 15,
+        "high": 34
+      },
+      {
+        "code": 3,
+        "value_label": "35 or more hours worked per week",
+        "low": 35,
+        "high": 99
+      }
+    ]
+  },
+  "request_samples": [
+    {
+      "name": "us2015b",
+      "custom_sampling_ratio": null,
+      "first_household_sampled": null
+    }
+  ],
+  "request_variables": [
+    {
+      "variable_mnemonic": "GQ",
+      "mnemonic": "GQ",
+      "general_detailed_selection": "",
+      "standardization_index": null,
+      "attached_variable_pointer": null,
+      "case_selection": false,
+      "request_case_selections": [],
+      "include_dq_flags": false,
+      "extract_start": 1,
+      "extract_width": 1
+    },
+    {
+      "variable_mnemonic": "UHRSWORK",
+      "mnemonic": "UHRSWORK",
+      "general_detailed_selection": "",
+      "standardization_index": null,
+      "attached_variable_pointer": null,
+      "case_selection": false,
+      "request_case_selections": [],
+      "include_dq_flags": false,
+      "extract_start": 2,
+      "extract_width": 2
+    }
+  ]
+}
