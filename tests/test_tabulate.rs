@@ -508,6 +508,30 @@ fn test_multiple_variables_mixed_general_detailed() {
     key.check(&table);
 }
 
+/// Runs a tabulation of RACE by HISPAN on a small sample of us1900m. The
+/// subpopulation is STATEFIP = 48, which is the state of Texas.
+///
+/// Since us1900m is originally a 100% sample, the weighted counts are the same
+/// as the raw counts.
+#[test]
+fn test_filter_on_statefip() {
+    let input_json = include_str!("requests/race_hispan_subpop_statefip.json");
+    let (ctx, rq) =
+        AbacusRequest::try_from_json(input_json).expect("should be able to parse input JSON");
+    let tab = tabulate(&ctx, rq).expect("should tabulate without errors");
+
+    let tables = tab.into_inner();
+    assert_eq!(tables.len(), 1, "expected exactly one output table");
+    let table = tables[0].clone();
+
+    let key = KeyTable {
+        column_names: ["ct", "weighted_ct", "RACE", "HISPAN"],
+        rows: [[199, 199, 1, 0], [6, 6, 1, 1], [91, 91, 2, 0]],
+    };
+
+    key.check(&table);
+}
+
 /// A helpful struct for simplifying comparisons of a tabulation result to a key
 /// table. Uses const generics W (width) and H (height) to keep track of the width
 /// and height of the table.
