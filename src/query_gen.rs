@@ -581,15 +581,17 @@ impl Condition {
         } else {
             IpumsDataType::Integer
         };
-        let maybe_comparisons = rcs.iter()
+        let maybe_comparisons = rcs
+            .iter()
             .map(|cs| {
-                if cs.low_code < cs.high_code {
-                    Ok(CompareOperation::Between(format!("{}",cs.low_code), format!("{}",cs.high_code)))
-                } else if cs.low_code == cs.high_code {
-                    Ok(CompareOperation::Equal(format!("{}", cs.low_code)))
-                } else {
-                    Err(MdError::Msg(format!("Case selection low code must be lower or equal to high code on '{}': {}, {}", &var.name, cs.low_code, cs.high_code)))
-                }
+                todo!()
+                // if cs.low_code < cs.high_code {
+                // Ok(CompareOperation::Between(format!("{}",cs.low_code), format!("{}",cs.high_code)))
+                // } else if cs.low_code == cs.high_code {
+                // Ok(CompareOperation::Equal(format!("{}", cs.low_code)))
+                // } else {
+                // Err(MdError::Msg(format!("Case selection low code must be lower or equal to high code on '{}': {}, {}", &var.name, cs.low_code, cs.high_code)))
+                // }
             })
             .collect::<Result<Vec<CompareOperation>, MdError>>();
         let comparisons = maybe_comparisons?;

@@ -143,9 +143,10 @@ pub struct RequestSample {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(try_from = "RequestCaseSelectionRaw", into = "RequestCaseSelectionRaw")]
-pub struct RequestCaseSelection {
-    pub low_code: u64,
-    pub high_code: u64,
+pub enum RequestCaseSelection {
+    LessEqual(u64),
+    GreaterEqual(u64),
+    Between(u64, u64),
 }
 
 impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
@@ -167,10 +168,7 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
         if high_code < low_code {
             Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code} and high_code of {high_code} do not satisfy low_code <= high_code")))
         } else {
-            Ok(Self {
-                low_code,
-                high_code,
-            })
+            Ok(Self::Between(low_code, high_code))
         }
     }
 }
@@ -183,9 +181,19 @@ struct RequestCaseSelectionRaw {
 
 impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     fn from(value: RequestCaseSelection) -> Self {
-        Self {
-            low_code: Some(value.low_code.to_string()),
-            high_code: Some(value.high_code.to_string()),
+        match value {
+            RequestCaseSelection::LessEqual(code) => Self {
+                low_code: None,
+                high_code: Some(code.to_string()),
+            },
+            RequestCaseSelection::GreaterEqual(code) => Self {
+                low_code: Some(code.to_string()),
+                high_code: None,
+            },
+            RequestCaseSelection::Between(low_code, high_code) => Self {
+                low_code: Some(low_code.to_string()),
+                high_code: Some(high_code.to_string()),
+            },
         }
     }
 }
@@ -342,8 +350,7 @@ mod tests {
         let json_str = "{\"low_code\": \"060\", \"high_code\": \"065\"}";
         let rcs: RequestCaseSelection =
             serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
-        assert_eq!(rcs.low_code, 60);
-        assert_eq!(rcs.high_code, 65);
+        assert_eq!(rcs, RequestCaseSelection::Between(60, 65));
     }
 
     #[test]
@@ -352,7 +359,7 @@ mod tests {
         let rcs: RequestCaseSelection =
             serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
 
-        assert_eq!(rcs.high_code, 9999);
+        assert_eq!(rcs, RequestCaseSelection::LessEqual(9999));
     }
 
     #[test]
@@ -361,7 +368,7 @@ mod tests {
         let rcs: RequestCaseSelection =
             serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
 
-        assert_eq!(rcs.low_code, 200000);
+        assert_eq!(rcs, RequestCaseSelection::GreaterEqual(200000));
     }
 
     #[test]
