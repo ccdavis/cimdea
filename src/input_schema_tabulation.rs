@@ -143,49 +143,78 @@ pub struct RequestSample {
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(try_from = "RequestCaseSelectionRaw", into = "RequestCaseSelectionRaw")]
-pub struct RequestCaseSelection {
-    pub low_code: u64,
-    pub high_code: u64,
+pub enum RequestCaseSelection {
+    LessEqual(u64),
+    GreaterEqual(u64),
+    Between(u64, u64),
 }
 
+impl RequestCaseSelection {
+    pub fn try_new(low_code: Option<u64>, high_code: Option<u64>) -> Result<Self, MdError> {
+        match (low_code, high_code) {
+            (None, None) => Err(parsing_error!(
+                "at most one of request_case_selections low_code and high_code may be null"
+            )),
+            (Some(low_code), None) => Ok(Self::GreaterEqual(low_code)),
+            (None, Some(high_code)) => Ok(Self::LessEqual(high_code)),
+            (Some(low_code), Some(high_code)) if low_code <= high_code => {
+                Ok(Self::Between(low_code, high_code))
+            }
+            (Some(low_code), Some(high_code)) => Err(parsing_error!("request_case_selections low_code must be <= high_code; got low_code={low_code}, high_code={high_code}")),
+        }
+    }
+}
 impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
     type Error = MdError;
 
     fn try_from(value: RequestCaseSelectionRaw) -> Result<Self, Self::Error> {
-        let Ok(low_code) = value.low_code.parse() else {
-            return Err(parsing_error!(
-                "request_case_selections: cannot parse low_code as an unsigned integer",
-            ));
-        };
-
-        let Ok(high_code) = value.high_code.parse() else {
-            return Err(parsing_error!(
-                "request_case_selections: cannot parse high_code as an unsigned integer"
-            ));
-        };
-
-        if high_code < low_code {
-            Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code} and high_code of {high_code} do not satisfy low_code <= high_code")))
-        } else {
-            Ok(Self {
-                low_code,
-                high_code,
+        let low_code: Option<u64> = value
+            .low_code
+            .map(|s| {
+                s.parse().map_err(|err| {
+                    parsing_error!(
+                    "cannot parse request_case_selections low_code as an unsigned integer: {err}"
+                )
+                })
             })
-        }
+            .transpose()?;
+
+        let high_code: Option<u64> = value
+            .high_code
+            .map(|s| {
+                s.parse().map_err(|err| {
+                    parsing_error!(
+                "cannot parse request_case_selections high_code as an unsigned integer: {err}"
+                )
+                })
+            })
+            .transpose()?;
+
+        Self::try_new(low_code, high_code)
     }
 }
 
 #[derive(Deserialize, Serialize)]
 struct RequestCaseSelectionRaw {
-    low_code: String,
-    high_code: String,
+    low_code: Option<String>,
+    high_code: Option<String>,
 }
 
 impl From<RequestCaseSelection> for RequestCaseSelectionRaw {
     fn from(value: RequestCaseSelection) -> Self {
-        Self {
-            low_code: value.low_code.to_string(),
-            high_code: value.high_code.to_string(),
+        match value {
+            RequestCaseSelection::LessEqual(code) => Self {
+                low_code: None,
+                high_code: Some(code.to_string()),
+            },
+            RequestCaseSelection::GreaterEqual(code) => Self {
+                low_code: Some(code.to_string()),
+                high_code: None,
+            },
+            RequestCaseSelection::Between(low_code, high_code) => Self {
+                low_code: Some(low_code.to_string()),
+                high_code: Some(high_code.to_string()),
+            },
         }
     }
 }
@@ -342,8 +371,25 @@ mod tests {
         let json_str = "{\"low_code\": \"060\", \"high_code\": \"065\"}";
         let rcs: RequestCaseSelection =
             serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
-        assert_eq!(rcs.low_code, 60);
-        assert_eq!(rcs.high_code, 65);
+        assert_eq!(rcs, RequestCaseSelection::Between(60, 65));
+    }
+
+    #[test]
+    fn test_request_case_selection_low_code_may_be_null() {
+        let json_str = "{\"low_code\": null, \"high_code\": \"9999\"}";
+        let rcs: RequestCaseSelection =
+            serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
+
+        assert_eq!(rcs, RequestCaseSelection::LessEqual(9999));
+    }
+
+    #[test]
+    fn test_request_case_selection_high_code_may_be_null() {
+        let json_str = "{\"low_code\": \"200000\", \"high_code\": null}";
+        let rcs: RequestCaseSelection =
+            serde_json::from_str(json_str).expect("should parse into a RequestCaseSelection");
+
+        assert_eq!(rcs, RequestCaseSelection::GreaterEqual(200000));
     }
 
     #[test]
@@ -358,6 +404,19 @@ mod tests {
         let json_str = "{\"low_code\": \"A\", \"high_code\": \"B\"}";
         let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
         assert!(result.is_err());
+    }
+
+    /// If both low_code and high_code are null, then the request case selection
+    /// doesn't contain any information and doesn't really make sense. This is
+    /// an error.
+    #[test]
+    fn test_request_case_selection_must_have_a_bound_error() {
+        let json_str = "{\"low_code\": null, \"high_code\": null}";
+        let result: Result<RequestCaseSelection, _> = serde_json::from_str(json_str);
+        assert!(
+            result.is_err(),
+            "expected an error because both low_code and high_code are null, got {result:?}"
+        );
     }
 
     #[test]
