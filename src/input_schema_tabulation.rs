@@ -175,16 +175,14 @@ impl TryFrom<RequestCaseSelectionRaw> for RequestCaseSelection {
             })
             .transpose()?;
 
-        println!("{low_code:?}");
-        println!("{high_code:?}");
-
-        if high_code < low_code {
-            Err(MdError::Msg(format!("request_case_selections: a low_code of {low_code:?} and high_code of {high_code:?} do not satisfy low_code <= high_code")))
-        } else {
-            Ok(Self::Between(
-                low_code.expect("low_code is missing"),
-                high_code.expect("high_code is missing"),
-            ))
+        match (low_code, high_code) {
+            (None, None) => Err(panic!("this will be an error")),
+            (Some(low_code), None) => Ok(Self::GreaterEqual(low_code)),
+            (None, Some(high_code)) => Ok(Self::LessEqual(high_code)),
+            (Some(low_code), Some(high_code)) if low_code <= high_code => {
+                Ok(Self::Between(low_code, high_code))
+            }
+            (Some(low_code), Some(high_code)) => Err(panic!("this will be an error")),
         }
     }
 }
