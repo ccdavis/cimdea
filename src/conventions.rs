@@ -409,6 +409,10 @@ impl Context {
             )));
         };
 
+        if DEBUG {
+            println!("use_data_root: {}", &use_data_root.display());
+        }
+
         let layouts_path = use_data_root.to_path_buf().join("layouts");
         let search_pattern = layouts_path.join("*.layout.txt");
         if DEBUG {
@@ -432,7 +436,7 @@ impl Context {
                             .strip_suffix(".layout.txt")
                             .expect("Can't unwrap String from a dataset PathBuf.")
                             .to_owned(),
-                        layouts_path.join(PathBuf::from(actual_layout)),
+                        PathBuf::from(actual_layout),
                     ));
                 }
                 Err(e) => return Err(MdError::Msg(format!("Error getting layout: {}", e))),
@@ -661,11 +665,15 @@ mod test {
             assert_eq!(146, ds.len());
         }
         let rectypes = usa_ctx.discover_record_types_from_layouts(None);
+        if let Err(ref e) = rectypes {
+            println!("Error on rectypes: {}", e);
+        }
         assert!(rectypes.is_ok());
         if let Ok(rt) = rectypes {
             assert!(rt.contains("H"));
             assert!(rt.contains("P"));
-            assert_eq!(2, rt.len());
+            assert!(rt.contains("#"));
+            assert_eq!(3, rt.len());
         }
     }
 
