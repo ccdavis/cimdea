@@ -1,9 +1,9 @@
 # Change Log
 
-This is the change log for CIMDEA. It lists changes chronologically from most
-recent to least recent. Each CIMDEA version has its own heading below which
+This is the change log for cimdea. It lists changes chronologically from most
+recent to least recent. Each cimdea version has its own heading below which
 corresponds to a git tag in the repository. Some of the most recent changes may
-not yet be released in a CIMDEA version, and they are listed under the "Not Yet
+not yet be released in a cimdea version, and they are listed under the "Not Yet
 Released" heading at the top.
 
 ## Not Yet Released
@@ -27,4 +27,4 @@ Released" heading at the top.
 
 ## v0.2.0 (2024-10-31)
 
-This is the first release of CIMDEA.
+This is the first release of cimdea.
