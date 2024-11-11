@@ -1,3 +1,5 @@
+//! Utilities for creating and defining tabulation [DataRequests](DataRequest).
+//!
 //! Requests describe requested IPUMS data either as an extract -- multiple records -- or an aggregation of
 //! data  from those records. We use names of IPUMS "variables" and "datasets" to make the requests along with other details.
 //!

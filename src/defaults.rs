@@ -1,3 +1,5 @@
+//! Definitions of default IPUMS values.
+//!
 //! The Household - Person record structure is the default for much IPUMS data. Here we have some
 //!  functions to support setting up such a default structure without needing any external configuration. Everything modeled here could originate from a run-time configuration process instead.
 //!

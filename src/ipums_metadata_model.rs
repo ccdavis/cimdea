@@ -1,3 +1,5 @@
+//! Models for IPUMS metadata.
+//!
 //! The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
 //!  of their relationships to one another and their description of the data.
 //!

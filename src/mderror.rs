@@ -1,3 +1,5 @@
+//! The cimdea error type.
+
 use std::fmt;
 
 #[derive(Debug)]

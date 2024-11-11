@@ -1,3 +1,5 @@
+//! Models for record types, record type relationships, and weights in IPUMS datasets.
+//!
 //! Model the IPUMS datasets (sometimes called 'samples'.)  This module models the record types, weighting and record type relationship for IPUMS data, not the samples themselves.
 //!
 //! Every dataset in a collection will have these same characteristics:

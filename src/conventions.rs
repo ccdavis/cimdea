@@ -1,3 +1,5 @@
+//! Utilities for working with IPUMS conventions and metadata structure.
+//!
 //! This module provides structs and methods for loading metadata and storing information about a IPUMS data
 //! collection based on IPUMS conventions and minimal configuration.
 //!
