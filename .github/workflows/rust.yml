@@ -26,7 +26,7 @@ jobs:
       id: upload-docs
       uses: actions/upload-pages-artifact@v3
       with:
-        path: target/docs/
+        path: target/doc/
 
   deploy:
     runs-on: ubuntu-latest
