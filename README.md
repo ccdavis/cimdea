@@ -2,7 +2,9 @@
 
 Cimdea is a Rust Crate for working with IPUMS-like microdata for aggregation, extraction and processing.
 
-The library will support high-level tabulation interfaces to IPUMS-like data and data processing and extraction.  The project is just beginning. See the [docs](https://ccdavis.github.io/cimdea/doc/cimdea/index.html).
+The library supports high-level  tabulation interfaces to IPUMS-like data and data processing and extraction.  See the [docs](https://ccdavis.github.io/cimdea/cimdea/index.html).
+
+The `abacus` binary creates cross-tabs from the command line, taking care of some complexities like joining multiple record types and allowing for bucketing continuous value variables, and applying record weights if available.
 
 ## CIMDEA = Convenient IPUMS-like Microdata Extraction and Aggregation
 
