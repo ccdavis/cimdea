@@ -16,7 +16,33 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
     - name: Build
       run: cargo build
     - name: Run tests
       run: cargo test
+    - name: Build documentation
+      run: |
+        cargo doc --no-deps
+        echo "<meta http-equiv=\"refresh\" content=\"0; URL=cimdea/index.html\"/>" > target/doc/index.html
+    - name: Upload documentation as a GitHub Pages artifact
+      id: upload-docs
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: target/doc/
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-docs.outputs.page_url }}
+    steps:
+      - name: Deploy documentation to GitHub Pages
+        id: deploy-docs
+        uses: actions/deploy-pages@v4
+      
