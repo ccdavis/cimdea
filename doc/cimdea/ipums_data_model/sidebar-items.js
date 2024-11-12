@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["RecordHierarchy","RecordHierarchyMember","RecordType","RecordWeight"]};
