@@ -22,12 +22,14 @@ jobs:
     - name: Run tests
       run: cargo test
     - name: Build documentation
-      run: cargo doc --no-deps
+      run: |
+        cargo doc --no-deps
+        echo "<meta http-equiv=\"refresh\" content=\"0; URL=cimdea/index.html\"/>" > target/doc/index.html
     - name: Upload documentation as a GitHub Pages artifact
       id: upload-docs
       uses: actions/upload-pages-artifact@v3
       with:
-        path: target/doc/cimdea
+        path: target/doc/
 
   deploy:
     runs-on: ubuntu-latest
