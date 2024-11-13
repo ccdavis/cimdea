@@ -2,7 +2,12 @@
 //!
 //! ## Computing a Tabulation
 //!
-//! The simplest way to create a tabulation request is with the aptly named
+//! To compute a tabulation, cimdea requires a *request* and a *context*. The tabulation request
+//! defines the tabulation by specifying which variables to tabulate in which datasets, how to
+//! group continuous variables into category bins, and so on. The context provides metadata
+//! required for computing the tabulation.
+//!
+//! The simplest way to create a request and context is with the aptly named
 //! [SimpleRequest](request::SimpleRequest). The [from_names](request::DataRequest::from_names)
 //! function supports creating a request from product, dataset, and variable names. `from_names`
 //! returns a context with loaded metadata and a `SimpleRequest`.
