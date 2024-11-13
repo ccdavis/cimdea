@@ -527,14 +527,9 @@ impl DataRequest for AbacusRequest {
 }
 
 impl AbacusRequest {
-    /// Accepts a single JSON with keys for Request, Subpop and any other arguments.
-    /// ///
-    ///  { "product": "usa",
-    ///  "data_root" : "/pkg/ipums/usa/output_data/current",
-    /// "request_variables": [...],
-    /// request_samples: [...],
-    ///  "subpop" : [ {...}, {...}],
-    /// "uoa" : "P"}
+    /// Parse an `AbacusRequest` from JSON.
+    ///
+    /// For example JSON inputs, check out the tests/requests/ directory.
     pub fn try_from_json(input: &str) -> Result<(conventions::Context, Self), MdError> {
         let request: input_schema_tabulation::AbacusRequest = match serde_json::from_str(input) {
             Ok(request) => request,
