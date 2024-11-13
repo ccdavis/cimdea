@@ -21,6 +21,7 @@ use serde::Serialize;
 
 const DEBUG: bool = false;
 
+/// The format of an output table.
 #[derive(Clone, Copy, Debug)]
 pub enum TableFormat {
     Csv,
@@ -32,6 +33,17 @@ pub enum TableFormat {
 impl FromStr for TableFormat {
     type Err = MdError;
 
+    /// Parse a `TableFormat` from an `&str`.
+    ///
+    /// The parsing is case-insensitive and accepts the strings "csv", "json", "text", and "html".
+    ///
+    /// ```
+    /// use cimdea::tabulate::TableFormat;
+    /// use std::str::FromStr;
+    ///
+    /// let format = TableFormat::from_str("text").unwrap();
+    /// assert!(matches!(format, TableFormat::TextTable));
+    /// ```
     fn from_str(name: &str) -> Result<Self, Self::Err> {
         let tf = match name.to_ascii_lowercase().as_str() {
             "csv" => Self::Csv,
@@ -245,11 +257,14 @@ impl Tabulation {
     }
 }
 
-/// A single request can result in multiple tables. Normally there's one table per IPUMS dataset in
-/// the request. Right now the InputType::Parquet and  DataPlatform::Duckdb are hard-coded in; they're the main
-/// use-case for now. InputType::Csv ought to be pretty interchangable except for performance implications.
-/// The DataPlatform::DataFusion alternative would require minor additions to the query generation module.
-/// DataPlatform::Polars is also planned and shouldn't require too much additional query gen updates but is unimplemented for now.
+/// Compute the result of a tabulation request.
+///
+/// A single request can result in multiple tables. Normally there is one table per IPUMS dataset
+/// in the request. Right now `InputType::Parquet` and `DataPlatform::Duckdb` are hard-coded in;
+/// they're the main use-case for now. `InputType::Csv` ought to be pretty interchangable except
+/// for performance implications. The `DataPlatform::DataFusion` alternative would require minor
+/// additions to the query generation module. `DataPlatform::Polars` is also planned and shouldn't
+/// require too many additional query gen updates, but it is unimplemented for now.
 pub fn tabulate<R>(ctx: &Context, rq: R) -> Result<Tabulation, MdError>
 where
     R: DataRequest,

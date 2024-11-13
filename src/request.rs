@@ -618,17 +618,20 @@ impl AbacusRequest {
     }
 }
 
-/// The `SimpleRequest` probably can describe 90% of IPUMS tabulation and extraction requests.
+/// A simple tabulation request which can probably describe 90% of use cases.
 ///
-/// In a ComplexRequest, Variables could have attached variables or monetary standardization adjustment factors,
-/// datasets could have sub-sample sizes or other attrributes. Here with a SimpleRequest we're requesting either a tabulation from
-/// the given sources or an extract of data of same.
+/// In a ComplexRequest, Variables could have attached variables or monetary standardization
+/// adjustment factors, datasets could have sub-sample sizes or other attrributes. Here with a
+/// SimpleRequest we're requesting either a tabulation from the given sources or an extract of data
+/// of same.
 ///
-/// When constructing a request or simple request, we may begin with only variable names and dataset names. We must have a minimum
-/// set of metadata to build the IpumsVariable and IpumsDataset values out of those names. The IPUMS conventions combined with
-/// data file metadata (Parquet) or IPUMS fixed-width layout files will have enough metadata to complete a "Simple" tabulation or
-/// extraction.  If we have access to the IPUMS metadata database the IpumsVariable and IpumsDataset values can be enriched with
-/// category labels, variable labels and extra dataset information.
+/// When constructing a request or simple request, we may begin with only variable names and
+/// dataset names. We must have a minimum set of metadata to build the IpumsVariable and
+/// IpumsDataset values out of those names. The IPUMS conventions combined with data file metadata
+/// (Parquet) or IPUMS fixed-width layout files will have enough metadata to complete a "Simple"
+/// tabulation or extraction.  If we have access to the IPUMS metadata database the IpumsVariable
+/// and IpumsDataset values can be enriched with category labels, variable labels and extra dataset
+/// information.
 #[derive(Clone, Debug)]
 pub struct SimpleRequest {
     pub product: String, // name of data collection

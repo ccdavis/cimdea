@@ -75,7 +75,19 @@ impl RecordLayout {
     }
 }
 
-// Layouts for all record types in a file
+/// Layouts for all record types in a file.
+///
+/// ```
+/// use std::path::Path;
+/// use cimdea::layout::DatasetLayout;
+///
+/// let layout_file = Path::new("tests/data_root/layouts/us2015b.layout.txt");
+/// let layout = DatasetLayout::try_from_layout_file(layout_file).unwrap();
+///
+/// let vars = layout.find_variables(&["RECTYPE".to_string(), "MOMLOC".to_string()]);
+/// assert_eq!(vars[0].name, "RECTYPE");
+/// assert_eq!(vars[1].name, "MOMLOC");
+/// ```
 #[derive(Clone, Debug)]
 pub struct DatasetLayout {
     layouts: HashMap<String, RecordLayout>,

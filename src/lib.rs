@@ -12,12 +12,17 @@
 //! function supports creating a request from product, dataset, and variable names. `from_names`
 //! returns a context with loaded metadata and a `SimpleRequest`.
 //!
+//! Once you have a [Context](conventions::Context) and a type like `SimpleRequest` which
+//! implements [DataRequest](request::DataRequest), you can pass them to the
+//! [tabulate](tabulate::tabulate) function to compute the tabulation which the `DataRequest`
+//! defines.
+//!
 //! ```
 //! use cimdea::request::{DataRequest, SimpleRequest};
+//! use cimdea::tabulate::{self, TableFormat};
 //!
-//! # let data_root = "tests/data_root/".to_string();
-//! // Set data_root to the directory with your input data.
-//! // let data_root: String = ...;
+//! // Set data_root to point to the directory with your data
+//! let data_root = "tests/data_root/".to_string();
 //! let (ctx, rq) = SimpleRequest::from_names(
 //!     "usa",
 //!     &["us2015b"],
@@ -26,26 +31,7 @@
 //!     None,
 //!     Some(data_root),
 //! ).unwrap();
-//! ```
 //!
-//! Once you have a [Context](conventions::Context) and a type like `SimpleRequest` which
-//! implements [DataRequest](request::DataRequest), you can pass them to the
-//! [tabulate](tabulate::tabulate) function to compute the tabulation which the `DataRequest`
-//! defines.
-//!
-//! ```
-//! # use cimdea::request::{DataRequest, SimpleRequest};
-//! use cimdea::tabulate::{self, TableFormat};
-//! # let data_root = "tests/data_root/".to_string();
-//! # let (ctx, rq) = SimpleRequest::from_names(
-//! #     "usa",
-//! #     &["us2015b"],
-//! #     &["MARST"],
-//! #     None,
-//! #     None,
-//! #     Some(data_root),
-//! # ).unwrap();
-//! 
 //! let tab = tabulate::tabulate(&ctx, rq).unwrap();
 //! let json = tab.output(TableFormat::Json).unwrap();
 //! ```

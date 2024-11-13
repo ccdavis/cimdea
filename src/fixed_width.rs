@@ -10,7 +10,7 @@ use std::ffi::OsString;
 use std::path;
 
 const TRACE: bool = false;
-// Hierarchical fixed-length records
+/// Hierarchical fixed-length records
 #[derive(Clone)]
 pub struct Hflr {
     pub layout: layout::DatasetLayout,

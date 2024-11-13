@@ -1,10 +1,12 @@
 //! Definitions of default IPUMS values.
 //!
 //! The Household - Person record structure is the default for much IPUMS data. Here we have some
-//!  functions to support setting up such a default structure without needing any external configuration. Everything modeled here could originate from a run-time configuration process instead.
+//! functions to support setting up such a default structure without needing any external
+//! configuration. Everything modeled here could originate from a run-time configuration process
+//! instead.
 //!
-//!  A generic record type generator could use Cow instead of String, as in https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant
-//!
+//!  A generic record type generator could use Cow instead of String, as in
+//!  <https://stackoverflow.com/questions/63201351/writing-a-rust-struct-type-that-contains-a-string-and-can-be-used-in-a-constant>
 
 use crate::conventions::*;
 use crate::ipums_data_model::*;
@@ -81,20 +83,28 @@ fn default_settings_named(name: &str) -> MicroDataCollection {
     }
 }
 
-/// There are default configurations for USA, IPUMSI and CPS currently.
-/// Get them like
+/// Get the default configuration for a data collection.
+///
+/// There are default configurations for USA, IPUMSI and CPS currently. You can get them like
+///
 /// ```
 /// use cimdea::defaults::defaults_for;
-/// let current_settings = defaults_for("usa").unwrap();
+///
+/// let settings = defaults_for("usa").unwrap();
 /// ```
 ///
+/// Passing an unknown data collection name causes an error.
 ///
+/// ```
+/// use cimdea::defaults::defaults_for;
 ///
-
-/// Right now we only set defaults programmatically but in future this should set some additional
-/// properties particular to products or stuff loaded in from
-// an external configuration.
+/// let maybe_settings = defaults_for("notarealcollection");
+/// assert!(maybe_settings.is_err());
+/// ```
 pub fn defaults_for(product: &str) -> Result<MicroDataCollection, MdError> {
+    // Right now we only set defaults programmatically but in the future this should set some
+    // additional properties particular to products or stuff loaded in from an external
+    // configuration.
     match product.to_lowercase().as_ref() {
         "usa" => Ok(default_settings_named("USA")),
         "cps" => Ok(default_settings_named("cps")),
