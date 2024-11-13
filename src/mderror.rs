@@ -1,15 +1,34 @@
+//! The cimdea error type.
+
 use std::fmt;
 
+/// The cimdea error type.
+///
+/// As a user, the most common thing to do with these errors is to convert them to strings and
+/// print or log them. You could also have logic to match on each variant and handle them
+/// separately, but the variants in this struct are not yet stable. Several more variants may be
+/// added in the future, and the existing variants may change or be consolidated.
+///
+/// ```
+/// use cimdea::mderror::MdError;
+///
+/// let err = MdError::MetadataError("missing metadata for variable AGE".to_string());
+/// assert_eq!(err.to_string(), "metadata error: missing metadata for variable AGE");
+/// ```
 #[derive(Debug)]
 pub enum MdError {
     IoError(std::io::Error),
+    /// An error in the metadata. This could be caused by missing metadata for a requested
+    /// variable. Or it could be that metadata does not make sense for one reason or another.
     MetadataError(String),
+    /// Invalid SQL syntax passed to the SQL engine. This likely indicates a bug in cimdea.
     InvalidSQLSyntax(String),
-    // There was an error while parsing the input JSON
+    /// An error while parsing input JSON.
     ParsingError(String),
+    /// An error from the DuckDB data platform. This likely indicates a bug in cimdea.
     DuckDBError(duckdb::Error),
+    /// A generic cimdea error.
     Msg(String),
-    // more needed
 }
 
 impl fmt::Display for MdError {

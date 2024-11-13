@@ -1,3 +1,5 @@
+//! Models for IPUMS metadata.
+//!
 //! The "metadata" models serve to assist working with IPUMS data. The entities here match the full IPUMS metadata in terms
 //!  of their relationships to one another and their description of the data.
 //!
@@ -112,11 +114,28 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
     }
 }
 
+/// The data type of a variable in IPUMS data.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum IpumsDataType {
     Integer,
     Float,
     String,
+    /// `Fixed(n)` represents a variable with an implied number `n` of decimal places. For example, for
+    /// a variable with type `Fixed(2)`, the value `10000` represents `100.00`, and `999` represents
+    /// `9.99`. This can be helpful for monetary variables or other variables that have been rounded to
+    /// a particular number of places after the decimal. Note that the string representation of
+    /// `Fixed(n)` does not include the value of `n`, so some information is lost when serializing to a
+    /// string. When parsing, `Fixed(0)` is assumed.
+    ///
+    /// ```
+    /// use cimdea::ipums_metadata_model::IpumsDataType;
+    ///
+    /// let data_type = IpumsDataType::Fixed(2);
+    /// assert_eq!(data_type.to_string(), "fixed");
+    ///
+    /// let parsed_type = IpumsDataType::from("fixed");
+    /// assert_eq!(parsed_type, IpumsDataType::Fixed(0));
+    /// ```
     Fixed(usize),
 }
 

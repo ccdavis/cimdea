@@ -1,31 +1,32 @@
-//! This module provides structs and methods for loading metadata and storing information about a IPUMS data
-//! collection based on IPUMS conventions and minimal configuration.
+//! Utilities for working with IPUMS conventions and metadata structure.
 //!
-//! Every collection has a set of data record types
-//! and a hierarchy those records belong to: For instance, person records belong to household records.
+//! This module provides structs and methods for loading metadata and storing information about a
+//! IPUMS data collection based on IPUMS conventions and minimal configuration. Every collection
+//! has a set of data record types and a hierarchy those records belong to. For instance, person
+//! records belong to household records. Each household record owns 0 or more person records.
 //!
-//! The `MicroDataCollection` struct initialization  makes heavy use of IPUMS directory and naming conventions.
-//! This includes loading IPUMS metadata for the collection.
+//! The [MicroDataCollection] struct initialization makes heavy use of IPUMS directory and naming
+//! conventions. This includes loading IPUMS metadata for the collection.
 //!
-//! The `Context` struct is the entry point for setting up a MicroDataCollection object. It will figure out a "data root"
-//! or use one provided to it to locate available data and metadata and load it if requested.
+//! The [Context] struct is the entry point for setting up a MicroDataCollection object. It will
+//! figure out a "data root" or use one provided to it to locate available data and metadata and
+//! load it if requested.
 //!
-//! Other operations in this library will require a context object to find data and use metadata.
+//! Other operations in this library require a `Context` object to find data and use metadata.
 //!
-//! Metadata for IPUMS data follows naming and organizational conventions. Following these
-//! allows us to skip a lot of repetitive configuration. IPUMS data resides under "data root" directories in a "current"
-//! directory (compressed fixed-width data) and under "current" in a "parquet" directory for the
-//! Parquet version of the same data. A "layouts" directory under "current" contains two "layout" files per dataset: One
-//! describing the input layout and labels for those inputs, and one describing the IPUMS version of the data with variable
-//! names, record types, data types and designated width in printable characters for the variables. This layout information
-//! can serve as basic metadata for other uses besides parsing the fixed-width data. Currently the Parquet data doesn't have
-//! variable level metadata on its columns, so we rely on the layout metadata. Eventually we plan to put variable metadata like
-//! formatting directives, codes and labels in the Parquet.
+//! Metadata for IPUMS data follows naming and organizational conventions. Following these allows
+//! us to skip a lot of repetitive configuration. IPUMS data resides under "data root" directories
+//! in a "current" directory (compressed fixed-width data) and under "current" in a "parquet"
+//! directory for the Parquet version of the same data. A "layouts" directory under "current"
+//! contains two "layout" files per dataset: One describing the input layout and labels for those
+//! inputs, and one describing the IPUMS version of the data with variable names, record types,
+//! data types and designated width in printable characters for the variables. This layout
+//! information can serve as basic metadata for other uses besides parsing the fixed-width data.
+//! Currently the Parquet data does not have variable level metadata on its columns, so we rely on
+//! the layout metadata. Eventually we plan to put variable metadata like formatting directives,
+//! codes and labels in the Parquet.
 //!
-//! See the `.layout.txt` files in the test directory.
-//!
-//!
-//!
+//! See the `.layout.txt` files in the tests directory.
 
 use crate::defaults;
 use crate::ipums_data_model::*;
@@ -38,8 +39,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// Key characteristics of collections like all USA Census data, all Time-Use Survey data etc.
-///
+/// Key characteristics of data collections
 #[derive(Clone, Debug)]
 pub struct MicroDataCollection {
     pub name: String, // Like USA, IPUMSI, ATUS
@@ -371,10 +371,36 @@ impl MetadataEntities {
     }
 }
 
-/// This is the mutable state  created and passed around holding the loaded metadata if any
-/// and the rest of the information needed to add paths to the data tables used in queries
-/// and data file paths, and where the metadata can be found.
+/// Holds loaded metadata and information for finding data and additional metadata.
 ///
+/// This mutable state holds loaded metadata (if any),
+/// the rest of the information needed to add paths to the data tables used in queries
+/// and data file paths, and information about where the metadata can be found.
+///
+/// Often, creating a [DataRequest][crate::request::DataRequest] will automatically return a
+/// `Context` along with the `DataRequest` (for example, see
+/// [DataRequest::from_names](crate::request::DataRequest::from_names) and
+/// [AbacusRequest::try_from_json](crate::request::AbacusRequest::try_from_json)). In those cases,
+/// you do not need to directly create a context yourself. If you do find yourself needing to
+/// directly create a `Context`, [from_ipums_collection_name](Context::from_ipums_collection_name)
+/// is the easiest way to do that.
+///
+/// ```
+/// use cimdea::conventions::Context;
+///
+/// // Set data root to point to the directory with your data
+/// let data_root = "tests/data_root/".to_string();
+/// let ctx = Context::from_ipums_collection_name(
+///   "usa",
+///   None,
+///   Some(data_root),
+/// ).unwrap();
+///
+/// assert_eq!(ctx.name, "usa");
+/// let mut record_types: Vec<_> = ctx.settings.record_types.keys().collect();
+/// record_types.sort();
+/// assert_eq!(record_types, ["H", "P"]);
+/// ```
 #[derive(Clone, Debug)]
 pub struct Context {
     /// A product name like USA, IPUMSI, CPS etc

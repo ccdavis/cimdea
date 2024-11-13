@@ -11,17 +11,19 @@ use std::io::Read;
 use std::path::Path;
 use std::str;
 
-/// An entry (a single line) from a layout file. There's one line per variable (column.)
+/// An entry (a single line) from a layout file, describing the layout of one variable.
 #[derive(Clone, Debug)]
 pub struct LayoutVar {
     pub name: String,
     pub rectype: String,
     pub start: usize,
     pub width: usize,
-    pub col: usize, // column number when CSV rather than fixed-width
+    /// The column number of the variable when using CSV rather than fixed-width
+    pub col: usize,
     pub data_type: IpumsDataType,
 }
 
+/// The layout for all variables of a particular record type in a dataset.
 #[derive(Clone, Debug)]
 pub struct RecordLayout {
     pub vars: Vec<LayoutVar>,
@@ -75,7 +77,26 @@ impl RecordLayout {
     }
 }
 
-// Layouts for all record types in a file
+/// The layout for an entire dataset.
+///
+/// This includes layouts for all record types in a layout file.
+///
+/// ```
+/// use std::path::Path;
+/// use cimdea::layout::DatasetLayout;
+///
+/// let layout_file = Path::new("tests/data_root/layouts/us2015b.layout.txt");
+/// let layout = DatasetLayout::try_from_layout_file(layout_file).unwrap();
+///
+/// let mut vars = layout.find_variables(&["RECTYPE".to_string(), "MOMLOC".to_string()]);
+/// vars.sort_by_key(|v| v.name.clone());
+///
+/// assert_eq!(vars[0].name, "MOMLOC");
+/// assert_eq!(vars[0].rectype, "P");
+///
+/// assert_eq!(vars[1].name, "RECTYPE");
+/// assert_eq!(vars[1].rectype, "H");
+/// ```
 #[derive(Clone, Debug)]
 pub struct DatasetLayout {
     layouts: HashMap<String, RecordLayout>,

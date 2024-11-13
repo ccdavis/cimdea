@@ -1,14 +1,15 @@
-//! Generate queries from a DataRequest . Currently supports cross-tab style queries.
+//! Generate queries from a [DataRequest].
 //!
-//! Instead of the DB specific query builders and parameter binding, see if we can do it in a generic way
-//! TODO For Duck DB we need the table name if it's parquet to looke like ` 'table_name.parquet' ` and it needs to be a valid
-//! file, or if the parquet is multiple files it would look like ` table_name/*.parquet' `. /
+//! Currently supports cross-tab style queries.
 //!
-//! The IPUMS conventions have been applied earlier; the table / filenames have been checked and determined and
-//! weight variables have been checked. We're assuming inputs here are valid.
+//! Instead of the DB specific query builders and parameter binding, see if we can do it in a
+//! generic way.
 //!
-//! The `Condition` and `CompareOperation` will support the modeling of aggregation and extraction requests which will be converted to
-//! SQL.
+//! The IPUMS conventions have been applied earlier; the table / filenames have been checked and
+//! determined and weight variables have been checked. We're assuming inputs here are valid.
+//!
+//! [Condition] and [CompareOperation] support the modeling of aggregation and extraction
+//! requests which are converted to SQL.
 
 use crate::conventions::Context;
 
@@ -485,6 +486,7 @@ impl DataSource {
 }
 
 // TODO not yet dealing with escaping string values
+/// A SQL comparison operation.
 #[derive(Clone, Debug)]
 pub enum CompareOperation {
     Equal(String),
@@ -531,6 +533,20 @@ impl CompareOperation {
         format!("{} {}", &self.name(), self.values().join(", "))
     }
 
+    /// Convert the `CompareOperation` to a SQL string.
+    ///
+    /// This takes the left hand side of the comparison operation, which is often
+    /// a column name.
+    ///
+    /// ```
+    /// use cimdea::query_gen::CompareOperation;
+    ///
+    /// let op_eq = CompareOperation::Equal("25".to_string());
+    /// assert_eq!(op_eq.to_sql("AGE"), "AGE = 25");
+    ///
+    /// let op_btwn = CompareOperation::Between("10".to_string(), "50".to_string());
+    /// assert_eq!(op_btwn.to_sql("AGE"), "AGE between 10 and 50");
+    /// ```
     pub fn to_sql(&self, lhs: &str) -> String {
         match self {
             Self::Equal(rhs) => format!("{} = {}", lhs, &rhs),

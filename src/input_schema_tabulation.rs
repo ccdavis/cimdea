@@ -1,4 +1,4 @@
-//! Code for modeling and parsing the incoming tabulation request schema
+//! Models and parsing logic for incoming JSON tabulation requests.
 
 use std::collections::BTreeMap;
 

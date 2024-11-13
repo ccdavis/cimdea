@@ -1,5 +1,6 @@
-//! A support module for reading fixed-width IPUMS files and their layout files. Layouts are required as a minimum level of metadata to do all advanced Abacus tabulations and formatting.
+//! A support module for reading fixed-width IPUMS files and their layout files.
 //!
+//! Layouts are required as a minimum level of metadata to do all advanced Abacus tabulations and formatting.
 //!  The 'HFLR" type models the "Hierarchical Fixed-Length Record" data IPUMS uses.
 use crate::layout;
 use crate::mderror::MdError;
@@ -9,7 +10,7 @@ use std::ffi::OsString;
 use std::path;
 
 const TRACE: bool = false;
-// Hierarchical fixed-length records
+/// Hierarchical fixed-length records
 #[derive(Clone)]
 pub struct Hflr {
     pub layout: layout::DatasetLayout,
