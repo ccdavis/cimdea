@@ -8,10 +8,16 @@ Released" heading at the top.
 
 ## Not Yet Released
 
+* Updated documentation, including more details and examples.
+
+## v0.3.1 (2024-11-13)
+
 * Added support for optional bounds in request_case_selections. Now `low_code` may
   be null to indicate that there is no lower bound, or similarly `high_code` may
   be null to indicate that there is no upper bound. At least one of the two attributes
   must not be null.
+* Fixed a flaky test that occasionally failed on certain machines.
+* Automated documentation generation with GitHub Actions.
 
 ## v0.3.0 (2024-11-04)
 
