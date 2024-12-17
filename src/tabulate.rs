@@ -20,7 +20,16 @@ use serde::ser::Error;
 use serde::Serialize;
 
 const DEBUG: bool = false;
+use std::env;
 
+fn show_debug_info() -> bool {
+    match env::var("DEBUG_ABACUS") {
+        Ok(value) => {
+            value == "1" || value == "true" || value == "yes"
+        } 
+        _ => false,
+    }
+}
 /// The format of an output table.
 #[derive(Clone, Copy, Debug)]
 pub enum TableFormat {
@@ -279,7 +288,8 @@ where
     let sql_queries = tab_queries(ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)?;
     let conn = Connection::open_in_memory()?;
     for q in sql_queries {
-        if DEBUG {
+        
+        if show_debug_info() {
             println!("{}", &q);
         }
         let mut stmt = conn.prepare(&q)?;
