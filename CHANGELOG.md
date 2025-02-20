@@ -6,8 +6,9 @@ corresponds to a git tag in the repository. Some of the most recent changes may
 not yet be released in a cimdea version, and they are listed under the "Not Yet
 Released" heading at the top.
 
-## Not Yet Released
+## v0.3.2 (2025-02-19)
 
+* Include lockfile for reproducible builds. when using `cargo install`.
 * Updated documentation, including more details and examples.
 
 ## v0.3.1 (2024-11-13)
