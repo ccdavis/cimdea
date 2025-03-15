@@ -47,8 +47,9 @@
 //! information such as variable and value labels.
 //!
 //!
-use crate::input_schema_tabulation::CategoryBin;
 use crate::layout::LayoutVar;
+use crate::{input_schema_tabulation::CategoryBin, mderror::parsing_error};
+use serde_json;
 use std::fmt;
 
 use compressed_string::ComprString;
@@ -111,6 +112,52 @@ impl From<(&LayoutVar, usize)> for IpumsVariable {
             general_width: None,
             description: None,
         }
+    }
+}
+
+impl TryFrom<(&str, &serde_json::value::Value, usize)> for IpumsVariable {
+    type Error = crate::mderror::MdError;
+
+    fn try_from(value: (&str, &serde_json::value::Value, usize)) -> Result<Self, Self::Error> {
+        let record_type = match value.1["record_type"].as_str() {
+            Some(v) => v.to_string(),
+            None => return Err(parsing_error!("record_type field error")),
+        };
+
+        let data_type = match value.1["data_type"].as_str() {
+            Some(dt_name) => Some(IpumsDataType::from(dt_name)),
+            None => return Err(parsing_error!("Can't get data_type field from JSON.")),
+        };
+
+        let label = value.1["label"].as_str().map(str::to_string);
+
+        let width = match value.1["column_width"].as_i64() {
+            Some(w) => w as usize,
+            None => return Err(parsing_error!("Can't parse column_width")),
+        };
+
+        let start = match value.1["column_start"].as_i64() {
+            Some(s) => s as usize,
+            None => return Err(parsing_error!("Can't parse column_start")),
+        };
+
+        let general_width = match value.1["general_width"].as_i64() {
+            Some(gw) => gw as usize,
+            None => return Err(parsing_error!("Can't parse general_width")),
+        };
+
+        Ok(Self {
+            id: value.2,
+            name: value.0.to_string(),
+            record_type: record_type,
+            data_type: data_type,
+            label: label,
+            categories: None,
+            category_bins: None,
+            formatting: Some((start, width)),
+            general_width: Some(general_width),
+            description: None,
+        })
     }
 }
 
