@@ -30,8 +30,9 @@
 
 use crate::defaults;
 use crate::ipums_data_model::*;
-use crate::ipums_metadata_model::*;
+use crate::ipums_metadata_model::{IpumsDataset, IpumsDatasetId, IpumsVariable, IpumsVariableId};
 use crate::layout;
+use crate::mderror::parsing_error;
 use crate::mderror::{metadata_error, MdError};
 use crate::request::InputType;
 
@@ -152,6 +153,35 @@ impl MicroDataCollection {
             }
         }
         self.metadata = Some(md);
+
+        Ok(())
+    }
+
+    // Takes a blob of json from a single IPUMS parquet dataset and adds variables. If the variable already
+    // existed it won't be updated -- so we need to check for mismatches  possibly.
+    pub fn update_metadata_from_json(
+        &mut self,
+        dataset: &str,
+        json_blob: &str,
+    ) -> Result<(), MdError> {
+        if self.metadata.is_none() {
+            self.metadata = Some(MetadataEntities::new());
+        }
+        if let Some(ref mut md) = self.metadata {
+            let this_dataset = IpumsDataset::from((dataset.to_string(), 0));
+
+            // Parse JSON into a serde_json::value::Value with keys as variable names and values as
+            // the rest of the fields on the variable.
+            let vars: HashMap<&str, serde_json::value::Value> =
+                match serde_json::from_str(json_blob) {
+                    Ok(json_value) => json_value,
+                    Err(e) => return Err(parsing_error!("Error parsing variables JSON: {e}")),
+                };
+            for (key, value) in vars {
+                let ipums_var = IpumsVariable::try_from((key, &value, 0 as usize))?;
+                md.add_dataset_variable(this_dataset.clone(), ipums_var);
+            }
+        }
         Ok(())
     }
 
