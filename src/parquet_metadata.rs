@@ -73,21 +73,11 @@ where
 }
 
 /// Raw metadata extracted from Parquet files
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RawParquetMetadata {
     pub variables: String,
     pub samples: String,
     pub version: String,
-}
-
-impl Default for RawParquetMetadata {
-    fn default() -> Self {
-        Self {
-            variables: String::new(),
-            samples: String::new(),
-            version: String::new(),
-        }
-    }
 }
 
 /// Main struct for extracting metadata from Parquet files

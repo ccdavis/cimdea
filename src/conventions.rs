@@ -863,7 +863,7 @@ mod test {
             // It will fall back to schema information
             let result = usa_ctx.load_metadata_for_datasets_from_parquet(&["us2015b"]);
             // Don't fail the test if the directory doesn't exist
-            if !result.is_err() || result.unwrap_err().to_string().contains("does not exist") {
+            if result.is_ok() || result.unwrap_err().to_string().contains("does not exist") {
                 // Expected behavior - either succeeds or fails with expected error
             }
         }
