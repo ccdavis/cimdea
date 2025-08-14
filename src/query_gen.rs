@@ -114,7 +114,7 @@ impl TabBuilder {
         let Some(ref bins) = rq.category_bins else {
             return Err(MdError::Msg("No category bins available.".to_string()));
         };
-        if bins.len() == 0 {
+        if bins.is_empty() {
             return Err(MdError::Msg("Metadata marks this variable as having category bins but the list of bins is empty.".to_string()));
         }
         let mut sql = "case\n".to_string();
@@ -173,7 +173,7 @@ impl TabBuilder {
                     &rq.variable.name, &rq.general_divisor, &rq.name
                 )
             } else if rq.is_bucketed() {
-                format!(", {} ", &self.help_bucket(&rq)?)
+                format!(", {} ", &self.help_bucket(rq)?)
             } else {
                 format!(", {} as {}", &rq.variable.name, &rq.name)
             };
@@ -203,7 +203,7 @@ impl TabBuilder {
         ctx: &Context,
         conditions: Option<Vec<Condition>>,
     ) -> Result<Vec<Condition>, MdError> {
-        let mut existing_conditions = conditions.unwrap_or(Vec::new());
+        let mut existing_conditions = conditions.unwrap_or_default();
         let selfwtsl = ctx.get_md_variable_by_name("SELFWTSL")?;
         let selfwtsl_cond = Condition::new(&selfwtsl, &[CompareOperation::Equal("2".to_string())])?;
         existing_conditions.push(selfwtsl_cond);
@@ -300,7 +300,7 @@ impl TabBuilder {
         let requested_conditions = abacus_request.get_conditions();
         let case_select_logic = abacus_request.case_select_logic();
 
-        if request_variables.len() == 0 {
+        if request_variables.is_empty() {
             return Err(MdError::Msg(
                 "Must supply at least one request variable.".to_string(),
             ));
@@ -346,7 +346,7 @@ impl TabBuilder {
         let order_by_clause = vars_in_order.join(", ");
 
         if let Some(ref conds) = conditions {
-            let where_clause = &self.build_where_clause(&conds, case_select_logic)?;
+            let where_clause = &self.build_where_clause(conds, case_select_logic)?;
             Ok(format!(
                 "select \n{}\nfrom {}\nwhere {}\ngroup by {}\norder by {}",
                 &select_clause?, &from_clause, &where_clause, &group_by_clause, &order_by_clause
@@ -364,7 +364,7 @@ impl TabBuilder {
         from_rt: &str,
         to_parent: &str,
     ) -> Result<String, MdError> {
-        if let Some(ref child_rt) = ctx.settings.record_types.get(from_rt) {
+        if let Some(child_rt) = ctx.settings.record_types.get(from_rt) {
             let fkey_name = child_rt
                 .foreign_keys
                 .iter()
@@ -386,7 +386,7 @@ impl TabBuilder {
     }
 
     fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
-        if let Some(ref record_type) = ctx.settings.record_types.get(rt) {
+        if let Some(record_type) = ctx.settings.record_types.get(rt) {
             Ok(record_type.unique_id.clone())
         } else {
             Err(metadata_error!("No record type '{rt}' in current context.",))
@@ -413,7 +413,7 @@ impl DataSource {
         dataset: &str,
         input_format: &InputType,
     ) -> Result<HashMap<String, DataSource>, MdError> {
-        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, &input_format)?;
+        let paths_by_rectypes = ctx.paths_from_dataset_name(dataset, input_format)?;
         let mut data_sources = HashMap::new();
         for rt in ctx.settings.record_types.keys() {
             let table_alias = ctx.settings.default_table_name(dataset, rt)?;
@@ -615,7 +615,7 @@ impl Condition {
             })
             .collect();
 
-        if comparisons.len() == 0 {
+        if comparisons.is_empty() {
             Ok(None)
         } else {
             Ok(Some(Self {
@@ -631,7 +631,7 @@ impl Condition {
     fn lit(&self, v: &str) -> String {
         match self.data_type {
             IpumsDataType::String => format!("'{}'", v),
-            _ => format!("{}", v),
+            _ => v.to_string(),
         }
     }
 
@@ -699,32 +699,31 @@ mod test {
         )
         .expect("UHRSWORK should be in the test context.");
 
-        let mut bins = Vec::new();
-        bins.push(CategoryBin::LessThan {
-            value: 0,
-            code: 0,
-            label: "N/A".to_string(),
-        });
-        bins.push(CategoryBin::Range {
-            low: 1,
-            high: 14,
-            code: 1,
-            label: "1 to 14 hours worked per week".to_string(),
-        });
-
-        bins.push(CategoryBin::Range {
-            low: 15,
-            high: 34,
-            code: 2,
-            label: "15 to 34 hours worked per week".to_string(),
-        });
-
-        bins.push(CategoryBin::Range {
-            low: 35,
-            high: 99,
-            code: 3,
-            label: "35 or more hours worked per week".to_string(),
-        });
+        let bins = vec![
+            CategoryBin::LessThan {
+                value: 0,
+                code: 0,
+                label: "N/A".to_string(),
+            },
+            CategoryBin::Range {
+                low: 1,
+                high: 14,
+                code: 1,
+                label: "1 to 14 hours worked per week".to_string(),
+            },
+            CategoryBin::Range {
+                low: 15,
+                high: 34,
+                code: 2,
+                label: "15 to 34 hours worked per week".to_string(),
+            },
+            CategoryBin::Range {
+                low: 35,
+                high: 99,
+                code: 3,
+                label: "35 or more hours worked per week".to_string(),
+            },
+        ];
 
         uhrswork_rq.category_bins = Some(bins);
 
@@ -763,7 +762,7 @@ else '999' end as UHRSWORK_bucketed";
 
         let cond1_age = Condition::new(
             &age_var,
-            &vec![CompareOperation::In(vec![
+            &[CompareOperation::In(vec![
                 "1".to_string(),
                 "2".to_string(),
                 "3".to_string(),
@@ -773,7 +772,7 @@ else '999' end as UHRSWORK_bucketed";
         assert!(cond1_age.is_ok());
         let cond2_age = Condition::new(
             &age_var,
-            &vec![
+            &[
                 CompareOperation::Equal("1".to_string()),
                 CompareOperation::Equal("2".to_string()),
                 CompareOperation::Equal("3".to_string()),
@@ -782,13 +781,13 @@ else '999' end as UHRSWORK_bucketed";
 
         assert!(cond2_age.is_ok());
 
-        let cond3_age = Condition::new(&age_var, &vec![CompareOperation::Equal("1".to_string())]);
+        let cond3_age = Condition::new(&age_var, &[CompareOperation::Equal("1".to_string())]);
 
         assert!(cond3_age.is_ok());
 
         let cond4_age = Condition::new(
             &age_var,
-            &vec![CompareOperation::Between("1".to_string(), "9".to_string())],
+            &[CompareOperation::Between("1".to_string(), "9".to_string())],
         );
 
         assert!(cond4_age.is_ok());
@@ -823,7 +822,7 @@ else '999' end as UHRSWORK_bucketed";
 
         let cond1 = Condition::new(
             &age_var,
-            &vec![CompareOperation::In(vec![
+            &[CompareOperation::In(vec![
                 "1".to_string(),
                 "2".to_string(),
                 "3".to_string(),
@@ -839,7 +838,7 @@ else '999' end as UHRSWORK_bucketed";
         assert!(maybe_where_clause.is_ok());
         assert_eq!("((AGE in (1,2,3)))", &maybe_where_clause.unwrap());
 
-        let cond2 = Condition::new(&gq_var, &vec![CompareOperation::Equal("1".to_string())])
+        let cond2 = Condition::new(&gq_var, &[CompareOperation::Equal("1".to_string())])
             .expect("Condition should always be  constructed for testing.");
 
         test_conditions.push(cond2);
@@ -867,13 +866,9 @@ else '999' end as UHRSWORK_bucketed";
         .unwrap();
 
         let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb);
-        match queries {
-            // print the error whatever it is.
-            Err(ref e) => {
-                println!("{}", e);
-                assert_eq!(1, 2);
-            }
-            _ => (),
+        if let Err(ref e) = queries {
+            println!("{}", e);
+            assert_eq!(1, 2);
         }
         assert!(queries.is_ok());
         if let Ok(qs) = queries {

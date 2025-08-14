@@ -104,7 +104,7 @@ impl RequestVariable {
 
         // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
         // we pass Some() then we're asking to over-ride anything coming from context.
-        if let Some(ref bins) = category_bins {
+        if let Some(bins) = category_bins {
             rq.category_bins = Some(bins.to_vec().clone());
         }
 
@@ -124,7 +124,7 @@ impl RequestVariable {
         var: &IpumsVariable,
         use_general: GeneralDetailedSelection,
     ) -> Result<Self, MdError> {
-        if use_general == GeneralDetailedSelection::General && var.general_width == None {
+        if use_general == GeneralDetailedSelection::General && var.general_width.is_none() {
             return Err(MdError::Msg(format!(
                 "requested the general version of variable {} which has no general width",
                 var.name
@@ -398,7 +398,7 @@ impl DataRequest for AbacusRequest {
             .iter()
             .filter_map(|rv| rv.case_selection.clone())
             .collect::<Vec<Condition>>();
-        if conditions.len() > 0 {
+        if !conditions.is_empty() {
             Some(conditions)
         } else {
             None
@@ -421,7 +421,7 @@ impl DataRequest for AbacusRequest {
         let mut lines = Vec::new();
         lines.push("Tabulation\n\n".to_string());
 
-        lines.push(format!("Datasets:"));
+        lines.push("Datasets:".to_string());
         for s in self.get_request_samples() {
             let label = s.sample.label.unwrap_or("".to_string());
             let sample_pct = if let Some(density) = s.sample.sampling_density {
@@ -451,7 +451,7 @@ impl DataRequest for AbacusRequest {
 
         lines.push("\n\nSubpopulation filters:\n".to_string());
         if let Some(ref conditions) = self.get_conditions() {
-            if conditions.len() > 0 {
+            if !conditions.is_empty() {
                 let logic = match self.case_select_logic() {
                     CaseSelectLogic::And => " 'AND'",
                     CaseSelectLogic::Or => " 'OR' ",
@@ -502,7 +502,7 @@ impl DataRequest for AbacusRequest {
 
         let request_samples = datasets
             .iter()
-            .map(|d| RequestSample::from_ipums_dataset(d))
+            .map(RequestSample::from_ipums_dataset)
             .collect();
 
         let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
@@ -700,7 +700,7 @@ impl DataRequest for SimpleRequest {
     fn get_request_samples(&self) -> Vec<RequestSample> {
         self.datasets
             .iter()
-            .map(|d| RequestSample::from_ipums_dataset(d))
+            .map(RequestSample::from_ipums_dataset)
             .collect()
     }
 
@@ -791,7 +791,7 @@ impl DataRequest for SimpleRequest {
         let output_format = OutputFormat::CSV;
 
         let unit_of_analysis = None;
-        let unit_rectype = validated_unit_of_analysis(&ctx, unit_of_analysis)?;
+        let unit_rectype = validated_unit_of_analysis(ctx, unit_of_analysis)?;
 
         Ok(Self {
             product: product.to_string(),
@@ -842,7 +842,7 @@ mod test {
 
         let json_request = include_str!("../tests/requests/usa_extract.json");
         let simple_request =
-            SimpleRequest::deserialize_from_ipums_json(&ctx, RequestType::Extract, &json_request);
+            SimpleRequest::deserialize_from_ipums_json(&ctx, RequestType::Extract, json_request);
         if let Err(ref e) = simple_request {
             eprintln!("Parsing error in test: '{}'", e);
         }
@@ -891,10 +891,9 @@ mod test {
     pub fn test_abacus_request_from_json() {
         let json_request = include_str!("../tests/requests/usa_abacus_request.json");
 
-        let abacus_request = AbacusRequest::try_from_json(&json_request);
-        match abacus_request {
-            Err(ref e) => eprintln!("Error was '{}'", e),
-            _ => (),
+        let abacus_request = AbacusRequest::try_from_json(json_request);
+        if let Err(ref e) = abacus_request {
+            eprintln!("Error was '{}'", e);
         }
         assert!(abacus_request.is_ok());
     }
