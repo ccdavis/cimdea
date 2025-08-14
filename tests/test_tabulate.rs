@@ -100,7 +100,7 @@ fn test_no_category_bins_complex_subpop() {
         column_names: ["ct", "weighted_ct", "MARST"],
         rows: [
             [2270, 234510, 1],
-            [127, 016015, 2],
+            [127, 16015, 2],
             [186, 23503, 3],
             [922, 104773, 4],
             [752, 66727, 5],

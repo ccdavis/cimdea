@@ -50,7 +50,7 @@ pub struct RecordHierarchyMember {
 
 impl RecordHierarchyMember {
     pub fn add_child(&mut self, rectype: &str) {
-        let children = self.children.get_or_insert_with(|| HashSet::new());
+        let children = self.children.get_or_insert_with(HashSet::new);
         children.insert(rectype.to_string());
     }
 }

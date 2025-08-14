@@ -100,7 +100,7 @@ impl MicroDataCollection {
         dataset_name: &str,
         record_type_abbrev: &str,
     ) -> Result<String, MdError> {
-        if let Some(ref rt) = self.record_types.get(record_type_abbrev) {
+        if let Some(rt) = self.record_types.get(record_type_abbrev) {
             Ok(format!(
                 "{}_{}",
                 &self.base_filename_for_dataset(dataset_name),
@@ -354,11 +354,9 @@ impl MetadataEntities {
     }
 
     pub fn cloned_variable_from_name(&self, name: &str) -> Option<IpumsVariable> {
-        if let Some(var_id) = self.variables_by_name.get(name) {
-            Some(self.cloned_variable_from_id(*var_id))
-        } else {
-            None
-        }
+        self.variables_by_name
+            .get(name)
+            .map(|var_id| self.cloned_variable_from_id(*var_id))
     }
 
     pub fn cloned_dataset_from_id(&self, ds_id: IpumsDatasetId) -> IpumsDataset {
@@ -366,11 +364,9 @@ impl MetadataEntities {
     }
 
     pub fn cloned_dataset_from_name(&self, name: &str) -> Option<IpumsDataset> {
-        if let Some(ds_id) = self.datasets_by_name.get(name) {
-            Some(self.cloned_dataset_from_id(*ds_id))
-        } else {
-            None
-        }
+        self.datasets_by_name
+            .get(name)
+            .map(|ds_id| self.cloned_dataset_from_id(*ds_id))
     }
 
     pub fn create_variable(&mut self, var: IpumsVariable) -> IpumsVariableId {
@@ -403,6 +399,12 @@ impl MetadataEntities {
     }
 }
 
+impl Default for MetadataEntities {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// There is a master Vec with Variables by IpumsVariableId this structure points into.
 #[derive(Clone, Debug)]
 pub struct VariablesForDataset {
@@ -428,7 +430,13 @@ impl VariablesForDataset {
     }
 }
 
-//// There's a master Vec of datasets this structure points into:
+impl Default for VariablesForDataset {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// There's a master Vec of datasets this structure points into:
 #[derive(Clone, Debug)]
 pub struct DatasetsForVariable {
     ipums_datasets_by_variable_id: Vec<HashSet<IpumsDatasetId>>,
@@ -455,6 +463,12 @@ impl DatasetsForVariable {
 
     pub fn for_variable(&self, var_id: IpumsVariableId) -> Option<&HashSet<IpumsDatasetId>> {
         self.ipums_datasets_by_variable_id.get(var_id)
+    }
+}
+
+impl Default for DatasetsForVariable {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -626,7 +640,7 @@ impl Context {
         if !self.enable_full_metadata {
             if let Some(ref data_root) = self.data_root {
                 self.settings
-                    .load_metadata_for_selected_datasets_from_layouts(datasets, &data_root)
+                    .load_metadata_for_selected_datasets_from_layouts(datasets, data_root)
             } else {
                 Err(metadata_error!("Cannot load any metadata without a data_root or full metadata available ad the product_root."))
             }
@@ -792,7 +806,7 @@ mod test {
         let household_path = paths_by_rectype.get("H");
         assert!(person_path.is_some(), "should have a person type path");
         assert!(household_path.is_some(), "should have a household path");
-        if let Some(ref p) = person_path {
+        if let Some(p) = person_path {
             assert_eq!(
                 "test/data_root/parquet/us2015b/us2015b_usa.P.parquet",
                 &p.to_string_lossy()

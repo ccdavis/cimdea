@@ -63,7 +63,7 @@ pub enum OutputColumn {
         width: usize,
         data_type: IpumsDataType,
     },
-    RequestVar(RequestVariable),
+    RequestVar(Box<RequestVariable>),
 }
 
 /// The RequestVar variant on OutputColumn has a real RequestVariable struct because there is a lot of useful information in there
@@ -128,15 +128,13 @@ impl OutputColumn {
                     } else {
                         Err(metadata_error!("width from metadata variable required"))
                     }
+                } else if let Some(general_width) = v.variable.general_width {
+                    Ok(general_width)
                 } else {
-                    if let Some(general_width) = v.variable.general_width {
-                        Ok(general_width)
-                    } else {
-                        Err(MdError::Msg(format!(
-                            "cannot determine general width for variable {}",
-                            self.name()
-                        )))
-                    }
+                    Err(MdError::Msg(format!(
+                        "cannot determine general width for variable {}",
+                        self.name()
+                    )))
                 }
             }
         }
@@ -164,9 +162,9 @@ impl Table {
         out.push_str("|\n");
         out.push_str(&format!(
             "|{:}|",
-            str::repeat(&"-", self.text_table_width()? - 2)
+            str::repeat("-", self.text_table_width()? - 2)
         ));
-        out.push_str("\n");
+        out.push('\n');
 
         for r in &self.rows {
             for (column, item) in r.iter().enumerate() {
@@ -185,7 +183,7 @@ impl Table {
 
     fn column_widths(&self) -> Result<Vec<usize>, MdError> {
         let mut widths = Vec::new();
-        for (_column, var) in self.heading.iter().enumerate() {
+        for var in self.heading.iter() {
             let name_width = var.name().len();
             let width = var.width()?;
             if name_width < width {
@@ -272,7 +270,7 @@ where
     let requested_output_columns = rq
         .get_request_variables()
         .iter()
-        .map(|v| OutputColumn::RequestVar(v.clone()))
+        .map(|v| OutputColumn::RequestVar(Box::new(v.clone())))
         .collect::<Vec<OutputColumn>>();
 
     let mut tables: Vec<Table> = Vec::new();
@@ -348,7 +346,7 @@ mod test {
         let tabtime = Instant::now();
         let json_request = include_str!("../tests/requests/incwage_marst_example.json");
 
-        let (ctx, rq) = AbacusRequest::try_from_json(&json_request)
+        let (ctx, rq) = AbacusRequest::try_from_json(json_request)
             .expect("Error loading test context and deserializing test request.");
 
         //println!("Codebook: {}", rq.print_codebook());
