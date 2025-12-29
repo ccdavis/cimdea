@@ -132,6 +132,16 @@ impl ParquetMetadataReader {
         // Sort categories by their code for consistent ordering
         categories.sort_by(|a, b| match (&a.value, &b.value) {
             (IpumsValue::Integer(a_val), IpumsValue::Integer(b_val)) => a_val.cmp(b_val),
+            (IpumsValue::Float(a_val), IpumsValue::Float(b_val)) => {
+                // Parse floats for comparison; fall back to string comparison on parse failure
+                match (a_val.parse::<f64>(), b_val.parse::<f64>()) {
+                    (Ok(a_f), Ok(b_f)) => a_f.partial_cmp(&b_f).unwrap_or(std::cmp::Ordering::Equal),
+                    _ => a_val.cmp(b_val),
+                }
+            }
+            (IpumsValue::String { value: a_val, .. }, IpumsValue::String { value: b_val, .. }) => {
+                a_val.cmp(b_val)
+            }
             _ => std::cmp::Ordering::Equal,
         });
         
@@ -221,61 +231,45 @@ impl ParquetMetadataReader {
             })?;
 
         let mut variables = Vec::new();
-        let mut failed_vars = Vec::new();
 
         for (var_name, var_value) in variables_map {
-            match serde_json::from_value::<ParquetVariableMetadata>(var_value.clone()) {
-                Ok(metadata) => {
-                    // Convert categories if present and not empty
-                    let categories = if !metadata.categories.is_empty() {
-                        match Self::convert_categories(&metadata.categories, &metadata.data_type, &var_name) {
-                            Ok(cats) => Some(cats),
-                            Err(e) => {
-                                failed_vars.push(var_name.clone());
-                                eprintln!("Warning: Failed to parse categories for variable '{}': {}", var_name, e);
-                                continue;
-                            }
-                        }
-                    } else {
-                        None
-                    };
+            let metadata: ParquetVariableMetadata =
+                serde_json::from_value(var_value).map_err(|e| {
+                    metadata_error!(
+                        "Failed to deserialize metadata for variable '{}': {}",
+                        var_name,
+                        e
+                    )
+                })?;
 
-                    let ipums_var = IpumsVariable {
-                        name: var_name.clone(),
-                        data_type: Some(IpumsDataType::from(metadata.data_type.as_str())),
-                        label: Some(metadata.label),
-                        record_type: metadata
-                            .record_type
-                            .unwrap_or_else(|| record_type.to_string()),
-                        categories,
-                        formatting: metadata
-                            .column_start
-                            .and_then(|start| metadata.column_width.map(|width| (start, width))),
-                        general_width: metadata.general_width.or(metadata.column_width),
-                        description: None, // Could be populated from additional metadata if available
-                        category_bins: None,
-                        id: 0, // Will be assigned when added to MetadataEntities
-                    };
-                    variables.push(ipums_var);
-                }
-                Err(e) => {
-                    failed_vars.push(var_name.clone());
-                    // Consider using a logger instead of eprintln! in production
-                    eprintln!(
-                        "Warning: Failed to deserialize metadata for variable '{}': {}",
-                        var_name, e
-                    );
-                }
-            }
-        }
+            // Convert categories if present and not empty
+            let categories = if !metadata.categories.is_empty() {
+                Some(Self::convert_categories(
+                    &metadata.categories,
+                    &metadata.data_type,
+                    &var_name,
+                )?)
+            } else {
+                None
+            };
 
-        if !failed_vars.is_empty() {
-            // Consider using a logger instead of eprintln! in production
-            eprintln!(
-                "Warning: Failed to parse {} variables: {:?}",
-                failed_vars.len(),
-                failed_vars
-            );
+            let ipums_var = IpumsVariable {
+                name: var_name.clone(),
+                data_type: Some(IpumsDataType::from(metadata.data_type.as_str())),
+                label: Some(metadata.label),
+                record_type: metadata
+                    .record_type
+                    .unwrap_or_else(|| record_type.to_string()),
+                categories,
+                formatting: metadata
+                    .column_start
+                    .and_then(|start| metadata.column_width.map(|width| (start, width))),
+                general_width: metadata.general_width.or(metadata.column_width),
+                description: None,
+                category_bins: None,
+                id: 0, // Will be assigned when added to MetadataEntities
+            };
+            variables.push(ipums_var);
         }
 
         if variables.is_empty() {
@@ -339,7 +333,20 @@ impl ParquetMetadataReader {
         }
     }
 
-    /// Extract schema information from a parquet file
+    /// Convert a Parquet physical type string (from Debug format) to an IPUMS data type string.
+    /// Parquet physical types include: BOOLEAN, INT32, INT64, INT96, FLOAT, DOUBLE,
+    /// BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY.
+    pub fn parquet_type_to_ipums_type(parquet_type: &str) -> &'static str {
+        match parquet_type {
+            "INT32" | "INT64" | "INT96" | "BOOLEAN" => "integer",
+            "FLOAT" | "DOUBLE" => "double",
+            "BYTE_ARRAY" | "FIXED_LEN_BYTE_ARRAY" => "string",
+            _ => "integer", // Default fallback
+        }
+    }
+
+    /// Extract schema information from a parquet file.
+    /// Returns a map of field name to (IPUMS-compatible type string, nullable).
     pub fn get_schema_info(file_path: &Path) -> Result<HashMap<String, (String, bool)>, MdError> {
         let file = File::open(file_path).map_err(|e| {
             metadata_error!(
@@ -362,9 +369,10 @@ impl ParquetMetadataReader {
 
         for field in schema.get_fields() {
             let name = field.name().to_string();
-            let type_str = format!("{:?}", field.get_physical_type());
+            let parquet_type = format!("{:?}", field.get_physical_type());
+            let ipums_type = Self::parquet_type_to_ipums_type(&parquet_type).to_string();
             let nullable = field.is_optional();
-            schema_info.insert(name, (type_str, nullable));
+            schema_info.insert(name, (ipums_type, nullable));
         }
 
         Ok(schema_info)
@@ -579,7 +587,7 @@ mod tests {
         
         assert_eq!(categories[2].label(), "Missing");
         assert_eq!(categories[2].value, IpumsValue::Integer(9));
-        matches!(categories[2].meaning, UniversalCategoryType::Missing);
+        assert!(matches!(categories[2].meaning, UniversalCategoryType::Missing));
     }
 
     #[test]
@@ -668,9 +676,9 @@ mod tests {
         categories_map.insert("A".to_string(), "Category A".to_string());
         categories_map.insert("123".to_string(), "Category 123".to_string());
         categories_map.insert("!@#".to_string(), "Special chars".to_string());
-        
+
         let result = ParquetMetadataReader::convert_categories(&categories_map, "string", "TEST_VAR");
-        
+
         // String type should accept any category code
         assert!(result.is_ok(), "String type should accept any category code");
         let categories = result.unwrap();
@@ -678,5 +686,25 @@ mod tests {
         for category in &categories {
             assert!(matches!(category.value, IpumsValue::String { .. }));
         }
+    }
+
+    #[test]
+    fn test_parquet_type_to_ipums_type() {
+        // Integer types
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT32"), "integer");
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT64"), "integer");
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT96"), "integer");
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("BOOLEAN"), "integer");
+
+        // Float types
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("FLOAT"), "double");
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("DOUBLE"), "double");
+
+        // String types
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("BYTE_ARRAY"), "string");
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("FIXED_LEN_BYTE_ARRAY"), "string");
+
+        // Unknown defaults to integer
+        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("UNKNOWN"), "integer");
     }
 }

@@ -183,24 +183,24 @@ impl MicroDataCollection {
                         &rectype_abbrev,
                     )?;
 
+                    // Find the dataset once before the variable loop
+                    let dataset = datasets
+                        .iter()
+                        .find(|d| d.name == dataset_name)
+                        .cloned()
+                        .unwrap_or_else(|| IpumsDataset::from((dataset_name.to_string(), 0)));
+
                     // Add variables to metadata
                     for var in variables {
-                        // Create or get the dataset
-                        let dataset = datasets
-                            .iter()
-                            .find(|d| d.name == dataset_name)
-                            .cloned()
-                            .unwrap_or_else(|| IpumsDataset::from((dataset_name.to_string(), 0)));
-
-                        md.add_dataset_variable(dataset, var);
+                        md.add_dataset_variable(dataset.clone(), var);
                     }
                 } else {
                     // Fall back to just schema information
                     let schema_info = ParquetMetadataReader::get_schema_info(&parquet_file)?;
-                    
-                    // Create a dataset if we don't have one
+
+                    // Create a dataset once before the variable loop
                     let dataset = IpumsDataset::from((dataset_name.to_string(), 0));
-                    
+
                     // Add each field as a variable with minimal metadata
                     for (field_name, (data_type_str, _nullable)) in schema_info {
                         let ipums_var = IpumsVariable {
@@ -862,9 +862,16 @@ mod test {
             // This should work even if the parquet files don't have embedded metadata
             // It will fall back to schema information
             let result = usa_ctx.load_metadata_for_datasets_from_parquet(&["us2015b"]);
-            // Don't fail the test if the directory doesn't exist
-            if result.is_ok() || result.unwrap_err().to_string().contains("does not exist") {
-                // Expected behavior - either succeeds or fails with expected error
+            match result {
+                Ok(_) => {
+                    // Success - metadata was loaded
+                }
+                Err(e) if e.to_string().contains("does not exist") => {
+                    // Expected - dataset directory doesn't exist in test data
+                }
+                Err(e) => {
+                    panic!("Unexpected error loading parquet metadata: {}", e);
+                }
             }
         }
     }
