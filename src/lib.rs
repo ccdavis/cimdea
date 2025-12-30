@@ -41,6 +41,7 @@
 //! [AbacusRequest](request::AbacusRequest), which also implements `DataRequest`.
 
 pub mod conventions;
+pub mod data_version;
 pub mod defaults;
 pub mod fixed_width;
 pub mod input_schema_tabulation;

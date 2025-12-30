@@ -91,7 +91,7 @@ impl ParquetMetadataReader {
         variable_name: &str,
     ) -> Result<Vec<IpumsCategory>, MdError> {
         let mut categories: Vec<IpumsCategory> = Vec::new();
-        
+
         for (code_str, label) in categories_map {
             // Parse the code value based on the variable's data type
             let value = match data_type.to_lowercase().as_str() {
@@ -122,20 +122,22 @@ impl ParquetMetadataReader {
                     value: code_str.as_bytes().to_vec(),
                 },
             };
-            
+
             // Determine the category meaning based on common IPUMS conventions
             let meaning = Self::determine_category_meaning(code_str, label);
-            
+
             categories.push(IpumsCategory::new(label, meaning, value));
         }
-        
+
         // Sort categories by their code for consistent ordering
         categories.sort_by(|a, b| match (&a.value, &b.value) {
             (IpumsValue::Integer(a_val), IpumsValue::Integer(b_val)) => a_val.cmp(b_val),
             (IpumsValue::Float(a_val), IpumsValue::Float(b_val)) => {
                 // Parse floats for comparison; fall back to string comparison on parse failure
                 match (a_val.parse::<f64>(), b_val.parse::<f64>()) {
-                    (Ok(a_f), Ok(b_f)) => a_f.partial_cmp(&b_f).unwrap_or(std::cmp::Ordering::Equal),
+                    (Ok(a_f), Ok(b_f)) => {
+                        a_f.partial_cmp(&b_f).unwrap_or(std::cmp::Ordering::Equal)
+                    }
                     _ => a_val.cmp(b_val),
                 }
             }
@@ -144,14 +146,14 @@ impl ParquetMetadataReader {
             }
             _ => std::cmp::Ordering::Equal,
         });
-        
+
         Ok(categories)
     }
-    
+
     /// Determine the UniversalCategoryType based on code and label patterns
     fn determine_category_meaning(code: &str, label: &str) -> UniversalCategoryType {
         let label_lower = label.to_lowercase();
-        
+
         // Check for common patterns in IPUMS data
         if label_lower.contains("n/a") || label_lower.contains("not applicable") {
             UniversalCategoryType::NotApplicable
@@ -225,10 +227,8 @@ impl ParquetMetadataReader {
         json_str: &str,
         record_type: &str,
     ) -> Result<Vec<IpumsVariable>, MdError> {
-        let variables_map: HashMap<String, serde_json::Value> =
-            serde_json::from_str(json_str).map_err(|e| {
-                metadata_error!("Failed to parse variables JSON: {}", e)
-            })?;
+        let variables_map: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)
+            .map_err(|e| metadata_error!("Failed to parse variables JSON: {}", e))?;
 
         let mut variables = Vec::new();
 
@@ -283,10 +283,8 @@ impl ParquetMetadataReader {
 
     /// Parse dataset/sample metadata from JSON string
     pub fn parse_samples_metadata(json_str: &str) -> Result<Vec<IpumsDataset>, MdError> {
-        let samples_map: HashMap<String, serde_json::Value> =
-            serde_json::from_str(json_str).map_err(|e| {
-                metadata_error!("Failed to parse samples JSON: {}", e)
-            })?;
+        let samples_map: HashMap<String, serde_json::Value> = serde_json::from_str(json_str)
+            .map_err(|e| metadata_error!("Failed to parse samples JSON: {}", e))?;
 
         let mut datasets = Vec::new();
 
@@ -310,7 +308,11 @@ impl ParquetMetadataReader {
             let sampling_density = sample_value
                 .get("density")
                 .and_then(|v| v.as_f64())
-                .or_else(|| sample_value.get("sampling_density").and_then(|v| v.as_f64()));
+                .or_else(|| {
+                    sample_value
+                        .get("sampling_density")
+                        .and_then(|v| v.as_f64())
+                });
 
             let dataset = IpumsDataset {
                 name: sample_name,
@@ -498,27 +500,34 @@ mod tests {
         categories_map.insert("0".to_string(), "Less than 1 year old".to_string());
         categories_map.insert("1".to_string(), "1 year old".to_string());
         categories_map.insert("999".to_string(), "Missing".to_string());
-        
-        let categories = ParquetMetadataReader::convert_categories(&categories_map, "integer", "AGE")
-            .expect("Should convert valid integer categories");
-        
+
+        let categories =
+            ParquetMetadataReader::convert_categories(&categories_map, "integer", "AGE")
+                .expect("Should convert valid integer categories");
+
         assert_eq!(categories.len(), 3);
-        
+
         // Check first category (should be sorted by code)
         assert_eq!(categories[0].label(), "Less than 1 year old");
         assert_eq!(categories[0].value, IpumsValue::Integer(0));
-        assert!(matches!(categories[0].meaning, UniversalCategoryType::Value));
-        
+        assert!(matches!(
+            categories[0].meaning,
+            UniversalCategoryType::Value
+        ));
+
         // Check last category (missing value)
         assert_eq!(categories[2].label(), "Missing");
         assert_eq!(categories[2].value, IpumsValue::Integer(999));
-        assert!(matches!(categories[2].meaning, UniversalCategoryType::Missing));
+        assert!(matches!(
+            categories[2].meaning,
+            UniversalCategoryType::Missing
+        ));
     }
 
     #[test]
     fn test_determine_category_meaning() {
         use super::UniversalCategoryType;
-        
+
         // Test Missing patterns
         assert!(matches!(
             ParquetMetadataReader::determine_category_meaning("999", "Missing"),
@@ -528,13 +537,13 @@ mod tests {
             ParquetMetadataReader::determine_category_meaning("998", "Unknown/illegible"),
             UniversalCategoryType::Missing
         ));
-        
+
         // Test NotApplicable patterns
         assert!(matches!(
             ParquetMetadataReader::determine_category_meaning("99", "N/A or blank"),
             UniversalCategoryType::NotApplicable
         ));
-        
+
         // Test NotInUniverse patterns
         assert!(matches!(
             ParquetMetadataReader::determine_category_meaning("0", "Not in universe"),
@@ -544,7 +553,7 @@ mod tests {
             ParquetMetadataReader::determine_category_meaning("0", "NIU"),
             UniversalCategoryType::NotInUniverse
         ));
-        
+
         // Test regular value
         assert!(matches!(
             ParquetMetadataReader::determine_category_meaning("1", "Male"),
@@ -566,28 +575,31 @@ mod tests {
                 }
             }
         }"#;
-        
+
         let variables = ParquetMetadataReader::parse_variable_metadata(json_str, "P")
             .expect("Should parse valid JSON with categories");
         assert_eq!(variables.len(), 1);
-        
+
         let sex_var = &variables[0];
         assert_eq!(sex_var.name, "SEX");
         assert!(sex_var.categories.is_some());
-        
+
         let categories = sex_var.categories.as_ref().unwrap();
         assert_eq!(categories.len(), 3);
-        
+
         // Verify categories are properly converted
         assert_eq!(categories[0].label(), "Male");
         assert_eq!(categories[0].value, IpumsValue::Integer(1));
-        
+
         assert_eq!(categories[1].label(), "Female");
         assert_eq!(categories[1].value, IpumsValue::Integer(2));
-        
+
         assert_eq!(categories[2].label(), "Missing");
         assert_eq!(categories[2].value, IpumsValue::Integer(9));
-        assert!(matches!(categories[2].meaning, UniversalCategoryType::Missing));
+        assert!(matches!(
+            categories[2].meaning,
+            UniversalCategoryType::Missing
+        ));
     }
 
     #[test]
@@ -647,29 +659,37 @@ mod tests {
         let mut categories_map = HashMap::new();
         categories_map.insert("A".to_string(), "Category A".to_string());
         categories_map.insert("B".to_string(), "Category B".to_string());
-        
-        let result = ParquetMetadataReader::convert_categories(&categories_map, "integer", "TEST_VAR");
-        
+
+        let result =
+            ParquetMetadataReader::convert_categories(&categories_map, "integer", "TEST_VAR");
+
         // Non-integer codes for integer type should cause an error
-        assert!(result.is_err(), "Should fail when category codes don't match data type");
+        assert!(
+            result.is_err(),
+            "Should fail when category codes don't match data type"
+        );
         let err = result.unwrap_err();
         assert!(err.to_string().contains("not a valid integer"));
     }
-    
+
     #[test]
     fn test_category_with_invalid_float_code_fails() {
         let mut categories_map = HashMap::new();
         categories_map.insert("1.5".to_string(), "Valid float".to_string());
         categories_map.insert("not_a_number".to_string(), "Invalid float".to_string());
-        
-        let result = ParquetMetadataReader::convert_categories(&categories_map, "float", "TEST_VAR");
-        
+
+        let result =
+            ParquetMetadataReader::convert_categories(&categories_map, "float", "TEST_VAR");
+
         // Invalid float codes should cause an error
-        assert!(result.is_err(), "Should fail when float category codes are invalid");
+        assert!(
+            result.is_err(),
+            "Should fail when float category codes are invalid"
+        );
         let err = result.unwrap_err();
         assert!(err.to_string().contains("not a valid number"));
     }
-    
+
     #[test]
     fn test_category_with_string_type_accepts_any() {
         let mut categories_map = HashMap::new();
@@ -677,10 +697,14 @@ mod tests {
         categories_map.insert("123".to_string(), "Category 123".to_string());
         categories_map.insert("!@#".to_string(), "Special chars".to_string());
 
-        let result = ParquetMetadataReader::convert_categories(&categories_map, "string", "TEST_VAR");
+        let result =
+            ParquetMetadataReader::convert_categories(&categories_map, "string", "TEST_VAR");
 
         // String type should accept any category code
-        assert!(result.is_ok(), "String type should accept any category code");
+        assert!(
+            result.is_ok(),
+            "String type should accept any category code"
+        );
         let categories = result.unwrap();
         assert_eq!(categories.len(), 3);
         for category in &categories {
@@ -691,20 +715,47 @@ mod tests {
     #[test]
     fn test_parquet_type_to_ipums_type() {
         // Integer types
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT32"), "integer");
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT64"), "integer");
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("INT96"), "integer");
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("BOOLEAN"), "integer");
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("INT32"),
+            "integer"
+        );
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("INT64"),
+            "integer"
+        );
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("INT96"),
+            "integer"
+        );
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("BOOLEAN"),
+            "integer"
+        );
 
         // Float types
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("FLOAT"), "double");
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("DOUBLE"), "double");
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("FLOAT"),
+            "double"
+        );
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("DOUBLE"),
+            "double"
+        );
 
         // String types
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("BYTE_ARRAY"), "string");
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("FIXED_LEN_BYTE_ARRAY"), "string");
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("BYTE_ARRAY"),
+            "string"
+        );
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("FIXED_LEN_BYTE_ARRAY"),
+            "string"
+        );
 
         // Unknown defaults to integer
-        assert_eq!(ParquetMetadataReader::parquet_type_to_ipums_type("UNKNOWN"), "integer");
+        assert_eq!(
+            ParquetMetadataReader::parquet_type_to_ipums_type("UNKNOWN"),
+            "integer"
+        );
     }
 }
