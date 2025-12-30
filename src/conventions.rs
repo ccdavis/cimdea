@@ -155,7 +155,8 @@ impl MicroDataCollection {
             })?;
 
         // Collect record types and filenames first to avoid borrow issues
-        let record_types: Vec<(String, String)> = self.record_types
+        let record_types: Vec<(String, String)> = self
+            .record_types
             .keys()
             .map(|k| {
                 let base_filename = self.base_filename_for_dataset_and_rectype(dataset_name, k);
@@ -254,10 +255,7 @@ impl MicroDataCollection {
     /// Takes a path like ../output_data/current/parquet/, which could be derived
     /// automatically from defaults based on data root or product root. Scans all
     /// parquet schema information and embedded metadata.
-    pub fn load_metadata_from_all_parquet(
-        &mut self,
-        parquet_path: &Path,
-    ) -> Result<(), MdError> {
+    pub fn load_metadata_from_all_parquet(&mut self, parquet_path: &Path) -> Result<(), MdError> {
         if !parquet_path.exists() {
             return Err(metadata_error!(
                 "Parquet path does not exist: {}",
@@ -278,9 +276,8 @@ impl MicroDataCollection {
         let mut errors = Vec::new();
 
         for entry in entries {
-            let entry = entry.map_err(|e| {
-                metadata_error!("Failed to read directory entry: {}", e)
-            })?;
+            let entry =
+                entry.map_err(|e| metadata_error!("Failed to read directory entry: {}", e))?;
 
             let path = entry.path();
             if path.is_dir() {
