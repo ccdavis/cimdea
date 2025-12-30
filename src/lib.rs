@@ -43,6 +43,7 @@
 pub mod conventions;
 pub mod data_version;
 pub mod defaults;
+pub mod deployment;
 pub mod fixed_width;
 pub mod input_schema_tabulation;
 pub mod ipums_data_model;
@@ -51,7 +52,9 @@ pub mod layout;
 pub mod mderror;
 pub mod parquet_metadata;
 pub mod query_gen;
+pub mod remote;
 pub mod request;
+pub mod server_status;
 pub mod tabulate;
 
 // TODO: I have an idea for how to use this interner library.
