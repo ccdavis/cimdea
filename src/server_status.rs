@@ -145,9 +145,7 @@ pub fn format_timestamp_groups(timestamps: &[i64]) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0);
-
-    // Simple year extraction (approximate, but good enough for display)
-    let current_year = 1970 + (now / 31536000); // seconds per year
+    let (current_year, _, _) = timestamp_to_ymd(now);
 
     if groups.len() == 1 {
         let date_str = format_timestamp(groups[0].start_time, current_year);
@@ -165,35 +163,40 @@ pub fn format_timestamp_groups(timestamps: &[i64]) -> String {
 }
 
 /// Format a Unix timestamp as a human-readable date
-fn format_timestamp(ts: i64, current_year: i64) -> String {
-    // Convert epoch to date components manually
-    // This is a simplified implementation - for production use chrono
-    let days_since_epoch = ts / 86400;
-    let year = 1970 + (days_since_epoch / 365); // Approximate
-
+fn format_timestamp(ts: i64, current_year: i32) -> String {
+    let (year, month, day) = timestamp_to_ymd(ts);
     let months = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
-
-    // Approximate month and day (this is simplified)
-    let day_of_year = days_since_epoch % 365;
-    let month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let mut month = 0;
-    let mut remaining = day_of_year as i32;
-    for (i, &days) in month_days.iter().enumerate() {
-        if remaining < days {
-            month = i;
-            break;
-        }
-        remaining -= days;
-    }
-    let day = remaining + 1;
+    let month_name = months[(month.saturating_sub(1)) as usize];
 
     if year == current_year {
-        format!("{} {:02}", months[month], day)
+        format!("{} {:02}", month_name, day)
     } else {
-        format!("{} {:02} {}", months[month], day, year)
+        format!("{} {:02} {}", month_name, day, year)
     }
+}
+
+fn timestamp_to_ymd(ts: i64) -> (i32, u32, u32) {
+    let days = ts.div_euclid(86_400);
+    civil_from_days(days)
+}
+
+// Convert days since Unix epoch to (year, month, day) in the proleptic Gregorian calendar.
+// Algorithm from https://howardhinnant.github.io/date_algorithms.html#civil_from_days
+fn civil_from_days(days: i64) -> (i32, u32, u32) {
+    let z = days + 719_468;
+    let era = if z >= 0 { z / 146_097 } else { (z - 146_096) / 146_097 };
+    let doe = z - era * 146_097; // [0, 146096]
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let mut y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let m = mp + if mp < 10 { 3 } else { -9 }; // [1, 12]
+    y += if m <= 2 { 1 } else { 0 };
+
+    (y as i32, m as u32, d as u32)
 }
 
 /// Compare two lists of dataset names
@@ -240,6 +243,17 @@ fn extract_fw_dataset_name(path: &str, suffix: &str) -> Option<String> {
             // Remove the product suffix
             name.strip_suffix(suffix)
         })
+        .map(String::from)
+}
+
+/// Extract dataset name from a parquet filename
+///
+/// Given a path like `/path/to/us2015b.parquet`, extracts `us2015b`
+fn extract_parquet_dataset_name(path: &str) -> Option<String> {
+    Path::new(path)
+        .file_name()
+        .and_then(|f| f.to_str())
+        .and_then(|name| name.strip_suffix(".parquet"))
         .map(String::from)
 }
 
@@ -313,28 +327,54 @@ impl<'a> ServerStatusChecker<'a> {
             Ok(true) => {}
         }
 
+        let mut dataset_names: HashSet<String> = HashSet::new();
+
         match self.pool.list_content_dirs(&target.server, &parquet_path) {
-            Ok(dirs) if !dirs.is_empty() => {
-                let timestamps = self
-                    .pool
-                    .get_timestamps(&target.server, &format!("{}/*", parquet_path))
-                    .unwrap_or_default();
-
-                let datasets: Vec<DatasetInfo> = dirs
-                    .into_iter()
-                    .map(|name| DatasetInfo {
-                        name,
-                        timestamp: None,
-                    })
-                    .collect();
-
-                FormatStatus::Present {
-                    datasets,
-                    date_summary: format_timestamp_groups(&timestamps),
+            Ok(dirs) => {
+                for name in dirs {
+                    dataset_names.insert(name);
                 }
             }
-            Ok(_) => FormatStatus::Missing,
-            Err(e) => FormatStatus::Unknown(e.to_string()),
+            Err(e) => return FormatStatus::Unknown(e.to_string()),
+        }
+
+        match self
+            .pool
+            .list_files(&target.server, &format!("{}/*.parquet", parquet_path))
+        {
+            Ok(files) => {
+                for path in files {
+                    if let Some(name) = extract_parquet_dataset_name(&path) {
+                        dataset_names.insert(name);
+                    }
+                }
+            }
+            Err(e) => return FormatStatus::Unknown(e.to_string()),
+        }
+
+        if dataset_names.is_empty() {
+            return FormatStatus::Missing;
+        }
+
+        let timestamps = self
+            .pool
+            .get_timestamps(&target.server, &format!("{}/*", parquet_path))
+            .unwrap_or_default();
+
+        let mut names: Vec<String> = dataset_names.into_iter().collect();
+        names.sort();
+
+        let datasets: Vec<DatasetInfo> = names
+            .into_iter()
+            .map(|name| DatasetInfo {
+                name,
+                timestamp: None,
+            })
+            .collect();
+
+        FormatStatus::Present {
+            datasets,
+            date_summary: format_timestamp_groups(&timestamps),
         }
     }
 
@@ -353,7 +393,7 @@ impl<'a> ServerStatusChecker<'a> {
                     .unwrap_or_default();
 
                 let suffix = target.product.fw_suffix();
-                let datasets: Vec<DatasetInfo> = files
+                let mut datasets: Vec<DatasetInfo> = files
                     .into_iter()
                     .filter_map(|path| {
                         extract_fw_dataset_name(&path, &suffix).map(|name| DatasetInfo {
@@ -362,6 +402,7 @@ impl<'a> ServerStatusChecker<'a> {
                         })
                     })
                     .collect();
+                datasets.sort_by(|a, b| a.name.cmp(&b.name));
 
                 FormatStatus::Present {
                     datasets,
@@ -394,13 +435,14 @@ impl<'a> ServerStatusChecker<'a> {
                     .get_timestamps(&target.server, &format!("{}/*", derived_path))
                     .unwrap_or_default();
 
-                let datasets: Vec<DatasetInfo> = dirs
+                let mut datasets: Vec<DatasetInfo> = dirs
                     .into_iter()
                     .map(|name| DatasetInfo {
                         name,
                         timestamp: None,
                     })
                     .collect();
+                datasets.sort_by(|a, b| a.name.cmp(&b.name));
 
                 FormatStatus::Present {
                     datasets,
@@ -507,6 +549,13 @@ mod tests {
         let path2 = "/path/to/us2015b_health.dat.gz";
         let result2 = extract_fw_dataset_name(path2, "_health");
         assert_eq!(result2, Some("us2015b".to_string()));
+    }
+
+    #[test]
+    fn test_extract_parquet_dataset_name() {
+        let path = "/web/internal.cps.ipums.org/share/data/current/parquet/us2015b.parquet";
+        let result = extract_parquet_dataset_name(path);
+        assert_eq!(result, Some("us2015b".to_string()));
     }
 
     #[test]

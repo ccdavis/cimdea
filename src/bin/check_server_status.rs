@@ -29,7 +29,7 @@ use cimdea::server_status::{
 };
 use clap::Parser;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -299,8 +299,7 @@ fn main() {
 
 /// Check if stdout is a terminal
 fn is_terminal() -> bool {
-    // Simple heuristic: check if TERM environment variable is set
-    std::env::var("TERM").is_ok()
+    io::stdout().is_terminal()
 }
 
 fn print_header(fmt: &mut OutputFormatter) {
@@ -404,9 +403,9 @@ fn check_live_environment(
                         fmt.write(&format!(
                             "  Status:    {} {}",
                             fmt.warning_symbol(),
-                            fmt.yellow("skipped (connection failed)")
+                            fmt.yellow("connection failed")
                         ));
-                        summary.add_skipped();
+                        summary.errors += 1;
                     }
                 }
                 continue;
