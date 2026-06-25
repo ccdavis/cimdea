@@ -108,7 +108,7 @@ impl OutputFormatter {
                 // Skip escape sequence
                 if chars.peek() == Some(&'[') {
                     chars.next(); // consume '['
-                    // Skip until we hit a letter
+                                  // Skip until we hit a letter
                     while let Some(&nc) = chars.peek() {
                         chars.next();
                         if nc.is_ascii_alphabetic() {
@@ -326,9 +326,7 @@ fn check_environment(
         server,
         env.as_str()
     ));
-    fmt.write(&fmt.dim(
-        "You may be prompted to verify the host key and/or enter your password",
-    ));
+    fmt.write(&fmt.dim("You may be prompted to verify the host key and/or enter your password"));
     fmt.write("");
 
     // Connect to server
@@ -419,7 +417,11 @@ fn check_live_environment(
     }
 }
 
-fn print_product_status(fmt: &mut OutputFormatter, status: &ProductStatus, summary: &mut StatusSummary) {
+fn print_product_status(
+    fmt: &mut OutputFormatter,
+    status: &ProductStatus,
+    summary: &mut StatusSummary,
+) {
     fmt.write(&format!(
         "\n[{}] {}",
         status.product_name,
@@ -468,7 +470,12 @@ fn print_product_status(fmt: &mut OutputFormatter, status: &ProductStatus, summa
             } => {
                 let mut detail = String::new();
                 if !fw_only.is_empty() {
-                    let examples: String = fw_only.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+                    let examples: String = fw_only
+                        .iter()
+                        .take(3)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     detail.push_str(&format!("FW only ({}): {} ", fw_only.len(), examples));
                     if fw_only.len() > 3 {
                         detail.push_str("... ");
@@ -481,7 +488,11 @@ fn print_product_status(fmt: &mut OutputFormatter, status: &ProductStatus, summa
                         .cloned()
                         .collect::<Vec<_>>()
                         .join(", ");
-                    detail.push_str(&format!("Parquet only ({}): {}", parquet_only.len(), examples));
+                    detail.push_str(&format!(
+                        "Parquet only ({}): {}",
+                        parquet_only.len(),
+                        examples
+                    ));
                     if parquet_only.len() > 3 {
                         detail.push_str("...");
                     }

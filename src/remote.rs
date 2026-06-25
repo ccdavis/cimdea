@@ -115,19 +115,15 @@ impl SshConnectionPool {
         }
 
         // Use getent to resolve
-        let output = Command::new("getent")
-            .args(["ahosts", hostname])
-            .output();
+        let output = Command::new("getent").args(["ahosts", hostname]).output();
 
         let canonical = match output {
-            Ok(out) if out.status.success() => {
-                String::from_utf8_lossy(&out.stdout)
-                    .lines()
-                    .next()
-                    .and_then(|line| line.split_whitespace().nth(2))
-                    .map(String::from)
-                    .unwrap_or_else(|| hostname.to_string())
-            }
+            Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(2))
+                .map(String::from)
+                .unwrap_or_else(|| hostname.to_string()),
             _ => hostname.to_string(),
         };
 
@@ -313,7 +309,11 @@ impl SshConnectionPool {
     ///
     /// For parquet directories, this checks for .parquet files.
     /// For derived directories, this checks for any content.
-    pub fn list_content_dirs(&self, server: &str, base_dir: &str) -> Result<Vec<String>, RemoteError> {
+    pub fn list_content_dirs(
+        &self,
+        server: &str,
+        base_dir: &str,
+    ) -> Result<Vec<String>, RemoteError> {
         // Check each subdirectory for parquet files or any content
         let cmd = format!(
             r#"for d in '{}'/*/ ; do
@@ -358,10 +358,7 @@ impl SshConnectionPool {
 
     // Private helper methods for interactive prompts
     fn prompt_third_party_connection(&self, server: &str) -> Result<bool, RemoteError> {
-        print!(
-            "{} is a third-party server. Try to connect? [y/N] ",
-            server
-        );
+        print!("{} is a third-party server. Try to connect? [y/N] ", server);
         io::stdout().flush()?;
 
         let mut input = String::new();

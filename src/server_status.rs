@@ -13,7 +13,6 @@ use std::path::Path;
 #[derive(Debug, Clone)]
 pub struct DatasetInfo {
     pub name: String,
-    pub timestamp: Option<i64>,
 }
 
 /// Status of a specific data format on a server
@@ -44,7 +43,9 @@ impl FormatStatus {
     /// Get the list of dataset names if present
     pub fn dataset_names(&self) -> Vec<String> {
         match self {
-            FormatStatus::Present { datasets, .. } => datasets.iter().map(|d| d.name.clone()).collect(),
+            FormatStatus::Present { datasets, .. } => {
+                datasets.iter().map(|d| d.name.clone()).collect()
+            }
             _ => Vec::new(),
         }
     }
@@ -151,8 +152,10 @@ pub fn format_timestamp_groups(timestamps: &[i64]) -> String {
         let date_str = format_timestamp(groups[0].start_time, current_year);
         format!("[{}]", date_str)
     } else {
+        // Display newest group first (groups are accumulated oldest-first).
         let parts: Vec<String> = groups
             .iter()
+            .rev()
             .map(|g| {
                 let date_str = format_timestamp(g.start_time, current_year);
                 format!("{}: {}", date_str, g.count)
@@ -186,7 +189,11 @@ fn timestamp_to_ymd(ts: i64) -> (i32, u32, u32) {
 // Algorithm from https://howardhinnant.github.io/date_algorithms.html#civil_from_days
 fn civil_from_days(days: i64) -> (i32, u32, u32) {
     let z = days + 719_468;
-    let era = if z >= 0 { z / 146_097 } else { (z - 146_096) / 146_097 };
+    let era = if z >= 0 {
+        z / 146_097
+    } else {
+        (z - 146_096) / 146_097
+    };
     let doe = z - era * 146_097; // [0, 146096]
     let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
     let mut y = yoe + era * 400;
@@ -208,14 +215,18 @@ pub fn compare_datasets(fw_datasets: &[String], parquet_datasets: &[String]) -> 
     let fw_set: HashSet<_> = fw_datasets.iter().collect();
     let parquet_set: HashSet<_> = parquet_datasets.iter().collect();
 
-    let fw_only: Vec<String> = fw_set
+    let mut fw_only: Vec<String> = fw_set
         .difference(&parquet_set)
         .map(|s| (*s).clone())
         .collect();
-    let parquet_only: Vec<String> = parquet_set
+    let mut parquet_only: Vec<String> = parquet_set
         .difference(&fw_set)
         .map(|s| (*s).clone())
         .collect();
+
+    // Sort for deterministic, readable output (HashSet iteration order is arbitrary).
+    fw_only.sort();
+    parquet_only.sort();
 
     if fw_only.is_empty() && parquet_only.is_empty() {
         DatasetComparison::Match
@@ -364,13 +375,8 @@ impl<'a> ServerStatusChecker<'a> {
         let mut names: Vec<String> = dataset_names.into_iter().collect();
         names.sort();
 
-        let datasets: Vec<DatasetInfo> = names
-            .into_iter()
-            .map(|name| DatasetInfo {
-                name,
-                timestamp: None,
-            })
-            .collect();
+        let datasets: Vec<DatasetInfo> =
+            names.into_iter().map(|name| DatasetInfo { name }).collect();
 
         FormatStatus::Present {
             datasets,
@@ -396,10 +402,7 @@ impl<'a> ServerStatusChecker<'a> {
                 let mut datasets: Vec<DatasetInfo> = files
                     .into_iter()
                     .filter_map(|path| {
-                        extract_fw_dataset_name(&path, &suffix).map(|name| DatasetInfo {
-                            name,
-                            timestamp: None,
-                        })
+                        extract_fw_dataset_name(&path, &suffix).map(|name| DatasetInfo { name })
                     })
                     .collect();
                 datasets.sort_by(|a, b| a.name.cmp(&b.name));
@@ -435,13 +438,8 @@ impl<'a> ServerStatusChecker<'a> {
                     .get_timestamps(&target.server, &format!("{}/*", derived_path))
                     .unwrap_or_default();
 
-                let mut datasets: Vec<DatasetInfo> = dirs
-                    .into_iter()
-                    .map(|name| DatasetInfo {
-                        name,
-                        timestamp: None,
-                    })
-                    .collect();
+                let mut datasets: Vec<DatasetInfo> =
+                    dirs.into_iter().map(|name| DatasetInfo { name }).collect();
                 datasets.sort_by(|a, b| a.name.cmp(&b.name));
 
                 FormatStatus::Present {
@@ -532,6 +530,63 @@ mod tests {
     }
 
     #[test]
+    fn test_compare_datasets_mismatch_sorted() {
+        // Provide inputs in unsorted order; the difference lists must come back sorted
+        // so output is deterministic regardless of HashSet iteration order.
+        let fw = vec![
+            "us2017a".to_string(),
+            "us2015b".to_string(),
+            "us2016a".to_string(),
+            "us2014c".to_string(),
+        ];
+        let parquet = vec!["us2016a".to_string()];
+
+        match compare_datasets(&fw, &parquet) {
+            DatasetComparison::Mismatch {
+                fw_only,
+                parquet_only,
+            } => {
+                assert_eq!(
+                    fw_only,
+                    vec![
+                        "us2014c".to_string(),
+                        "us2015b".to_string(),
+                        "us2017a".to_string()
+                    ]
+                );
+                assert!(parquet_only.is_empty());
+            }
+            _ => panic!("Expected mismatch"),
+        }
+    }
+
+    #[test]
+    fn test_extract_fw_dataset_name_no_suffix_match() {
+        // Suffix doesn't match the filename -> None.
+        let path = "/path/to/cps2015_03_cps.dat.gz";
+        assert_eq!(extract_fw_dataset_name(path, "_health"), None);
+
+        // Not a fixed-width filename at all -> None.
+        let path2 = "/path/to/us2015b.parquet";
+        assert_eq!(extract_fw_dataset_name(path2, "_usa"), None);
+    }
+
+    #[test]
+    fn test_timestamp_grouping_newest_first() {
+        // Two clusters >12h apart; newest group must be listed first.
+        let nov = 1_731_628_800; // Nov 2024 (approx)
+        let dec = 1_734_220_800; // Dec 2024 (approx), ~30 days later
+        let result = format_timestamp_groups(&[nov, dec]);
+
+        let dec_pos = result.find(&format_timestamp(dec, 0)).unwrap();
+        let nov_pos = result.find(&format_timestamp(nov, 0)).unwrap();
+        assert!(
+            dec_pos < nov_pos,
+            "expected newest (Dec) before oldest (Nov): {result}"
+        );
+    }
+
+    #[test]
     fn test_compare_datasets_empty() {
         let fw: Vec<String> = vec![];
         let parquet = vec!["us2015b".to_string()];
@@ -589,7 +644,6 @@ mod tests {
         let present = FormatStatus::Present {
             datasets: vec![DatasetInfo {
                 name: "test".to_string(),
-                timestamp: None,
             }],
             date_summary: "[Dec 15]".to_string(),
         };

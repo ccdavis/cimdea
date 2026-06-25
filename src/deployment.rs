@@ -128,7 +128,11 @@ pub struct DeploymentTarget {
 
 impl DeploymentTarget {
     /// Create a new deployment target for a product in an environment
-    pub fn new(environment: Environment, product: &ProductDeployment, internal_server: &str) -> Self {
+    pub fn new(
+        environment: Environment,
+        product: &ProductDeployment,
+        internal_server: &str,
+    ) -> Self {
         let (server, base_path) = match environment {
             Environment::Internal => (
                 internal_server.to_string(),
@@ -169,7 +173,11 @@ impl DeploymentTarget {
 
     /// Pattern for fixed-width files
     pub fn fw_pattern(&self) -> String {
-        format!("{}/*{}.dat.gz", self.current_path(), self.product.fw_suffix())
+        format!(
+            "{}/*{}.dat.gz",
+            self.current_path(),
+            self.product.fw_suffix()
+        )
     }
 }
 
@@ -186,8 +194,7 @@ pub struct DeploymentConfig {
 impl DeploymentConfig {
     /// Load configuration from a file path (TOML or JSON based on extension)
     pub fn load_from_file(path: &Path) -> Result<Self, MdError> {
-        let content =
-            std::fs::read_to_string(path).map_err(MdError::IoError)?;
+        let content = std::fs::read_to_string(path).map_err(MdError::IoError)?;
 
         if path.extension().map_or(false, |ext| ext == "json") {
             serde_json::from_str(&content)
@@ -261,7 +268,11 @@ impl DeploymentRegistry {
     }
 
     /// Create a deployment target for a product in an environment
-    pub fn target(&self, environment: Environment, product: &ProductDeployment) -> DeploymentTarget {
+    pub fn target(
+        &self,
+        environment: Environment,
+        product: &ProductDeployment,
+    ) -> DeploymentTarget {
         DeploymentTarget::new(environment, product, &self.internal_server)
     }
 }
@@ -289,7 +300,11 @@ pub fn default_product_deployments() -> Vec<ProductDeployment> {
             name: "cps".to_string(),
             domain: "cps.ipums.org".to_string(),
             live_server: "cps.ipums.org".to_string(),
-            formats: vec![DataFormat::FixedWidth, DataFormat::Parquet, DataFormat::Derived],
+            formats: vec![
+                DataFormat::FixedWidth,
+                DataFormat::Parquet,
+                DataFormat::Derived,
+            ],
             third_party: false,
             naming_suffix: None,
         },
@@ -321,7 +336,11 @@ pub fn default_product_deployments() -> Vec<ProductDeployment> {
             name: "meps".to_string(),
             domain: "meps.ipums.org".to_string(),
             live_server: "meps.ipums.org".to_string(),
-            formats: vec![DataFormat::FixedWidth, DataFormat::Parquet, DataFormat::Derived],
+            formats: vec![
+                DataFormat::FixedWidth,
+                DataFormat::Parquet,
+                DataFormat::Derived,
+            ],
             third_party: false,
             naming_suffix: Some("_health".to_string()),
         },
@@ -345,7 +364,11 @@ pub fn default_product_deployments() -> Vec<ProductDeployment> {
             name: "nhis".to_string(),
             domain: "nhis.ipums.org".to_string(),
             live_server: "nhis.ipums.org".to_string(),
-            formats: vec![DataFormat::FixedWidth, DataFormat::Parquet, DataFormat::Derived],
+            formats: vec![
+                DataFormat::FixedWidth,
+                DataFormat::Parquet,
+                DataFormat::Derived,
+            ],
             third_party: false,
             naming_suffix: Some("_health".to_string()),
         },
@@ -353,7 +376,11 @@ pub fn default_product_deployments() -> Vec<ProductDeployment> {
             name: "pma".to_string(),
             domain: "pma.ipums.org".to_string(),
             live_server: "pma.ipums.org".to_string(),
-            formats: vec![DataFormat::FixedWidth, DataFormat::Parquet, DataFormat::Derived],
+            formats: vec![
+                DataFormat::FixedWidth,
+                DataFormat::Parquet,
+                DataFormat::Derived,
+            ],
             third_party: false,
             naming_suffix: None,
         },
@@ -461,5 +488,110 @@ mod tests {
         assert_eq!(products.len(), 12);
         assert_eq!(products[0].name, "ahtus");
         assert_eq!(products[11].name, "usa");
+    }
+
+    #[test]
+    fn test_demo_target_paths() {
+        let registry = DeploymentRegistry::new();
+        let cps = registry.get_product("cps").unwrap();
+        let target = registry.target(Environment::Demo, cps);
+
+        assert_eq!(target.server, INTERNAL_SERVER);
+        assert_eq!(target.base_path, "/web/demo.cps.ipums.org/share/data");
+        assert_eq!(
+            target.current_path(),
+            "/web/demo.cps.ipums.org/share/data/current"
+        );
+        assert_eq!(
+            target.derived_path(),
+            "/web/demo.cps.ipums.org/share/data/current/derived"
+        );
+    }
+
+    #[test]
+    fn test_with_config_no_path_uses_defaults() {
+        // None config path -> identical to defaults.
+        let registry = DeploymentRegistry::with_config(None).unwrap();
+        assert_eq!(registry.products.len(), 12);
+        assert_eq!(registry.internal_server, INTERNAL_SERVER);
+    }
+
+    #[test]
+    fn test_with_config_toml_override() {
+        use std::io::Write;
+        let mut file = tempfile::Builder::new().suffix(".toml").tempfile().unwrap();
+        // Override the internal server and one product (usa); leave others at defaults.
+        write!(
+            file,
+            r#"
+internal_server = "test-internal.example.com"
+
+[[products]]
+name = "usa"
+domain = "usa.example.org"
+live_server = "usa.example.org"
+formats = ["FixedWidth", "Parquet"]
+third_party = true
+"#
+        )
+        .unwrap();
+
+        let registry = DeploymentRegistry::with_config(Some(file.path())).unwrap();
+
+        // Server override applied.
+        assert_eq!(registry.internal_server, "test-internal.example.com");
+
+        // usa is overridden: now third-party, has FW, custom domain.
+        let usa = registry.get_product("usa").unwrap();
+        assert_eq!(usa.domain, "usa.example.org");
+        assert!(usa.third_party);
+        assert!(usa.expects_format(DataFormat::FixedWidth));
+
+        // Other products and the total count are untouched.
+        assert_eq!(registry.products.len(), 12);
+        assert_eq!(registry.get_product("cps").unwrap().domain, "cps.ipums.org");
+    }
+
+    #[test]
+    fn test_with_config_json_override() {
+        use std::io::Write;
+        let mut file = tempfile::Builder::new().suffix(".json").tempfile().unwrap();
+        write!(
+            file,
+            r#"{{
+                "internal_server": "json-internal.example.com",
+                "products": [
+                    {{
+                        "name": "newprod",
+                        "domain": "newprod.example.org",
+                        "live_server": "www.newprod.example.org",
+                        "formats": ["Parquet"],
+                        "third_party": false,
+                        "naming_suffix": "_np"
+                    }}
+                ]
+            }}"#
+        )
+        .unwrap();
+
+        let registry = DeploymentRegistry::with_config(Some(file.path())).unwrap();
+
+        assert_eq!(registry.internal_server, "json-internal.example.com");
+
+        // A brand-new product is added (defaults remain -> 13 total).
+        assert_eq!(registry.products.len(), 13);
+        let np = registry.get_product("newprod").unwrap();
+        assert_eq!(np.fw_suffix(), "_np");
+        assert!(np.expects_format(DataFormat::Parquet));
+    }
+
+    #[test]
+    fn test_with_config_invalid_toml_errors() {
+        use std::io::Write;
+        let mut file = tempfile::Builder::new().suffix(".toml").tempfile().unwrap();
+        write!(file, "this is = = not valid toml [[[").unwrap();
+
+        let result = DeploymentRegistry::with_config(Some(file.path()));
+        assert!(result.is_err());
     }
 }
