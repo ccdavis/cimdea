@@ -29,6 +29,8 @@ pub enum MdError {
     DuckDBError(duckdb::Error),
     /// A generic cimdea error.
     Msg(String),
+    /// An error talking to an external LLM provider, or in interpreting its response.
+    LlmError(String),
 }
 
 impl fmt::Display for MdError {
@@ -42,6 +44,7 @@ impl fmt::Display for MdError {
             ParsingError(msg) => write!(f, "parsing error: {msg}"),
             DuckDBError(err) => write!(f, "DuckDB error: {err}"),
             Msg(msg) => write!(f, "{msg}"),
+            LlmError(msg) => write!(f, "LLM error: {msg}"),
         }
     }
 }
