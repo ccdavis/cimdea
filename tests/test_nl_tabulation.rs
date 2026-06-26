@@ -30,7 +30,7 @@ fn test_simple_tabulation_produces_a_table() {
                 {"variable_mnemonic": "MARST", "general_detailed_selection": ""}
             ],
             "subpopulation": [],
-            "category_bins": {}
+            "category_bins": []
         },
         "explanation": "Counts persons by marital status.",
         "assumptions": ""
@@ -41,12 +41,17 @@ fn test_simple_tabulation_produces_a_table() {
         .expect("the pipeline should succeed");
 
     assert_eq!(result.request_kind, "tabulation");
-    let tab = result.tabulation.as_ref().expect("there should be a tabulation");
+    let tab = result
+        .tabulation
+        .as_ref()
+        .expect("there should be a tabulation");
     assert!(!tab.0.is_empty(), "expected at least one table");
     assert!(!tab.0[0].rows.is_empty(), "expected at least one row");
 
     // The rendered text output should include the explanation and the result section.
-    let rendered = result.render(TableFormat::TextTable).expect("should render");
+    let rendered = result
+        .render(TableFormat::TextTable)
+        .expect("should render");
     assert!(rendered.contains("marital status"));
     assert!(rendered.contains("## Result"));
 }
@@ -66,7 +71,7 @@ fn test_subpopulation_filter_runs() {
                 {"variable_mnemonic": "MARST", "case_selection": true,
                  "request_case_selections": [{"low_code": "1", "high_code": "1"}]}
             ],
-            "category_bins": {}
+            "category_bins": []
         },
         "explanation": "Counts persons by sex among the married-spouse-present population.",
         "assumptions": "Defined the subpopulation as MARST = 1."
@@ -78,6 +83,51 @@ fn test_subpopulation_filter_runs() {
 
     let tab = result.tabulation.expect("there should be a tabulation");
     assert!(!tab.0[0].rows.is_empty());
+}
+
+#[test]
+fn test_category_bins_array_form_runs() {
+    // Exercises the array-shaped `category_bins` envelope (the schema-expressible form): AGE grouped
+    // into 10-year bins. The binned variable must also appear in `request_variables`.
+    let response = r#"{
+        "request_kind": "tabulation",
+        "abacus_request": {
+            "uoa": "P",
+            "request_variables": [
+                {"variable_mnemonic": "AGE", "general_detailed_selection": ""}
+            ],
+            "subpopulation": [],
+            "category_bins": [
+                {"variable": "AGE", "bins": [
+                    {"code": 1, "value_label": "0-9", "low": 0, "high": 9},
+                    {"code": 2, "value_label": "10-19", "low": 10, "high": 19},
+                    {"code": 3, "value_label": "20+", "low": 20, "high": null}
+                ]}
+            ]
+        },
+        "explanation": "Tabulates persons by age grouped into bins.",
+        "assumptions": "Used 10-year age groups."
+    }"#;
+
+    let provider = MockLlmProvider::new(response);
+    let result = nl_tabulation::run(&provider, "people by age in 10-year groups", &usa_config())
+        .expect("the pipeline should succeed with category bins");
+
+    let tab = result.tabulation.expect("there should be a tabulation");
+    assert!(!tab.0[0].rows.is_empty());
+    // The bin labels (not the raw age codes) should document the binned variable.
+    let age = result
+        .variable_docs
+        .iter()
+        .find(|d| d.name == "AGE")
+        .expect("AGE should be documented");
+    assert!(
+        age.categories
+            .iter()
+            .any(|(code, label)| code == "1" && label == "0-9"),
+        "AGE should be documented with its bin labels, got {:?}",
+        age.categories
+    );
 }
 
 #[test]
@@ -153,7 +203,9 @@ fn test_value_labels_from_production_parquet() {
         marst.categories
     );
 
-    let rendered = result.render(TableFormat::TextTable).expect("should render");
+    let rendered = result
+        .render(TableFormat::TextTable)
+        .expect("should render");
     assert!(rendered.contains("Married, spouse present"));
     // The result table should carry an inlined value-label column (not just the legend).
     assert!(
@@ -203,7 +255,10 @@ fn test_general_value_labels_from_production_parquet() {
         .iter()
         .find(|d| d.name == "RELATE")
         .expect("RELATE should be documented");
-    assert!(relate.general, "RELATE should be marked as a general selection");
+    assert!(
+        relate.general,
+        "RELATE should be marked as a general selection"
+    );
     assert!(
         relate
             .categories
@@ -213,9 +268,14 @@ fn test_general_value_labels_from_production_parquet() {
         relate.categories
     );
 
-    let rendered = result.render(TableFormat::TextTable).expect("should render");
+    let rendered = result
+        .render(TableFormat::TextTable)
+        .expect("should render");
     // The result table should carry a general label column with the derived labels.
-    assert!(rendered.contains("RELATE_label"), "expected a RELATE_label column:\n{rendered}");
+    assert!(
+        rendered.contains("RELATE_label"),
+        "expected a RELATE_label column:\n{rendered}"
+    );
     assert!(rendered.contains("Head/householder"));
 }
 

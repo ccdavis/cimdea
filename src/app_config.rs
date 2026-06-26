@@ -84,10 +84,16 @@ impl AppConfig {
     /// relative paths.
     pub fn load(path: &Path) -> Result<Self, MdError> {
         let text = std::fs::read_to_string(path).map_err(|e| {
-            MdError::Msg(format!("could not read config file {}: {e}", path.display()))
+            MdError::Msg(format!(
+                "could not read config file {}: {e}",
+                path.display()
+            ))
         })?;
         let mut cfg: AppConfig = toml::from_str(&text).map_err(|e| {
-            MdError::Msg(format!("could not parse config file {}: {e}", path.display()))
+            MdError::Msg(format!(
+                "could not parse config file {}: {e}",
+                path.display()
+            ))
         })?;
         cfg.base_dir = path
             .parent()

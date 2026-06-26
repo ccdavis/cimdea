@@ -121,21 +121,22 @@ fn build_provider(
     model: Option<String>,
     api_key: Option<String>,
 ) -> Result<Box<dyn LlmProvider>, String> {
-    let model_id = model
-        .clone()
-        .unwrap_or_else(|| cimdea::llm::DEFAULT_GEMINI_MODEL.to_string());
+    // Resolve the model id once so both the explicit-key and env-key paths use the same value.
+    let model_id = model.unwrap_or_else(|| cimdea::llm::DEFAULT_GEMINI_MODEL.to_string());
     match choice {
         ProviderChoice::Gemini => {
             let provider = match api_key {
                 Some(key) => GeminiProvider::new(key, model_id),
-                None => GeminiProvider::from_env(model).map_err(|err| err.to_string())?,
+                None => GeminiProvider::from_env(Some(model_id)).map_err(|err| err.to_string())?,
             };
             Ok(Box::new(provider))
         }
         ProviderChoice::GeminiInteractions => {
             let provider = match api_key {
                 Some(key) => InteractionsProvider::new(key, model_id),
-                None => InteractionsProvider::from_env(model).map_err(|err| err.to_string())?,
+                None => {
+                    InteractionsProvider::from_env(Some(model_id)).map_err(|err| err.to_string())?
+                }
             };
             Ok(Box::new(provider))
         }
@@ -156,7 +157,10 @@ fn main() {
         Err(err) => fail(err),
     };
     if let Some(env) = &environment {
-        eprintln!("[ask] environment: {} (data root: {})", env.name, env.data_root);
+        eprintln!(
+            "[ask] environment: {} (data root: {})",
+            env.name, env.data_root
+        );
     }
 
     // API key precedence: explicit --api-key, then the environment's key file, then the provider's

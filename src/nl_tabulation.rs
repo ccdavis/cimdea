@@ -189,11 +189,7 @@ struct LlmCategoryBin {
 // ---------------------------------------------------------------------------
 
 /// Translate `prompt` into a tabulation, run it, and return the result with documentation.
-pub fn run(
-    provider: &dyn LlmProvider,
-    prompt: &str,
-    cfg: &NlConfig,
-) -> Result<NlResult, MdError> {
+pub fn run(provider: &dyn LlmProvider, prompt: &str, cfg: &NlConfig) -> Result<NlResult, MdError> {
     // 0. Decide which dataset(s) to use: the caller's, or let the model pick one from those
     // available under the data root (e.g. "in 1900" -> an 1900 sample).
     let (datasets, dataset_reason) = if cfg.datasets.is_empty() {
@@ -214,18 +210,20 @@ pub fn run(
 
     // 2. Build the prompt and ask the model. The static context (product + catalog) is separated
     // from the question so it can be cached server-side and reused across questions.
-    let cat_max = cfg.category_catalog_max.unwrap_or(DEFAULT_CATEGORY_CATALOG_MAX);
+    let cat_max = cfg
+        .category_catalog_max
+        .unwrap_or(DEFAULT_CATEGORY_CATALOG_MAX);
     let catalog = build_catalog(variables, cat_max);
     let static_context = build_static_context(&cfg.product, &datasets, &catalog);
     let question = format!("User request: {prompt}");
-    let combined = format!("{static_context}\n\n{question}");
-    let display_name = cache_display_name(provider.model_name(), SYSTEM_PROMPT, &static_context);
 
     let envelope: LlmTabulationResponse = retry_json("tabulation response", || {
         if cfg.use_cache {
+            let display_name =
+                cache_display_name(provider.model_name(), SYSTEM_PROMPT, &static_context);
             provider.complete_json_cached(&display_name, SYSTEM_PROMPT, &static_context, &question)
         } else {
-            provider.complete_json(SYSTEM_PROMPT, &combined)
+            provider.complete_json(SYSTEM_PROMPT, &format!("{static_context}\n\n{question}"))
         }
     })?;
 
@@ -301,7 +299,12 @@ pub fn run(
         .request_variables
         .iter()
         .chain(strict.subpopulation.iter())
-        .filter(|v| matches!(v.general_detailed_selection, ist::GeneralDetailedSelection::General))
+        .filter(|v| {
+            matches!(
+                v.general_detailed_selection,
+                ist::GeneralDetailedSelection::General
+            )
+        })
         .map(|v| v.variable_mnemonic.clone())
         .collect();
     let mut variable_docs = build_variable_docs(&doc_names, &by_name, &general_names);
@@ -312,7 +315,9 @@ pub fn run(
 
     // 4. Serialize and run through the normal Abacus path (which loads layout metadata itself).
     let request_json = serde_json::to_string(&strict).map_err(|err| {
-        MdError::Msg(format!("could not serialize the generated Abacus request: {err}"))
+        MdError::Msg(format!(
+            "could not serialize the generated Abacus request: {err}"
+        ))
     })?;
     let pretty = serde_json::to_string_pretty(&strict).ok();
 
@@ -350,15 +355,18 @@ pub fn run(
 // ---------------------------------------------------------------------------
 
 fn load_catalog_context(cfg: &NlConfig, datasets: &[String]) -> Result<Context, MdError> {
-    let mut ctx =
-        Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
+    let mut ctx = Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
     let ds_refs: Vec<&str> = datasets.iter().map(|s| s.as_str()).collect();
 
     // Prefer parquet embedded metadata (gives labels, value labels, general widths). Fall back to
-    // layout files (names + widths only) if parquet metadata isn't available.
+    // layout files (names + widths only) if parquet metadata isn't available. On the fallback we
+    // start from a fresh Context: a failed parquet load may have already added some variables, and
+    // layering the layout load on top of that partial state would double up the catalog.
     match ctx.load_metadata_for_datasets_from_parquet(&ds_refs) {
         Ok(()) => Ok(ctx),
         Err(_) => {
+            let mut ctx =
+                Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
             ctx.load_metadata_for_datasets(&ds_refs)?;
             Ok(ctx)
         }
@@ -451,9 +459,7 @@ fn choose_datasets(
     available: &[String],
 ) -> Result<ChosenDatasets, MdError> {
     let listing = build_dataset_listing(available);
-    let user = format!(
-        "User request: {prompt}\n\nAvailable datasets (name — year):\n{listing}\n"
-    );
+    let user = format!("User request: {prompt}\n\nAvailable datasets (name — year):\n{listing}\n");
     let choice: LlmDatasetChoice = retry_json("dataset-selection response", || {
         provider.complete_json(DATASET_SELECT_SYSTEM_PROMPT, &user)
     })?;
@@ -513,7 +519,9 @@ fn parse_year(name: &str) -> Option<u32> {
         let bounded_left = i == 0 || !bytes[i - 1].is_ascii_digit();
         let bounded_right = i + 4 == bytes.len() || !bytes[i + 4].is_ascii_digit();
         if is_four_digits && bounded_left && bounded_right {
-            return std::str::from_utf8(window).ok().and_then(|s| s.parse().ok());
+            return std::str::from_utf8(window)
+                .ok()
+                .and_then(|s| s.parse().ok());
         }
         i += 1;
     }
@@ -647,7 +655,10 @@ fn build_strict_request(
         )));
     }
 
-    // Tabulation variables honor the --detailed override; subpopulation filters are always detailed.
+    // Tabulation variables honor the --detailed override; subpopulation filters are ALWAYS detailed
+    // (force_detailed = true). Their case-selection codes are detailed value codes, so a stray "G"
+    // from the model must not turn a filter general — that would divide the column by the general
+    // divisor and match the detailed codes against the wrong (collapsed) values.
     let request_variables = llm
         .request_variables
         .iter()
@@ -656,7 +667,7 @@ fn build_strict_request(
     let subpopulation = llm
         .subpopulation
         .iter()
-        .map(|v| build_request_variable(v, by_name, false))
+        .map(|v| build_request_variable(v, by_name, true))
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut category_bins = BTreeMap::new();
@@ -665,11 +676,29 @@ fn build_strict_request(
         if key.is_empty() {
             continue;
         }
-        let converted = group
-            .bins
-            .iter()
-            .filter_map(|b| convert_category_bin(b, &key, warnings))
-            .collect();
+        let mut seen_codes: HashSet<i64> = HashSet::new();
+        let mut converted = Vec::new();
+        for b in &group.bins {
+            // A bin code must be a distinct non-negative integer (it becomes the result code, an
+            // unsigned value). Drop duplicates and negatives rather than letting them collide or wrap.
+            if b.code < 0 {
+                warnings.push(format!(
+                    "{key}: dropped a category bin with a negative code ({}).",
+                    b.code
+                ));
+                continue;
+            }
+            if !seen_codes.insert(b.code) {
+                warnings.push(format!(
+                    "{key}: dropped a category bin with a duplicate code ({}).",
+                    b.code
+                ));
+                continue;
+            }
+            if let Some(bin) = convert_category_bin(b, &key, warnings) {
+                converted.push(bin);
+            }
+        }
         category_bins.insert(key, converted);
     }
 
@@ -749,9 +778,7 @@ fn detailed_width(md: Option<&IpumsVariable>) -> usize {
     md.and_then(|m| m.formatting).map(|(_, w)| w).unwrap_or(1)
 }
 
-fn convert_case_selection(
-    sel: &LlmCaseSelection,
-) -> Result<ist::RequestCaseSelection, MdError> {
+fn convert_case_selection(sel: &LlmCaseSelection) -> Result<ist::RequestCaseSelection, MdError> {
     let low = value_to_code(sel.low_code.as_ref())?;
     let high = value_to_code(sel.high_code.as_ref())?;
     ist::RequestCaseSelection::try_new(low, high)
@@ -801,7 +828,9 @@ fn value_to_code(value: Option<&serde_json::Value>) -> Result<Option<u64>, MdErr
     match value {
         None | Some(serde_json::Value::Null) => Ok(None),
         Some(serde_json::Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| {
-            MdError::LlmError(format!("case selection code {n} is not a non-negative integer"))
+            MdError::LlmError(format!(
+                "case selection code {n} is not a non-negative integer"
+            ))
         }),
         Some(serde_json::Value::String(s)) if s.trim().is_empty() => Ok(None),
         Some(serde_json::Value::String(s)) => s.trim().parse::<u64>().map(Some).map_err(|err| {
@@ -914,7 +943,12 @@ fn build_refine_content(
         append_var_codes(&mut out, name, "filter (subpopulation)", by_name);
     }
     for key in &targets.bins {
-        append_var_codes(&mut out, &key.to_uppercase(), "grouping (category bins)", by_name);
+        append_var_codes(
+            &mut out,
+            &key.to_uppercase(),
+            "grouping (category bins)",
+            by_name,
+        );
     }
     out
 }
@@ -971,7 +1005,8 @@ fn merge_refinements(llm: &mut LlmAbacusRequest, refined: RefineResponse, target
             .iter()
             .find(|g| g.variable.to_uppercase() == upper)
         {
-            llm.category_bins.retain(|g| g.variable.to_uppercase() != upper);
+            llm.category_bins
+                .retain(|g| g.variable.to_uppercase() != upper);
             llm.category_bins.push(group.clone());
         }
     }
@@ -1073,10 +1108,14 @@ fn general_categories(var: &IpumsVariable) -> Vec<(String, String)> {
         None => return Vec::new(),
     };
     // general_code -> (smallest detailed code seen so far, its label)
+    // Only integer-coded categories can be collapsed arithmetically; a variable whose categories are
+    // Fixed/String-typed yields no derived general labels (it falls back to bare codes in the output).
     let mut groups: BTreeMap<i64, (i64, String)> = BTreeMap::new();
     for c in cats {
         if let IpumsValue::Integer(v) = c.value {
-            let entry = groups.entry(v / divisor).or_insert((i64::MAX, String::new()));
+            let entry = groups
+                .entry(v / divisor)
+                .or_insert((i64::MAX, String::new()));
             if v < entry.0 {
                 *entry = (v, c.label().to_string());
             }
@@ -1143,7 +1182,9 @@ where
                 let cleaned = strip_json_fences(&raw);
                 match serde_json::from_str::<T>(&cleaned) {
                     Ok(value) => return Ok(value),
-                    Err(err) => last_error = Some(format!("invalid JSON ({err}); reply was: {cleaned}")),
+                    Err(err) => {
+                        last_error = Some(format!("invalid JSON ({err}); reply was: {cleaned}"))
+                    }
                 }
             }
             Err(err) if is_retryable_llm_error(&err) => last_error = Some(err.to_string()),
@@ -1172,9 +1213,16 @@ fn cache_display_name(model: &str, system: &str, context: &str) -> String {
 /// a rate-limit/server hiccup), as opposed to a fatal error (bad request, auth) that a retry can't fix.
 fn is_retryable_llm_error(err: &MdError) -> bool {
     let message = err.to_string();
-    ["RECITATION", "did not contain any candidates", "contained no text", "HTTP 429", "HTTP 500", "HTTP 503"]
-        .iter()
-        .any(|marker| message.contains(marker))
+    [
+        "RECITATION",
+        "did not contain any candidates",
+        "contained no text",
+        "HTTP 429",
+        "HTTP 500",
+        "HTTP 503",
+    ]
+    .iter()
+    .any(|marker| message.contains(marker))
 }
 
 /// Strip a leading ```/```json fence and trailing ``` from a model response, if present.
@@ -1563,11 +1611,31 @@ mod tests {
         // RELATE-like: detailed width 4, general width 2 -> divisor 100. General code = code/100,
         // labeled by the smallest detailed code in each group.
         let cats = vec![
-            IpumsCategory::new("Head/householder", UniversalCategoryType::Value, IpumsValue::Integer(101)),
-            IpumsCategory::new("Spouse", UniversalCategoryType::Value, IpumsValue::Integer(201)),
-            IpumsCategory::new("2nd/3rd wife", UniversalCategoryType::Value, IpumsValue::Integer(202)),
-            IpumsCategory::new("Child", UniversalCategoryType::Value, IpumsValue::Integer(301)),
-            IpumsCategory::new("Adopted child", UniversalCategoryType::Value, IpumsValue::Integer(302)),
+            IpumsCategory::new(
+                "Head/householder",
+                UniversalCategoryType::Value,
+                IpumsValue::Integer(101),
+            ),
+            IpumsCategory::new(
+                "Spouse",
+                UniversalCategoryType::Value,
+                IpumsValue::Integer(201),
+            ),
+            IpumsCategory::new(
+                "2nd/3rd wife",
+                UniversalCategoryType::Value,
+                IpumsValue::Integer(202),
+            ),
+            IpumsCategory::new(
+                "Child",
+                UniversalCategoryType::Value,
+                IpumsValue::Integer(301),
+            ),
+            IpumsCategory::new(
+                "Adopted child",
+                UniversalCategoryType::Value,
+                IpumsValue::Integer(302),
+            ),
         ];
         let var = IpumsVariable {
             name: "RELATE".to_string(),
@@ -1608,7 +1676,8 @@ mod tests {
     fn test_is_retryable_llm_error() {
         // Transient/filtered responses are worth a re-ask.
         assert!(is_retryable_llm_error(&MdError::LlmError(
-            "Gemini response did not contain any candidates: {\"finishReason\":\"RECITATION\"}".into()
+            "Gemini response did not contain any candidates: {\"finishReason\":\"RECITATION\"}"
+                .into()
         )));
         assert!(is_retryable_llm_error(&MdError::LlmError(
             "the LLM API returned HTTP 429 (rate limit): ...".into()
@@ -1623,7 +1692,10 @@ mod tests {
     fn test_cache_display_name_is_stable_and_distinct() {
         let a = cache_display_name("gemini-3.5-flash", "sys", "catalog");
         let b = cache_display_name("gemini-3.5-flash", "sys", "catalog");
-        assert_eq!(a, b, "same inputs must give the same cache key (across runs)");
+        assert_eq!(
+            a, b,
+            "same inputs must give the same cache key (across runs)"
+        );
         assert_ne!(a, cache_display_name("gemini-3.5-flash", "sys", "catalog2"));
         assert_ne!(a, cache_display_name("other-model", "sys", "catalog"));
         assert!(a.starts_with("cimdea-"));
@@ -1660,8 +1732,14 @@ mod tests {
         let catalog = build_catalog(&[edu, sex], 25);
         let edu_line = catalog.lines().find(|l| l.starts_with("EDUC")).unwrap();
         let sex_line = catalog.lines().find(|l| l.starts_with("SEX")).unwrap();
-        assert!(edu_line.contains("; general"), "EDUC should be marked general: {edu_line}");
-        assert!(!sex_line.contains("; general"), "SEX should not be marked general: {sex_line}");
+        assert!(
+            edu_line.contains("; general"),
+            "EDUC should be marked general: {edu_line}"
+        );
+        assert!(
+            !sex_line.contains("; general"),
+            "SEX should not be marked general: {sex_line}"
+        );
     }
 
     #[test]
@@ -1671,8 +1749,14 @@ mod tests {
         let marst = var_with_n_categories("MARST", 6);
         let catalog = build_catalog(std::slice::from_ref(&marst), 0);
         let line = catalog.lines().find(|l| l.starts_with("MARST")).unwrap();
-        assert!(line.contains("value labels"), "should show a count hint: {line}");
-        assert!(!line.contains("label 0"), "should NOT inline the actual labels: {line}");
+        assert!(
+            line.contains("value labels"),
+            "should show a count hint: {line}"
+        );
+        assert!(
+            !line.contains("label 0"),
+            "should NOT inline the actual labels: {line}"
+        );
     }
 
     #[test]
@@ -1688,13 +1772,19 @@ mod tests {
 
         let general = build_request_variable(&g, &by_name, false).unwrap();
         assert!(
-            matches!(general.general_detailed_selection, ist::GeneralDetailedSelection::General),
+            matches!(
+                general.general_detailed_selection,
+                ist::GeneralDetailedSelection::General
+            ),
             "without the override, a 'G' request should stay general"
         );
 
         let detailed = build_request_variable(&g, &by_name, true).unwrap();
         assert!(
-            matches!(detailed.general_detailed_selection, ist::GeneralDetailedSelection::Detailed),
+            matches!(
+                detailed.general_detailed_selection,
+                ist::GeneralDetailedSelection::Detailed
+            ),
             "--detailed should force the tabulation variable to detailed"
         );
     }
@@ -1712,7 +1802,10 @@ mod tests {
         // Even though the model asked for "G", it must come back detailed.
         let rv = build_request_variable(&general_request("MARST"), &by_name, false).unwrap();
         assert!(
-            matches!(rv.general_detailed_selection, ist::GeneralDetailedSelection::Detailed),
+            matches!(
+                rv.general_detailed_selection,
+                ist::GeneralDetailedSelection::Detailed
+            ),
             "a 'G' request on a variable with no general form should become detailed"
         );
     }

@@ -459,7 +459,11 @@ mod tests {
             }
         }"#;
         let variables = ParquetMetadataReader::parse_variable_metadata(json_str, "P").unwrap();
-        assert_eq!(variables.len(), 1, "only the integer variable should remain");
+        assert_eq!(
+            variables.len(),
+            1,
+            "only the integer variable should remain"
+        );
         assert_eq!(variables[0].name, "AGE");
     }
 

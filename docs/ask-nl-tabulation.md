@@ -121,8 +121,9 @@ Wiring:
   is unused by tabulation (confirmed: `query_gen.rs` only applies `general_divisor` in the
   `is_general()` branch), so a placeholder of `1` is safe.
 - **Grounding**: the prompt includes a catalog of real variable mnemonics + labels, with inline
-  value labels for variables that have ≤ 25 codes (bounds prompt size). The model is told to use
-  only catalog variables and the shown integer codes.
+  value labels for variables that have ≤ `DEFAULT_CATEGORY_CATALOG_MAX` (=12) codes (bounds prompt
+  size; see the "Catalog trimming" note above). The model is told to use only catalog variables and
+  the shown integer codes.
 - **Validation**: unknown variable mnemonics are a hard error (not silently dropped). Subpopulation
   filters get `case_selection = true` if they carry any selections, even if the model omits the flag.
 - **Documentation comes from data, not the model**: variable labels and value labels in the output
@@ -209,8 +210,9 @@ CIMDEA_NL_DATA_ROOT=<root> cargo test --release --test test_nl_tabulation -- --i
 
 ## Verified
 
-- Full suite green under `--release`: 124 lib + 17 tabulate + 4 nl_tabulation + 12 abacus CLI +
-  doc-tests, 0 fail.
+- Full suite green under `--release`: 124 lib + 17 tabulate + 5 nl_tabulation + 12 abacus CLI +
+  doc-tests, 0 fail. (The offline `nl_tabulation` fixtures send `category_bins` as a JSON array, the
+  current envelope shape — an earlier map form silently failed to deserialize.)
 - **Real-LLM smoke test passed** (2026-06-26): simple detailed (MARST), subpopulation filter
   (married → SEX), general selection (EDUC `"G"` → collapsed codes), and category bins (AGE → 10-year
   groups) all generated valid Abacus JSON and tabulated.

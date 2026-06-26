@@ -172,6 +172,11 @@ impl GeminiProvider {
 impl GeminiProvider {
     /// Find a non-expired cached content with this `display_name`, returning its resource name.
     /// Best-effort: any error yields `None` so the caller can create one or proceed without caching.
+    ///
+    /// Only the first page of `cachedContents` is checked (no `pageToken` follow-up); in an account
+    /// with many live caches the target could sit on a later page, in which case the caller creates a
+    /// duplicate. That only costs an extra cache-create, not correctness, and our 1-hour TTL keeps the
+    /// population small — so pagination is intentionally skipped here.
     fn find_cache(&self, display_name: &str) -> Option<String> {
         let url = format!("{}/cachedContents?key={}", self.base_url, self.api_key);
         let body = ureq::get(&url).call().ok()?.into_string().ok()?;
@@ -188,7 +193,12 @@ impl GeminiProvider {
     /// Create a server-side cache holding `system` + `context`. Returns its resource name. Errors
     /// (e.g. the content is below the API's minimum cacheable size) are returned so the caller can
     /// fall back to an uncached call.
-    fn create_cache(&self, display_name: &str, system: &str, context: &str) -> Result<String, MdError> {
+    fn create_cache(
+        &self,
+        display_name: &str,
+        system: &str,
+        context: &str,
+    ) -> Result<String, MdError> {
         let url = format!("{}/cachedContents?key={}", self.base_url, self.api_key);
         let body = serde_json::json!({
             "model": format!("models/{}", self.model),
@@ -199,7 +209,9 @@ impl GeminiProvider {
         });
         let response = post_json_for_text(&url, body)?;
         let parsed: serde_json::Value = serde_json::from_str(&response).map_err(|err| {
-            MdError::LlmError(format!("cache-create response was not valid JSON ({err}): {response}"))
+            MdError::LlmError(format!(
+                "cache-create response was not valid JSON ({err}): {response}"
+            ))
         })?;
         parsed
             .get("name")
@@ -222,7 +234,9 @@ impl GeminiProvider {
         });
         let response = post_json_for_text(&url, body)?;
         let parsed: serde_json::Value = serde_json::from_str(&response).map_err(|err| {
-            MdError::LlmError(format!("Gemini response was not valid JSON ({err}); body was: {response}"))
+            MdError::LlmError(format!(
+                "Gemini response was not valid JSON ({err}); body was: {response}"
+            ))
         })?;
         extract_gemini_text(&parsed)
     }
@@ -508,7 +522,8 @@ mod tests {
         let response = serde_json::json!({
             "error": { "message": "bad request", "code": "invalid_request" }
         });
-        let err = extract_interaction_text(&response).expect_err("an error body should be an error");
+        let err =
+            extract_interaction_text(&response).expect_err("an error body should be an error");
         assert!(err.to_string().contains("bad request"));
     }
 
