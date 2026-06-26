@@ -51,6 +51,10 @@ pub struct NlConfig {
     /// Force detailed categories for every tabulation variable, overriding the model's (general-by-
     /// default) choice. The CLI's `--detailed` flag mirrors the website's "details" checkbox.
     pub detailed: bool,
+    /// Cache the (system prompt + catalog) prefix server-side so repeated questions about the same
+    /// dataset only send the question. Worth it for a server or a burst of queries; for a single
+    /// one-shot query it adds a cache-create round-trip, so it's off by default.
+    pub use_cache: bool,
 }
 
 /// The result of a natural-language tabulation: the model's interpretation, supporting variable
@@ -208,13 +212,22 @@ pub fn run(
         .map(|v| (v.name.to_uppercase(), v))
         .collect();
 
-    // 2. Build the prompt and ask the model.
+    // 2. Build the prompt and ask the model. The static context (product + catalog) is separated
+    // from the question so it can be cached server-side and reused across questions.
     let cat_max = cfg.category_catalog_max.unwrap_or(DEFAULT_CATEGORY_CATALOG_MAX);
     let catalog = build_catalog(variables, cat_max);
-    let user_content = build_user_content(&cfg.product, &datasets, &catalog, prompt);
+    let static_context = build_static_context(&cfg.product, &datasets, &catalog);
+    let question = format!("User request: {prompt}");
+    let combined = format!("{static_context}\n\n{question}");
+    let display_name = cache_display_name(provider.model_name(), SYSTEM_PROMPT, &static_context);
 
-    let envelope: LlmTabulationResponse =
-        complete_json_with_retry(provider, SYSTEM_PROMPT, &user_content, "tabulation response")?;
+    let envelope: LlmTabulationResponse = retry_json("tabulation response", || {
+        if cfg.use_cache {
+            provider.complete_json_cached(&display_name, SYSTEM_PROMPT, &static_context, &question)
+        } else {
+            provider.complete_json(SYSTEM_PROMPT, &combined)
+        }
+    })?;
 
     let request_kind = if envelope.request_kind.is_empty() {
         "tabulation".to_string()
@@ -441,12 +454,9 @@ fn choose_datasets(
     let user = format!(
         "User request: {prompt}\n\nAvailable datasets (name — year):\n{listing}\n"
     );
-    let choice: LlmDatasetChoice = complete_json_with_retry(
-        provider,
-        DATASET_SELECT_SYSTEM_PROMPT,
-        &user,
-        "dataset-selection response",
-    )?;
+    let choice: LlmDatasetChoice = retry_json("dataset-selection response", || {
+        provider.complete_json(DATASET_SELECT_SYSTEM_PROMPT, &user)
+    })?;
 
     // Validate the chosen names against the available list (case-insensitive).
     let available_by_lower: HashMap<String, &String> =
@@ -555,18 +565,14 @@ Example user request: "People by age in 10-year groups." (A binned variable must
 Example response:
 {"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"AGE","general_detailed_selection":""}],"subpopulation":[],"category_bins":[{"variable":"AGE","bins":[{"code":1,"value_label":"0-9","low":0,"high":9},{"code":2,"value_label":"10-19","low":10,"high":19},{"code":3,"value_label":"20-29","low":20,"high":29}]}]},"explanation":"Tabulates persons by age grouped into 10-year bins.","assumptions":"Used 10-year age groups."}"#;
 
-fn build_user_content(
-    product: &str,
-    datasets: &[String],
-    catalog: &str,
-    prompt: &str,
-) -> String {
+/// The static part of the prompt (product + datasets + catalog) — everything except the user's
+/// question. Stable for a given dataset, so it can be cached server-side and reused.
+fn build_static_context(product: &str, datasets: &[String], catalog: &str) -> String {
     format!(
         "IPUMS product: {product}\n\
          Dataset(s) to tabulate: {datasets}\n\n\
          Variable catalog (MNEMONIC — label (record type) [code=label; ...]):\n\
-         {catalog}\n\n\
-         User request: {prompt}\n",
+         {catalog}",
         datasets = datasets.join(", "),
     )
 }
@@ -592,6 +598,10 @@ fn build_catalog(variables: &[IpumsVariable], category_max: usize) -> String {
         }
         lines.push(line);
     }
+    // Sort for a stable, deterministic catalog: metadata load order is not deterministic (it comes
+    // from a HashMap), and a stable catalog is required for the server-side cache key to match
+    // across runs (and is easier to read).
+    lines.sort();
     lines.join("\n")
 }
 
@@ -935,7 +945,9 @@ fn refine_codes(
     by_name: &HashMap<String, &IpumsVariable>,
 ) -> Result<RefineResponse, MdError> {
     let user = build_refine_content(prompt, targets, by_name);
-    complete_json_with_retry(provider, REFINE_SYSTEM_PROMPT, &user, "refinement response")
+    retry_json("refinement response", || {
+        provider.complete_json(REFINE_SYSTEM_PROMPT, &user)
+    })
 }
 
 /// Replace the first-pass selections/bins for the target variables with the refined ones, leaving
@@ -1119,15 +1131,14 @@ const MAX_JSON_ATTEMPTS: usize = 3;
 /// delimiter), and Gemini sometimes returns an empty/filtered candidate (e.g. a `RECITATION`
 /// finish); fresh sampling on a re-ask almost always clears both. Fatal provider errors (bad
 /// request, auth) are not retried — they propagate immediately.
-fn complete_json_with_retry<T: DeserializeOwned>(
-    provider: &dyn LlmProvider,
-    system: &str,
-    user: &str,
-    what: &str,
-) -> Result<T, MdError> {
+fn retry_json<T, F>(what: &str, mut call: F) -> Result<T, MdError>
+where
+    T: DeserializeOwned,
+    F: FnMut() -> Result<String, MdError>,
+{
     let mut last_error: Option<String> = None;
     for _ in 0..MAX_JSON_ATTEMPTS {
-        match provider.complete_json(system, user) {
+        match call() {
             Ok(raw) => {
                 let cleaned = strip_json_fences(&raw);
                 match serde_json::from_str::<T>(&cleaned) {
@@ -1143,6 +1154,18 @@ fn complete_json_with_retry<T: DeserializeOwned>(
         "could not get a valid {what} after {MAX_JSON_ATTEMPTS} attempts: {}",
         last_error.unwrap_or_default()
     )))
+}
+
+/// A stable cache key for a (model, system prompt, static context) triple, so repeated requests with
+/// the same catalog reuse one server-side cache. `DefaultHasher` uses fixed keys, so this is stable
+/// across processes.
+fn cache_display_name(model: &str, system: &str, context: &str) -> String {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    model.hash(&mut hasher);
+    system.hash(&mut hasher);
+    context.hash(&mut hasher);
+    format!("cimdea-{:016x}", hasher.finish())
 }
 
 /// Whether an LLM error looks transient enough to be worth re-asking (an empty/filtered candidate or
@@ -1594,6 +1617,16 @@ mod tests {
         assert!(!is_retryable_llm_error(&MdError::LlmError(
             "the LLM API returned HTTP 400: invalid argument".into()
         )));
+    }
+
+    #[test]
+    fn test_cache_display_name_is_stable_and_distinct() {
+        let a = cache_display_name("gemini-3.5-flash", "sys", "catalog");
+        let b = cache_display_name("gemini-3.5-flash", "sys", "catalog");
+        assert_eq!(a, b, "same inputs must give the same cache key (across runs)");
+        assert_ne!(a, cache_display_name("gemini-3.5-flash", "sys", "catalog2"));
+        assert_ne!(a, cache_display_name("other-model", "sys", "catalog"));
+        assert!(a.starts_with("cimdea-"));
     }
 
     #[test]

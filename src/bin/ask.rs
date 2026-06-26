@@ -72,6 +72,11 @@ struct Cli {
     #[arg(long)]
     detailed: bool,
 
+    /// Cache the catalog server-side so repeated questions about the same dataset are cheaper/faster
+    /// (worth it for many queries; adds a one-time cache-create round-trip otherwise)
+    #[arg(long)]
+    cache: bool,
+
     /// Output format
     #[arg(short, long, default_value = "text")]
     format: TableFormat,
@@ -182,6 +187,7 @@ fn main() {
         datasets: cli.datasets.clone(),
         category_catalog_max: None,
         detailed: cli.detailed,
+        use_cache: cli.cache,
     };
 
     let result = match nl_tabulation::run(provider.as_ref(), &cli.prompt, &cfg) {

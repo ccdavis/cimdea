@@ -81,9 +81,19 @@ Wiring:
   pass resolves their codes. Inline labels were ~60% of the catalog tokens (≈10k of 17k for us2015a);
   trimming keeps common demographic variables (SEX/MARST/RACE) inline for first-pass accuracy while
   dropping the long tail. Combined with dropping `responseSchema`, a simple count went from ~6 min to
-  **~6 s** (age-bins ~16 s). (Caching is complementary, not yet wired: Gemini implicit caching helps
-  repeated prefixes a little; the big wins are `previous_interaction_id` for Phase 2 chat and explicit
-  `cachedContents` for a deployed server reusing one dataset's catalog.)
+  **~6 s** (age-bins ~16 s).
+- **Server-side context caching (`--cache`, off by default).** Splits the prompt into a stable
+  prefix (system instruction + catalog) and the live question. With `--cache`, `GeminiProvider`
+  find-or-creates a Gemini `cachedContent` (keyed by a `displayName` = hash of model + system +
+  catalog) and references it in `generateContent`, so the catalog is uploaded once and billed at the
+  discounted cached rate on every reuse — verified: two runs of the same query reuse a single
+  ~25k-token cache. It mainly cuts **cost**, not latency (our wall-clock is dominated by generation,
+  not prompt processing). Best for a server / a burst of questions on one dataset; for a one-shot
+  query it adds a cache-create round-trip, hence off by default. Required a fix: the catalog is now
+  **sorted** (`build_catalog`) so its content — and thus the cache key — is deterministic (metadata
+  load order from a `HashMap` was not). Caches use a 1-hour TTL (`CACHE_TTL`) and auto-expire. (For
+  Phase 2 chat, `previous_interaction_id` on the Interactions API will cache the catalog across turns
+  for free.)
 - **IPUMS conventions section in the prompt**: domain facts about how variables encode concepts live
   in a dedicated `IPUMS conventions:` block (separate from request-format `Rules:`), so they're easy
   to grow. First entry: Hispanic/Latino is an ethnicity (`HISPAN`), independent of `RACE` — never

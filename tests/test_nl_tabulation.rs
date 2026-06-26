@@ -16,6 +16,7 @@ fn usa_config() -> NlConfig {
         datasets: vec!["us2015b".to_string()],
         category_catalog_max: None,
         detailed: false,
+        use_cache: false,
     }
 }
 
@@ -118,6 +119,7 @@ fn test_value_labels_from_production_parquet() {
         datasets: vec!["us2019b".to_string()],
         category_catalog_max: None,
         detailed: false,
+        use_cache: false,
     };
 
     let response = r#"{
@@ -176,6 +178,7 @@ fn test_general_value_labels_from_production_parquet() {
         datasets: vec!["us2019b".to_string()],
         category_catalog_max: None,
         detailed: false,
+        use_cache: false,
     };
 
     // Tabulate RELATE with the general selection; general code 1 should be labeled "Head/householder".

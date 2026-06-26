@@ -16,6 +16,10 @@ pub const DEFAULT_GEMINI_MODEL: &str = "gemini-3.5-flash";
 
 const GEMINI_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 
+/// How long a server-side context cache lives. Long enough to serve a burst of questions about one
+/// dataset; the cache auto-expires afterward so stale catalogs don't linger.
+const CACHE_TTL: &str = "3600s";
+
 /// POST a JSON body to `url` and return the response body as a string, mapping `ureq` transport and
 /// HTTP-status errors to [MdError::LlmError]. Shared by the Gemini providers below.
 fn post_json_for_text(url: &str, body: serde_json::Value) -> Result<String, MdError> {
@@ -67,6 +71,20 @@ pub trait LlmProvider {
         _schema: &serde_json::Value,
     ) -> Result<String, MdError> {
         self.complete_json(system, user)
+    }
+
+    /// Like [complete_json](Self::complete_json), but `system` + `context` form a large static prefix
+    /// that the provider may cache server-side (keyed by `display_name`) so repeated calls with the
+    /// same context only send `user`. Useful for a server answering many questions against one
+    /// dataset's catalog. The default does not cache — it concatenates and calls `complete_json`.
+    fn complete_json_cached(
+        &self,
+        _display_name: &str,
+        system: &str,
+        context: &str,
+        user: &str,
+    ) -> Result<String, MdError> {
+        self.complete_json(system, &format!("{context}\n\n{user}"))
     }
 
     /// A human-readable identifier for the model, used in explanations and logs.
@@ -151,6 +169,65 @@ impl GeminiProvider {
     }
 }
 
+impl GeminiProvider {
+    /// Find a non-expired cached content with this `display_name`, returning its resource name.
+    /// Best-effort: any error yields `None` so the caller can create one or proceed without caching.
+    fn find_cache(&self, display_name: &str) -> Option<String> {
+        let url = format!("{}/cachedContents?key={}", self.base_url, self.api_key);
+        let body = ureq::get(&url).call().ok()?.into_string().ok()?;
+        let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
+        parsed
+            .get("cachedContents")?
+            .as_array()?
+            .iter()
+            .find(|c| c.get("displayName").and_then(|d| d.as_str()) == Some(display_name))
+            .and_then(|c| c.get("name").and_then(|n| n.as_str()))
+            .map(String::from)
+    }
+
+    /// Create a server-side cache holding `system` + `context`. Returns its resource name. Errors
+    /// (e.g. the content is below the API's minimum cacheable size) are returned so the caller can
+    /// fall back to an uncached call.
+    fn create_cache(&self, display_name: &str, system: &str, context: &str) -> Result<String, MdError> {
+        let url = format!("{}/cachedContents?key={}", self.base_url, self.api_key);
+        let body = serde_json::json!({
+            "model": format!("models/{}", self.model),
+            "displayName": display_name,
+            "systemInstruction": { "parts": [ { "text": system } ] },
+            "contents": [ { "role": "user", "parts": [ { "text": context } ] } ],
+            "ttl": CACHE_TTL
+        });
+        let response = post_json_for_text(&url, body)?;
+        let parsed: serde_json::Value = serde_json::from_str(&response).map_err(|err| {
+            MdError::LlmError(format!("cache-create response was not valid JSON ({err}): {response}"))
+        })?;
+        parsed
+            .get("name")
+            .and_then(|n| n.as_str())
+            .map(String::from)
+            .ok_or_else(|| MdError::LlmError(format!("cache-create returned no name: {response}")))
+    }
+
+    /// Run `generateContent` against an existing cache (the system instruction + context live in the
+    /// cache; only `user` is sent and billed live).
+    fn generate_with_cache(&self, cache_name: &str, user: &str) -> Result<String, MdError> {
+        let url = format!(
+            "{}/models/{}:generateContent?key={}",
+            self.base_url, self.model, self.api_key
+        );
+        let body = serde_json::json!({
+            "cachedContent": cache_name,
+            "contents": [ { "role": "user", "parts": [ { "text": user } ] } ],
+            "generationConfig": { "responseMimeType": "application/json", "temperature": 0.2 }
+        });
+        let response = post_json_for_text(&url, body)?;
+        let parsed: serde_json::Value = serde_json::from_str(&response).map_err(|err| {
+            MdError::LlmError(format!("Gemini response was not valid JSON ({err}); body was: {response}"))
+        })?;
+        extract_gemini_text(&parsed)
+    }
+}
+
 impl LlmProvider for GeminiProvider {
     fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError> {
         self.generate(system, user, None)
@@ -163,6 +240,24 @@ impl LlmProvider for GeminiProvider {
         schema: &serde_json::Value,
     ) -> Result<String, MdError> {
         self.generate(system, user, Some(schema))
+    }
+
+    fn complete_json_cached(
+        &self,
+        display_name: &str,
+        system: &str,
+        context: &str,
+        user: &str,
+    ) -> Result<String, MdError> {
+        // Reuse an existing cache, else create one; if caching isn't possible (e.g. the context is
+        // below the minimum cacheable size), fall back to a normal uncached call.
+        let cache_name = self
+            .find_cache(display_name)
+            .or_else(|| self.create_cache(display_name, system, context).ok());
+        match cache_name {
+            Some(name) => self.generate_with_cache(&name, user),
+            None => self.complete_json(system, &format!("{context}\n\n{user}")),
+        }
     }
 
     fn model_name(&self) -> &str {
