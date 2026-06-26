@@ -345,20 +345,20 @@ Respond with ONLY a single JSON object (no markdown fences, no prose outside the
 
 The "abacus_request" object has these fields:
 - "uoa": unit of analysis: "P" to count persons, "H" to count households.
-- "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "G" or ""}. DEFAULT TO "G" (the general, simplified categories) for every tabulation variable — this is what users expect and keeps the results compact. Use "" (detailed categories) ONLY when the user explicitly asks for detail (e.g. "detailed", "specific", "single year of age", "by country", "by state") OR when the breakdown they want is finer than the general categories can express (individual countries of birth, individual states, single years of age, a particular detailed category). When unsure, prefer "G".
+- "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "G" or ""}. "G" requests the general (simplified) categories; "" requests detailed. ONLY variables marked "general" in the catalog (shown as "(P; general)" or "(H; general)") have a general form. For those, DEFAULT TO "G" — it is what users expect and keeps results compact. For every variable NOT marked "general", you MUST use "" (it has only detailed categories). Even for a variable that has a general form, use "" when the user explicitly asks for detail ("detailed", "specific", "single year of age", "by country", "by state") or needs a breakdown finer than the general categories can express (individual countries of birth, individual states, single years of age, a particular detailed category).
 - "subpopulation": OPTIONAL array of filters restricting which records are counted. Each filter is {"variable_mnemonic": "<NAME>", "case_selection": true, "request_case_selections": [{"low_code": "<code>" or null, "high_code": "<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; set one bound to null for an open-ended range.
 - "category_bins": OPTIONAL object mapping a variable name to bins that group a continuous variable. Each bin is {"code": <int>, "value_label": "<text>", "low": <int> or null, "high": <int> or null}.
 
 Rules:
 - Use ONLY variable mnemonics from the provided catalog. Never invent variable names.
-- Tabulation variables default to the GENERAL version ("G"); switch to detailed ("") only when the user asks for detail or needs a finer breakdown than the general categories provide. Subpopulation FILTERS use detailed value codes (the exact integer codes shown), since that is where precise category selection matters.
+- Request "G" ONLY for tabulation variables marked "general" in the catalog, and prefer "G" for those; use "" for all other tabulation variables and whenever detail is requested or required. Subpopulation FILTERS use detailed value codes (the exact integer codes shown), since that is where precise category selection matters.
 - For subpopulation filters and category bins, use the integer value codes shown in the catalog.
 - Do NOT include byte offsets, widths, "mnemonic", or "attached_variable_pointer"; those are filled in from metadata.
 - Keep the request minimal: only include "subpopulation" or "category_bins" when the user asks for a filter or a grouping.
 
-Example user request: "Count people by marital status, but only women, in the 2019 ACS."
-Example response (marital status tabulated with general categories; the sex filter uses a detailed code):
-{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"MARST","general_detailed_selection":"G"}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":{}},"explanation":"Tabulates persons by marital status (MARST) using general categories, restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}"#;
+Example user request: "Count people by education, but only women, in the 2019 ACS." (Here EDUC is marked "general" in the catalog so it uses "G"; SEX is not, and the filter uses a detailed code.)
+Example response:
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"EDUC","general_detailed_selection":"G"}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":{}},"explanation":"Tabulates persons by educational attainment (EDUC) using general categories, restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}"#;
 
 fn build_user_content(
     product: &str,
@@ -380,7 +380,13 @@ fn build_catalog(variables: &[IpumsVariable], category_max: usize) -> String {
     let mut lines = Vec::with_capacity(variables.len());
     for var in variables {
         let label = var.label.as_deref().unwrap_or("(no label)");
-        let mut line = format!("{} — {} ({})", var.name, label, var.record_type);
+        // Mark variables that actually have a general form so the model only requests "G" for them.
+        let record_type = if general_divisor(var) > 1 {
+            format!("{}; general", var.record_type)
+        } else {
+            var.record_type.clone()
+        };
+        let mut line = format!("{} — {} ({})", var.name, label, record_type);
         if let Some(cats) = &var.categories {
             if !cats.is_empty() && cats.len() <= category_max {
                 let rendered = render_categories_inline(cats);
@@ -439,12 +445,12 @@ fn build_strict_request(
     let request_variables = llm
         .request_variables
         .iter()
-        .map(|v| build_request_variable(v, by_name, cfg.detailed, warnings))
+        .map(|v| build_request_variable(v, by_name, cfg.detailed))
         .collect::<Result<Vec<_>, _>>()?;
     let subpopulation = llm
         .subpopulation
         .iter()
-        .map(|v| build_request_variable(v, by_name, false, warnings))
+        .map(|v| build_request_variable(v, by_name, false))
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut category_bins = BTreeMap::new();
@@ -489,25 +495,20 @@ fn build_request_variable(
     v: &LlmRequestVariable,
     by_name: &HashMap<String, &IpumsVariable>,
     force_detailed: bool,
-    warnings: &mut Vec<String>,
 ) -> Result<ist::RequestVariable, MdError> {
     let name = v.name();
     let md = by_name.get(&name).copied();
 
-    // Determine the general/detailed selection and the extract_width it implies. For a detailed
-    // selection extract_width is unused by tabulation; for a general selection it carries the
-    // general width that drives code collapsing, so it must be correct.
-    let (selection, extract_width) = if v.is_general() && !force_detailed {
-        match md.and_then(|m| m.general_width) {
-            Some(w) => (ist::GeneralDetailedSelection::General, w),
-            None => {
-                warnings.push(format!(
-                    "{name}: requested the general version but no general width is available in \
-                     metadata; using the detailed version instead."
-                ));
-                (ist::GeneralDetailedSelection::Detailed, detailed_width(md))
-            }
-        }
+    // Honor a general selection only for variables that actually have a general form (a general
+    // width narrower than the detailed width). Variables without one carry only detailed
+    // categories, so a "G" request on them quietly becomes detailed. extract_width is unused for a
+    // detailed selection; for a general selection it carries the general width that drives the code
+    // collapsing, so it must be correct.
+    let (selection, extract_width) = if v.is_general() && !force_detailed && has_general_form(md) {
+        let general_width = md
+            .and_then(|m| m.general_width)
+            .expect("has_general_form guarantees a general width");
+        (ist::GeneralDetailedSelection::General, general_width)
     } else {
         (ist::GeneralDetailedSelection::Detailed, detailed_width(md))
     };
@@ -822,6 +823,14 @@ fn general_divisor(var: &IpumsVariable) -> usize {
         (Some((_, w)), Some(gw)) if gw < w => 10usize.pow((w - gw) as u32),
         _ => 1,
     }
+}
+
+/// Whether a variable actually has a distinct general form. The parquet loader falls back
+/// `general_width = column_width` when the source has no general width, so the presence of a
+/// general width alone is not enough — the general width must be strictly narrower than the
+/// detailed width (equivalently, the divisor collapses codes, `> 1`).
+fn has_general_form(md: Option<&IpumsVariable>) -> bool {
+    md.map(|v| general_divisor(v) > 1).unwrap_or(false)
 }
 
 /// Derive general (collapsed) category labels from the detailed value labels using the "first label
@@ -1150,6 +1159,16 @@ mod tests {
         }
     }
 
+    fn general_request(name: &str) -> LlmRequestVariable {
+        LlmRequestVariable {
+            variable_mnemonic: name.to_string(),
+            mnemonic: String::new(),
+            general_detailed_selection: "G".to_string(),
+            case_selection: false,
+            request_case_selections: vec![],
+        }
+    }
+
     fn filter_var(name: &str, low: &str, high: &str) -> LlmRequestVariable {
         LlmRequestVariable {
             variable_mnemonic: name.to_string(),
@@ -1210,6 +1229,22 @@ mod tests {
     }
 
     #[test]
+    fn test_catalog_marks_only_general_variables() {
+        let mut edu = var_with_n_categories("EDUC", 5);
+        edu.formatting = Some((1, 3));
+        edu.general_width = Some(2); // has a general form
+        let mut sex = var_with_n_categories("SEX", 2);
+        sex.formatting = Some((1, 1));
+        sex.general_width = Some(1); // no general form (width == general width)
+
+        let catalog = build_catalog(&[edu, sex], 25);
+        let edu_line = catalog.lines().find(|l| l.starts_with("EDUC")).unwrap();
+        let sex_line = catalog.lines().find(|l| l.starts_with("SEX")).unwrap();
+        assert!(edu_line.contains("; general"), "EDUC should be marked general: {edu_line}");
+        assert!(!sex_line.contains("; general"), "SEX should not be marked general: {sex_line}");
+    }
+
+    #[test]
     fn test_force_detailed_overrides_general_selection() {
         // EDUC with a distinct general width: "G" would normally collapse to general categories.
         let mut var = var_with_n_categories("EDUC", 40);
@@ -1218,25 +1253,36 @@ mod tests {
         let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
         by_name.insert("EDUC".to_string(), &var);
 
-        let g = LlmRequestVariable {
-            variable_mnemonic: "EDUC".to_string(),
-            mnemonic: String::new(),
-            general_detailed_selection: "G".to_string(),
-            case_selection: false,
-            request_case_selections: vec![],
-        };
-        let mut warnings = Vec::new();
+        let g = general_request("EDUC");
 
-        let general = build_request_variable(&g, &by_name, false, &mut warnings).unwrap();
+        let general = build_request_variable(&g, &by_name, false).unwrap();
         assert!(
             matches!(general.general_detailed_selection, ist::GeneralDetailedSelection::General),
             "without the override, a 'G' request should stay general"
         );
 
-        let detailed = build_request_variable(&g, &by_name, true, &mut warnings).unwrap();
+        let detailed = build_request_variable(&g, &by_name, true).unwrap();
         assert!(
             matches!(detailed.general_detailed_selection, ist::GeneralDetailedSelection::Detailed),
             "--detailed should force the tabulation variable to detailed"
+        );
+    }
+
+    #[test]
+    fn test_general_request_downgrades_without_general_form() {
+        // MARST-like: general_width equals the detailed width, so it has no real general form.
+        let mut var = var_with_n_categories("MARST", 6);
+        var.formatting = Some((1, 1));
+        var.general_width = Some(1);
+        assert!(!has_general_form(Some(&var)));
+        let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
+        by_name.insert("MARST".to_string(), &var);
+
+        // Even though the model asked for "G", it must come back detailed.
+        let rv = build_request_variable(&general_request("MARST"), &by_name, false).unwrap();
+        assert!(
+            matches!(rv.general_detailed_selection, ist::GeneralDetailedSelection::Detailed),
+            "a 'G' request on a variable with no general form should become detailed"
         );
     }
 

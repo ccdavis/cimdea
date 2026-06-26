@@ -39,12 +39,19 @@ Wiring:
   (`""`), subpopulation filters, category bins, and unit of analysis (`uoa`). Product and samples
   are taken from the CLI (not the model), guaranteeing they match the loaded metadata.
 - **General categories are the default** for tabulation variables (matching the website: general by
-  default, with a "details" checkbox). The system prompt tells the model to emit `"G"` unless the
-  user asks for detail or the breakdown needs it (specific countries/states, single years of age,
-  etc.); this keeps result sizes down. Subpopulation **filters** stay detailed (their schema has no
-  general/detailed field and defaults to detailed codes — that's where precise selection matters).
-  The CLI `--detailed` flag forces detailed for every tabulation variable deterministically
-  (overriding the model), the equivalent of the website checkbox (`NlConfig.detailed`).
+  default, with a "details" checkbox) — but ONLY for variables that actually have a general form.
+  Not every variable does: the parquet loader sets `general_width = column_width` when the source
+  has none, so the real test is `general_divisor(var) > 1` (a general width strictly narrower than
+  the detailed width). E.g. EDUC/RELATE/BPL/RACE have a general form; MARST/SEX/AGE/STATEFIP do not.
+  This is enforced at three layers: (1) `build_catalog` marks eligible variables `"(P; general)"` so
+  the model knows which can be general; (2) the system prompt tells it to request `"G"` only for
+  marked variables (and only when detail isn't asked for / needed); (3) `build_request_variable`
+  (`has_general_form`) is the safety net — a `"G"` request on a variable with no general form quietly
+  becomes detailed, so the model can't produce a bogus general selection. Subpopulation **filters**
+  stay detailed (their schema has no general/detailed field and defaults to detailed codes — that's
+  where precise selection matters). The CLI `--detailed` flag forces detailed for every tabulation
+  variable deterministically (overriding the model), the equivalent of the website checkbox
+  (`NlConfig.detailed`).
 - **Mechanical fields are filled from metadata, not the model**: `extract_start` (irrelevant to
   tabulation — only matters for fixed-width extract output), `mnemonic`, and especially
   `extract_width`. For a `"G"` selection, `try_from_json` feeds `extract_width` into the variable's
