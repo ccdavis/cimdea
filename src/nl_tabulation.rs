@@ -39,6 +39,9 @@ pub struct NlConfig {
     pub datasets: Vec<String>,
     /// Max value labels to inline per variable in the catalog. `None` uses the default.
     pub category_catalog_max: Option<usize>,
+    /// Force detailed categories for every tabulation variable, overriding the model's (general-by-
+    /// default) choice. The CLI's `--detailed` flag mirrors the website's "details" checkbox.
+    pub detailed: bool,
 }
 
 /// The result of a natural-language tabulation: the model's interpretation, supporting variable
@@ -342,19 +345,20 @@ Respond with ONLY a single JSON object (no markdown fences, no prose outside the
 
 The "abacus_request" object has these fields:
 - "uoa": unit of analysis: "P" to count persons, "H" to count households.
-- "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "" or "G"}. Use "G" only when the user wants the simplified "general" version of a variable; otherwise use "".
+- "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "G" or ""}. DEFAULT TO "G" (the general, simplified categories) for every tabulation variable — this is what users expect and keeps the results compact. Use "" (detailed categories) ONLY when the user explicitly asks for detail (e.g. "detailed", "specific", "single year of age", "by country", "by state") OR when the breakdown they want is finer than the general categories can express (individual countries of birth, individual states, single years of age, a particular detailed category). When unsure, prefer "G".
 - "subpopulation": OPTIONAL array of filters restricting which records are counted. Each filter is {"variable_mnemonic": "<NAME>", "case_selection": true, "request_case_selections": [{"low_code": "<code>" or null, "high_code": "<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; set one bound to null for an open-ended range.
 - "category_bins": OPTIONAL object mapping a variable name to bins that group a continuous variable. Each bin is {"code": <int>, "value_label": "<text>", "low": <int> or null, "high": <int> or null}.
 
 Rules:
 - Use ONLY variable mnemonics from the provided catalog. Never invent variable names.
+- Tabulation variables default to the GENERAL version ("G"); switch to detailed ("") only when the user asks for detail or needs a finer breakdown than the general categories provide. Subpopulation FILTERS use detailed value codes (the exact integer codes shown), since that is where precise category selection matters.
 - For subpopulation filters and category bins, use the integer value codes shown in the catalog.
 - Do NOT include byte offsets, widths, "mnemonic", or "attached_variable_pointer"; those are filled in from metadata.
 - Keep the request minimal: only include "subpopulation" or "category_bins" when the user asks for a filter or a grouping.
 
 Example user request: "Count people by marital status, but only women, in the 2019 ACS."
-Example response:
-{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"MARST","general_detailed_selection":""}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":{}},"explanation":"Tabulates persons by marital status (MARST), restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}"#;
+Example response (marital status tabulated with general categories; the sex filter uses a detailed code):
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"MARST","general_detailed_selection":"G"}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":{}},"explanation":"Tabulates persons by marital status (MARST) using general categories, restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}"#;
 
 fn build_user_content(
     product: &str,
@@ -431,15 +435,16 @@ fn build_strict_request(
         )));
     }
 
+    // Tabulation variables honor the --detailed override; subpopulation filters are always detailed.
     let request_variables = llm
         .request_variables
         .iter()
-        .map(|v| build_request_variable(v, by_name, warnings))
+        .map(|v| build_request_variable(v, by_name, cfg.detailed, warnings))
         .collect::<Result<Vec<_>, _>>()?;
     let subpopulation = llm
         .subpopulation
         .iter()
-        .map(|v| build_request_variable(v, by_name, warnings))
+        .map(|v| build_request_variable(v, by_name, false, warnings))
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut category_bins = BTreeMap::new();
@@ -483,6 +488,7 @@ fn build_strict_request(
 fn build_request_variable(
     v: &LlmRequestVariable,
     by_name: &HashMap<String, &IpumsVariable>,
+    force_detailed: bool,
     warnings: &mut Vec<String>,
 ) -> Result<ist::RequestVariable, MdError> {
     let name = v.name();
@@ -491,7 +497,7 @@ fn build_request_variable(
     // Determine the general/detailed selection and the extract_width it implies. For a detailed
     // selection extract_width is unused by tabulation; for a general selection it carries the
     // general width that drives code collapsing, so it must be correct.
-    let (selection, extract_width) = if v.is_general() {
+    let (selection, extract_width) = if v.is_general() && !force_detailed {
         match md.and_then(|m| m.general_width) {
             Some(w) => (ist::GeneralDetailedSelection::General, w),
             None => {
@@ -775,21 +781,74 @@ fn build_variable_docs(
     names
         .iter()
         .filter_map(|name| by_name.get(name).copied().map(|var| (name, var)))
-        .map(|(name, var)| VariableDoc {
-            name: var.name.clone(),
-            label: var.label.clone(),
-            record_type: var.record_type.clone(),
-            general: general_names.contains(name),
-            categories: var
-                .categories
-                .as_ref()
-                .map(|cats| {
-                    cats.iter()
-                        .map(|c| (ipums_value_code(&c.value), c.label().to_string()))
-                        .collect()
-                })
-                .unwrap_or_default(),
+        .map(|(name, var)| {
+            let general = general_names.contains(name);
+            // For a general selection the result codes are collapsed groupings, so document the
+            // derived general labels; otherwise document the detailed value labels.
+            let categories = if general {
+                general_categories(var)
+            } else {
+                detailed_categories(var)
+            };
+            VariableDoc {
+                name: var.name.clone(),
+                label: var.label.clone(),
+                record_type: var.record_type.clone(),
+                general,
+                categories,
+            }
         })
+        .collect()
+}
+
+/// The detailed value labels as (code, label) pairs.
+fn detailed_categories(var: &IpumsVariable) -> Vec<(String, String)> {
+    var.categories
+        .as_ref()
+        .map(|cats| {
+            cats.iter()
+                .map(|c| (ipums_value_code(&c.value), c.label().to_string()))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The integer divisor that collapses detailed codes into general codes, mirroring
+/// `RequestVariable::try_from` (request.rs): `10^(detailed_width - general_width)`, or 1 when there
+/// is no distinct general width. The tabulation engine emits `detailed_code / divisor`, so the
+/// general result codes are grouped the same way here.
+fn general_divisor(var: &IpumsVariable) -> usize {
+    match (var.formatting, var.general_width) {
+        (Some((_, w)), Some(gw)) if gw < w => 10usize.pow((w - gw) as u32),
+        _ => 1,
+    }
+}
+
+/// Derive general (collapsed) category labels from the detailed value labels using the "first label
+/// rule": group detailed codes by their general code (`code / divisor`) and take the label of the
+/// smallest detailed code in each group. The parquet metadata lacks the explicit general-category
+/// markers (indentation / grouping) of the source metadata, but the first detailed label in a
+/// grouping is conventionally the general label (e.g. RELATE 301 "Child" labels general code 3).
+/// Returns (general_code, label) pairs sorted by code.
+fn general_categories(var: &IpumsVariable) -> Vec<(String, String)> {
+    let divisor = general_divisor(var) as i64;
+    let cats = match &var.categories {
+        Some(c) => c,
+        None => return Vec::new(),
+    };
+    // general_code -> (smallest detailed code seen so far, its label)
+    let mut groups: BTreeMap<i64, (i64, String)> = BTreeMap::new();
+    for c in cats {
+        if let IpumsValue::Integer(v) = c.value {
+            let entry = groups.entry(v / divisor).or_insert((i64::MAX, String::new()));
+            if v < entry.0 {
+                *entry = (v, c.label().to_string());
+            }
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(general, (_, label))| (general.to_string(), label))
         .collect()
 }
 
@@ -853,19 +912,19 @@ impl NlResult {
             out.push_str("\n## Variables\n");
             for doc in &self.variable_docs {
                 let label = doc.label.as_deref().unwrap_or("(no label)");
-                if doc.general {
-                    // The result codes are general groupings; metadata has only detailed value
-                    // labels, so listing them next to general codes would be misleading.
-                    out.push_str(&format!(
-                        "- {} ({}): {} — tabulated as general (collapsed) categories; \
-                         the result shows general grouping codes.\n",
-                        doc.name, doc.record_type, label
-                    ));
+                // General selections show derived general (collapsed) category labels; mark them so
+                // it is clear the codes are groupings, not detailed codes.
+                let marker = if doc.general {
+                    " (general categories)"
                 } else {
-                    out.push_str(&format!("- {} ({}): {}\n", doc.name, doc.record_type, label));
-                    for (code, clabel) in &doc.categories {
-                        out.push_str(&format!("    {code} = {clabel}\n"));
-                    }
+                    ""
+                };
+                out.push_str(&format!(
+                    "- {} ({}): {}{}\n",
+                    doc.name, doc.record_type, label, marker
+                ));
+                for (code, clabel) in &doc.categories {
+                    out.push_str(&format!("    {code} = {clabel}\n"));
                 }
             }
         }
@@ -886,10 +945,12 @@ impl NlResult {
     /// variable column. General columns are left as raw codes (the metadata has no general value
     /// labels). Raw codes are always kept; the labels are an additional column.
     fn render_tables_with_labels(&self, tab: &Tabulation) -> Result<String, MdError> {
-        // Build code -> label maps for the detailed variables we have value labels for.
+        // Build code -> label maps from each documented variable's categories (detailed labels, or
+        // derived general labels for general selections — both are keyed by the codes that appear
+        // in the result table).
         let mut label_maps: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
         for doc in &self.variable_docs {
-            if doc.general || doc.categories.is_empty() {
+            if doc.categories.is_empty() {
                 continue;
             }
             let map = doc
@@ -975,12 +1036,12 @@ fn format_table_with_labels(
         align_left.push(false);
         let mut lm = None;
         if let OutputColumn::RequestVar(v) = col {
-            if !v.is_general() {
-                if let Some(map) = label_maps.get(v.name.as_str()) {
-                    lm = Some(map);
-                    headers.push(format!("{}_label", v.name));
-                    align_left.push(true);
-                }
+            // Both detailed and general columns can be labeled — the map is keyed by whichever
+            // codes (detailed or general) actually appear in this column.
+            if let Some(map) = label_maps.get(v.name.as_str()) {
+                lm = Some(map);
+                headers.push(format!("{}_label", v.name));
+                align_left.push(true);
             }
         }
         label_after.push(lm);
@@ -1100,6 +1161,83 @@ mod tests {
                 high_code: Some(serde_json::json!(high)),
             }],
         }
+    }
+
+    #[test]
+    fn test_general_categories_first_label_rule() {
+        // RELATE-like: detailed width 4, general width 2 -> divisor 100. General code = code/100,
+        // labeled by the smallest detailed code in each group.
+        let cats = vec![
+            IpumsCategory::new("Head/householder", UniversalCategoryType::Value, IpumsValue::Integer(101)),
+            IpumsCategory::new("Spouse", UniversalCategoryType::Value, IpumsValue::Integer(201)),
+            IpumsCategory::new("2nd/3rd wife", UniversalCategoryType::Value, IpumsValue::Integer(202)),
+            IpumsCategory::new("Child", UniversalCategoryType::Value, IpumsValue::Integer(301)),
+            IpumsCategory::new("Adopted child", UniversalCategoryType::Value, IpumsValue::Integer(302)),
+        ];
+        let var = IpumsVariable {
+            name: "RELATE".to_string(),
+            data_type: Some(IpumsDataType::Integer),
+            label: Some("Relationship to household head".to_string()),
+            record_type: "P".to_string(),
+            categories: Some(cats),
+            formatting: Some((1, 4)),
+            general_width: Some(2),
+            description: None,
+            category_bins: None,
+            id: 0,
+        };
+
+        assert_eq!(general_divisor(&var), 100);
+        let general = general_categories(&var);
+        assert_eq!(
+            general,
+            vec![
+                ("1".to_string(), "Head/householder".to_string()),
+                ("2".to_string(), "Spouse".to_string()),
+                ("3".to_string(), "Child".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_general_divisor_no_distinct_general_width() {
+        let mut var = var_with_n_categories("X", 3);
+        var.formatting = Some((1, 3));
+        var.general_width = Some(3); // same as detailed -> divisor 1
+        assert_eq!(general_divisor(&var), 1);
+        var.general_width = None;
+        assert_eq!(general_divisor(&var), 1);
+    }
+
+    #[test]
+    fn test_force_detailed_overrides_general_selection() {
+        // EDUC with a distinct general width: "G" would normally collapse to general categories.
+        let mut var = var_with_n_categories("EDUC", 40);
+        var.formatting = Some((1, 3));
+        var.general_width = Some(2);
+        let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
+        by_name.insert("EDUC".to_string(), &var);
+
+        let g = LlmRequestVariable {
+            variable_mnemonic: "EDUC".to_string(),
+            mnemonic: String::new(),
+            general_detailed_selection: "G".to_string(),
+            case_selection: false,
+            request_case_selections: vec![],
+        };
+        let mut warnings = Vec::new();
+
+        let general = build_request_variable(&g, &by_name, false, &mut warnings).unwrap();
+        assert!(
+            matches!(general.general_detailed_selection, ist::GeneralDetailedSelection::General),
+            "without the override, a 'G' request should stay general"
+        );
+
+        let detailed = build_request_variable(&g, &by_name, true, &mut warnings).unwrap();
+        assert!(
+            matches!(detailed.general_detailed_selection, ist::GeneralDetailedSelection::Detailed),
+            "--detailed should force the tabulation variable to detailed"
+        );
     }
 
     #[test]

@@ -15,6 +15,7 @@ fn usa_config() -> NlConfig {
         data_root: Some("tests/data_root".to_string()),
         datasets: vec!["us2015b".to_string()],
         category_catalog_max: None,
+        detailed: false,
     }
 }
 
@@ -116,6 +117,7 @@ fn test_value_labels_from_production_parquet() {
         data_root: Some(data_root),
         datasets: vec!["us2019b".to_string()],
         category_catalog_max: None,
+        detailed: false,
     };
 
     let response = r#"{
@@ -156,6 +158,62 @@ fn test_value_labels_from_production_parquet() {
         rendered.contains("MARST_label"),
         "the result table should include a MARST_label column, got:\n{rendered}"
     );
+}
+
+/// Verifies general (collapsed) value labels are derived and shown for a `"G"` selection, using the
+/// production parquet metadata. Uses a [MockLlmProvider] (no API key/quota) plus real parquet, so it
+/// is `#[ignore]`d and gated on `CIMDEA_NL_DATA_ROOT` like the test above. Run with:
+///   CIMDEA_NL_DATA_ROOT=/path/to/data_root cargo test --release --test test_nl_tabulation -- --ignored
+#[test]
+#[ignore]
+fn test_general_value_labels_from_production_parquet() {
+    let data_root = std::env::var("CIMDEA_NL_DATA_ROOT")
+        .expect("set CIMDEA_NL_DATA_ROOT to a data root with label-carrying us2019b parquet");
+
+    let cfg = NlConfig {
+        product: "usa".to_string(),
+        data_root: Some(data_root),
+        datasets: vec!["us2019b".to_string()],
+        category_catalog_max: None,
+        detailed: false,
+    };
+
+    // Tabulate RELATE with the general selection; general code 1 should be labeled "Head/householder".
+    let response = r#"{
+        "request_kind": "tabulation",
+        "abacus_request": {
+            "uoa": "P",
+            "request_variables": [
+                {"variable_mnemonic": "RELATE", "general_detailed_selection": "G"}
+            ]
+        },
+        "explanation": "Counts persons by general relationship to household head.",
+        "assumptions": ""
+    }"#;
+
+    let provider = MockLlmProvider::new(response);
+    let result = nl_tabulation::run(&provider, "people by general relationship", &cfg)
+        .expect("the pipeline should succeed against production parquet");
+
+    let relate = result
+        .variable_docs
+        .iter()
+        .find(|d| d.name == "RELATE")
+        .expect("RELATE should be documented");
+    assert!(relate.general, "RELATE should be marked as a general selection");
+    assert!(
+        relate
+            .categories
+            .iter()
+            .any(|(code, label)| code == "1" && label == "Head/householder"),
+        "general code 1 should be labeled Head/householder, got {:?}",
+        relate.categories
+    );
+
+    let rendered = result.render(TableFormat::TextTable).expect("should render");
+    // The result table should carry a general label column with the derived labels.
+    assert!(rendered.contains("RELATE_label"), "expected a RELATE_label column:\n{rendered}");
+    assert!(rendered.contains("Head/householder"));
 }
 
 #[test]

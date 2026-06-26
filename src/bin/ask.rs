@@ -54,6 +54,10 @@ struct Cli {
     #[arg(long)]
     api_key: Option<String>,
 
+    /// Use detailed categories for tabulation variables (default: general/simplified categories)
+    #[arg(long)]
+    detailed: bool,
+
     /// Output format
     #[arg(short, long, default_value = "text")]
     format: TableFormat,
@@ -110,6 +114,7 @@ fn main() {
         data_root: cli.data_root.clone(),
         datasets: cli.datasets.clone(),
         category_catalog_max: None,
+        detailed: cli.detailed,
     };
 
     let result = match nl_tabulation::run(provider.as_ref(), &cli.prompt, &cfg) {

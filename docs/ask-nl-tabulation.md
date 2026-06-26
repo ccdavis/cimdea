@@ -38,6 +38,13 @@ Wiring:
 - **The model only chooses intent**: which variables to tabulate, general (`"G"`) vs detailed
   (`""`), subpopulation filters, category bins, and unit of analysis (`uoa`). Product and samples
   are taken from the CLI (not the model), guaranteeing they match the loaded metadata.
+- **General categories are the default** for tabulation variables (matching the website: general by
+  default, with a "details" checkbox). The system prompt tells the model to emit `"G"` unless the
+  user asks for detail or the breakdown needs it (specific countries/states, single years of age,
+  etc.); this keeps result sizes down. Subpopulation **filters** stay detailed (their schema has no
+  general/detailed field and defaults to detailed codes — that's where precise selection matters).
+  The CLI `--detailed` flag forces detailed for every tabulation variable deterministically
+  (overriding the model), the equivalent of the website checkbox (`NlConfig.detailed`).
 - **Mechanical fields are filled from metadata, not the model**: `extract_start` (irrelevant to
   tabulation — only matters for fixed-width extract output), `mnemonic`, and especially
   `extract_width`. For a `"G"` selection, `try_from_json` feeds `extract_width` into the variable's
@@ -95,8 +102,9 @@ GEMINI_API_KEY=... cargo run --release --bin ask -- \
   --product usa --data-root <root> --dataset us2019b \
   "How many people are there by marital status?"
 
-# Useful flags: --show-request (print generated Abacus JSON), -f json, --model <id>,
-#               --api-key <key>, --dataset can repeat, -o <file>.
+# Useful flags: --show-request (print generated Abacus JSON), --detailed (force detailed categories
+#               instead of the general default), -f json, --model <id>, --api-key <key>,
+#               --provider gemini|gemini-interactions, --dataset can repeat, -o <file>.
 
 # Offline tests:
 cargo test --release --test test_nl_tabulation
@@ -171,13 +179,16 @@ the `strip_json_fences` safety net (clean JSON confirmed without it).
    left-aligned `<VAR>_label` column after each *detailed* coded variable column (raw codes kept).
    Implemented entirely in `nl_tabulation` (`format_table_with_labels`) so `tabulate.rs`/`abacus`
    are untouched; labels come from the parquet catalog, the general flag from the executed
-   `OutputColumn::RequestVar`. **Limitation discovered:** parquet metadata carries only *detailed*
-   value labels plus a `general_width` — there are **no general category labels**. So a `"G"`
-   selection shows raw general grouping codes (no label column) and the Variables legend now prints
-   a one-line note instead of dumping detailed codes that don't match the general result codes.
-   JSON output is unchanged (consumers already get `tables` + a `variables` code→label map). A
-   future improvement would be to source general category labels (if/when present in metadata) so
-   general columns can be labeled too.
+   `OutputColumn::RequestVar`. **General `"G"` selections are labeled too** via the "first label
+   rule" (`general_categories` / `general_divisor` in `nl_tabulation`): the parquet metadata lacks
+   explicit general-category markers, but general codes are `detailed_code / divisor` (same divisor
+   the engine uses, `10^(detailed_width - general_width)`), and the label of the *smallest* detailed
+   code in each group is conventionally the general label (e.g. RELATE 301 "Child" → general 3
+   "Child"). So a `"G"` column gets a derived general label column and a `(general categories)`
+   legend. Verified against production RELATE (general 1–13 = Head/householder … Institutional
+   inmates) and unit-tested (`test_general_categories_first_label_rule`). Caveat: it's a heuristic
+   ("typically" the first label); a variable that violates the convention could be mislabeled.
+   JSON output is unchanged (consumers already get `tables` + a `variables` code→label map).
 
 3. ~~**Two-pass prompting for better filters/bins.**~~ **DONE** (generate → conditional refine).
    Pass 1 is unchanged (full request with best-guess codes). `refine_targets` then flags any
