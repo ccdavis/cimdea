@@ -242,6 +242,20 @@ impl ParquetMetadataReader {
                     )
                 })?;
 
+            // Keep the catalog to variables that can actually be tabulated. Exclude:
+            //  - source variables: raw, un-integrated inputs, not meant for tabulation; and
+            //  - string-typed variables: the tabulation engine reads every value as an integer, so
+            //    a string column can't be grouped or range-filtered. This also drops structural
+            //    record-type variables (RECTYPE/RECTYPEP) and alphanumeric code variables
+            //    (e.g. INDNAICS, OCCSOC), which are string-typed and nonsensical to tabulate here.
+            let is_string = matches!(
+                IpumsDataType::from(metadata.data_type.as_str()),
+                IpumsDataType::String
+            );
+            if metadata.is_source_variable || is_string {
+                continue;
+            }
+
             // Convert categories if present and not empty
             let categories = if !metadata.categories.is_empty() {
                 Some(Self::convert_categories(
@@ -420,6 +434,34 @@ impl ParquetMetadataReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_variable_metadata_skips_non_tabulatable() {
+        // Integrated AGE (integer) is kept; a source variable, a structural string record-type
+        // variable, and an alphanumeric code variable are all excluded from the catalog.
+        let json_str = r#"{
+            "AGE": {
+                "label": "Age",
+                "data_type": "integer"
+            },
+            "US2015A_0058": {
+                "label": "Age (source)",
+                "data_type": "string",
+                "is_source_variable": true
+            },
+            "RECTYPEP": {
+                "label": "Record type",
+                "data_type": "string"
+            },
+            "OCCSOC": {
+                "label": "Occupation, SOC code",
+                "data_type": "string"
+            }
+        }"#;
+        let variables = ParquetMetadataReader::parse_variable_metadata(json_str, "P").unwrap();
+        assert_eq!(variables.len(), 1, "only the integer variable should remain");
+        assert_eq!(variables[0].name, "AGE");
+    }
 
     #[test]
     fn test_parse_variable_metadata_simple() {

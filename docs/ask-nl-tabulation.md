@@ -38,6 +38,56 @@ Wiring:
 - **The model only chooses intent**: which variables to tabulate, general (`"G"`) vs detailed
   (`""`), subpopulation filters, category bins, and unit of analysis (`uoa`). Product and samples
   are taken from the CLI (not the model), guaranteeing they match the loaded metadata.
+- **Dataset inference**: `--dataset` is optional. When omitted, a first model pass picks the
+  dataset(s) from those available under the data root (each `parquet/<name>` with a matching
+  `layouts/<name>.layout.txt`), shown with their parsed year (e.g. "in 1900" -> `us1900m`). The
+  choice and the model's reason appear in a **`## Data source`** section (a legend/citation, with an
+  IPUMS attribution), so the user always sees which sample was used. Code: `list_available_datasets`,
+  `choose_datasets`, `parse_year` in `nl_tabulation`.
+- **Binned-variable labels**: when a variable is grouped via `category_bins`, the result table and
+  legend show the bin labels ("0-9", "10-19", …), not the raw bin codes or the variable's underlying
+  value labels. `apply_bin_labels` overrides the binned variable's documented categories with the
+  bins' (code → value_label) pairs from the request.
+- **Single-number results**: post-processing on the table — if the result is one table with exactly
+  one row, it's rendered as a number ("MARST = 4 (Divorced): weighted estimate **28,710,122**
+  (unweighted sample: 280,092).") instead of a one-row table. The system prompt steers "how many X"
+  questions (incl. multi-condition like "Hispanic men who graduated college") to put every condition
+  in `subpopulation` (AND-ed across variables) and tabulate one variable the conditions pin to a
+  single value, so the result collapses to one row. `render_single_number`, `group_thousands`.
+- **Catalog = tabulatable variables only**: `parse_variable_metadata` excludes (a) source variables
+  (`is_source_variable`, raw un-integrated inputs) and (b) ALL string-typed variables. The engine
+  reads every value as an integer (`isize`), so no string column can be grouped or range-filtered —
+  a string variable produced a DuckDB type error (`BETWEEN` on a source var; `Invalid column type
+  Text` when the model grabbed the structural record-type variable `RECTYPEP` as a constant to force
+  a one-row count). Excluding strings drops source vars, structural record-type vars (`RECTYPE`/
+  `RECTYPEP`), and alphanumeric code vars (`INDNAICS`, `OCCSOC`) — none tabulatable today — so the
+  model only sees integer/fixed-coded integrated variables. (In us2015a: 615 integer + 20 fixed kept;
+  4 string + sources dropped.)
+- **JSON robustness (re-ask on recoverable failures)**: every model JSON reply goes through
+  `complete_json_with_retry` (up to `MAX_JSON_ATTEMPTS = 3`). `gemini-3.5-flash` intermittently emits
+  malformed JSON (duplicate key / missing delimiter) and occasionally an empty/filtered candidate
+  (`RECITATION`); fresh sampling on a re-ask clears both. Fatal errors (HTTP 400/auth) fail fast via
+  `is_retryable_llm_error`. The prompt also explicitly demands strictly valid JSON.
+- **Constrained decoding (`responseSchema`) — tried and shelved.** The provider can do it
+  (`LlmProvider::complete_json_schema`, Gemini `generationConfig.responseSchema`), and we restructured
+  `category_bins` from a dynamic-keyed map to an **array** (still converted back to the Abacus map in
+  `build_strict_request`) so the envelope is schema-expressible. But on `gemini-3.5-flash` constrained
+  decoding ran **~3 minutes per call** (≈60× slower; a 2-pass query took ~6 min) and mis-filled bin
+  bounds. So it's **not used** — the retry + strict-prompt give well-formed JSON at full speed. The
+  capability is left in place for a future faster model. (The `category_bins` array form was kept; it's
+  cleaner than the map and works fine.)
+- **Catalog trimming**: the catalog inlines value labels only for variables with ≤
+  `DEFAULT_CATEGORY_CATALOG_MAX` (=12) categories; bigger variables show just a count and the refine
+  pass resolves their codes. Inline labels were ~60% of the catalog tokens (≈10k of 17k for us2015a);
+  trimming keeps common demographic variables (SEX/MARST/RACE) inline for first-pass accuracy while
+  dropping the long tail. Combined with dropping `responseSchema`, a simple count went from ~6 min to
+  **~6 s** (age-bins ~16 s). (Caching is complementary, not yet wired: Gemini implicit caching helps
+  repeated prefixes a little; the big wins are `previous_interaction_id` for Phase 2 chat and explicit
+  `cachedContents` for a deployed server reusing one dataset's catalog.)
+- **IPUMS conventions section in the prompt**: domain facts about how variables encode concepts live
+  in a dedicated `IPUMS conventions:` block (separate from request-format `Rules:`), so they're easy
+  to grow. First entry: Hispanic/Latino is an ethnicity (`HISPAN`), independent of `RACE` — never
+  answer "Hispanic" with a race variable. (More conventions expected.)
 - **General categories are the default** for tabulation variables (matching the website: general by
   default, with a "details" checkbox) — but ONLY for variables that actually have a general form.
   Not every variable does: the parquet loader sets `general_width = column_width` when the source

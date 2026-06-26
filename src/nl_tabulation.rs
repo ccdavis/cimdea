@@ -14,7 +14,9 @@
 //!    pulled straight from the metadata (so the facts come from the data, not the model).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::Path;
 
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
 use crate::conventions::Context;
@@ -25,9 +27,15 @@ use crate::mderror::MdError;
 use crate::request::AbacusRequest;
 use crate::tabulate::{self, OutputColumn, Table, TableFormat, Tabulation};
 
-/// How many value labels a variable may have before we omit them from the prompt catalog (to keep
-/// the prompt from ballooning on continuous variables with thousands of distinct codes).
-const DEFAULT_CATEGORY_CATALOG_MAX: usize = 25;
+/// How many value labels a variable may have before they are omitted from the prompt catalog.
+///
+/// The catalog inlines value labels only for variables with at most this many categories; larger
+/// variables show just a count, and the second (refinement) pass resolves their codes on demand.
+/// This trims the bulk of the catalog tokens (high-cardinality variables) while keeping common
+/// demographic variables (SEX, MARST, RACE, ...) inline so the first pass resolves their codes
+/// accurately without a second round-trip. Tune via `NlConfig.category_catalog_max`; set 0 to omit
+/// all inline labels (maximum trim, but more refinement and lower first-pass accuracy).
+const DEFAULT_CATEGORY_CATALOG_MAX: usize = 12;
 
 /// Inputs needed to translate and run a natural-language tabulation request.
 pub struct NlConfig {
@@ -36,6 +44,7 @@ pub struct NlConfig {
     /// Path to the data root (containing `parquet/` and `layouts/`). `None` uses product defaults.
     pub data_root: Option<String>,
     /// Dataset(s) whose metadata is offered to the model and which the tabulation runs against.
+    /// If empty, the model chooses an appropriate dataset from those available under the data root.
     pub datasets: Vec<String>,
     /// Max value labels to inline per variable in the catalog. `None` uses the default.
     pub category_catalog_max: Option<usize>,
@@ -61,6 +70,10 @@ pub struct NlResult {
     pub variable_docs: Vec<VariableDoc>,
     /// The repaired Abacus request as pretty JSON (for inspection / `--show-request`).
     pub generated_request_json: Option<String>,
+    /// The dataset(s) the tabulation ran against.
+    pub datasets: Vec<String>,
+    /// If the dataset was chosen by the model (not given by the caller), the model's reason.
+    pub dataset_reason: Option<String>,
     /// The computed tabulation, if this was an executable tabulation request.
     pub tabulation: Option<Tabulation>,
 }
@@ -103,8 +116,18 @@ struct LlmAbacusRequest {
     request_variables: Vec<LlmRequestVariable>,
     #[serde(default)]
     subpopulation: Vec<LlmRequestVariable>,
+    /// Category bins as an array (one entry per variable) so the whole envelope is expressible as a
+    /// JSON Schema for constrained decoding. Converted to the Abacus map form in `build_strict_request`.
     #[serde(default)]
-    category_bins: BTreeMap<String, Vec<LlmCategoryBin>>,
+    category_bins: Vec<LlmCategoryBinGroup>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct LlmCategoryBinGroup {
+    #[serde(default)]
+    variable: String,
+    #[serde(default)]
+    bins: Vec<LlmCategoryBin>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -167,14 +190,18 @@ pub fn run(
     prompt: &str,
     cfg: &NlConfig,
 ) -> Result<NlResult, MdError> {
-    if cfg.datasets.is_empty() {
-        return Err(MdError::Msg(
-            "at least one dataset is required to load metadata and tabulate".to_string(),
-        ));
-    }
+    // 0. Decide which dataset(s) to use: the caller's, or let the model pick one from those
+    // available under the data root (e.g. "in 1900" -> an 1900 sample).
+    let (datasets, dataset_reason) = if cfg.datasets.is_empty() {
+        let available = list_available_datasets(cfg)?;
+        let chosen = choose_datasets(provider, prompt, &available)?;
+        (chosen.datasets, Some(chosen.reason))
+    } else {
+        (cfg.datasets.clone(), None)
+    };
 
     // 1. Load metadata for the catalog and for value-label documentation.
-    let ctx = load_catalog_context(cfg)?;
+    let ctx = load_catalog_context(cfg, &datasets)?;
     let variables = loaded_variables(&ctx)?;
     let by_name: HashMap<String, &IpumsVariable> = variables
         .iter()
@@ -184,16 +211,10 @@ pub fn run(
     // 2. Build the prompt and ask the model.
     let cat_max = cfg.category_catalog_max.unwrap_or(DEFAULT_CATEGORY_CATALOG_MAX);
     let catalog = build_catalog(variables, cat_max);
-    let user_content = build_user_content(&cfg.product, &cfg.datasets, &catalog, prompt);
+    let user_content = build_user_content(&cfg.product, &datasets, &catalog, prompt);
 
-    let raw = provider.complete_json(SYSTEM_PROMPT, &user_content)?;
-    let cleaned = strip_json_fences(&raw);
-    let envelope: LlmTabulationResponse = serde_json::from_str(&cleaned).map_err(|err| {
-        MdError::LlmError(format!(
-            "could not parse the model's response as the expected JSON envelope ({err}); \
-             response was: {cleaned}"
-        ))
-    })?;
+    let envelope: LlmTabulationResponse =
+        complete_json_with_retry(provider, SYSTEM_PROMPT, &user_content, "tabulation response")?;
 
     let request_kind = if envelope.request_kind.is_empty() {
         "tabulation".to_string()
@@ -215,6 +236,8 @@ pub fn run(
             ],
             variable_docs: Vec::new(),
             generated_request_json: None,
+            datasets,
+            dataset_reason,
             tabulation: None,
         });
     }
@@ -248,7 +271,7 @@ pub fn run(
     }
 
     // 3. Validate + repair into a strict request, filling mechanical fields from metadata.
-    let strict = build_strict_request(&llm_request, cfg, &by_name, &mut warnings)?;
+    let strict = build_strict_request(&llm_request, cfg, &datasets, &by_name, &mut warnings)?;
 
     // Collect the variables to document (in tabulation order, then subpopulation).
     let mut doc_names: Vec<String> = strict
@@ -268,7 +291,11 @@ pub fn run(
         .filter(|v| matches!(v.general_detailed_selection, ist::GeneralDetailedSelection::General))
         .map(|v| v.variable_mnemonic.clone())
         .collect();
-    let variable_docs = build_variable_docs(&doc_names, &by_name, &general_names);
+    let mut variable_docs = build_variable_docs(&doc_names, &by_name, &general_names);
+
+    // For binned variables the meaningful categories are the bins themselves (e.g. "0-9"), not the
+    // variable's raw value labels — so the result table and legend show the bin labels.
+    apply_bin_labels(&mut variable_docs, &llm_request);
 
     // 4. Serialize and run through the normal Abacus path (which loads layout metadata itself).
     let request_json = serde_json::to_string(&strict).map_err(|err| {
@@ -299,6 +326,8 @@ pub fn run(
         warnings,
         variable_docs,
         generated_request_json: pretty,
+        datasets,
+        dataset_reason,
         tabulation: Some(tabulation),
     })
 }
@@ -307,10 +336,10 @@ pub fn run(
 // Metadata loading
 // ---------------------------------------------------------------------------
 
-fn load_catalog_context(cfg: &NlConfig) -> Result<Context, MdError> {
+fn load_catalog_context(cfg: &NlConfig, datasets: &[String]) -> Result<Context, MdError> {
     let mut ctx =
         Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
-    let ds_refs: Vec<&str> = cfg.datasets.iter().map(|s| s.as_str()).collect();
+    let ds_refs: Vec<&str> = datasets.iter().map(|s| s.as_str()).collect();
 
     // Prefer parquet embedded metadata (gives labels, value labels, general widths). Fall back to
     // layout files (names + widths only) if parquet metadata isn't available.
@@ -332,12 +361,162 @@ fn loaded_variables(ctx: &Context) -> Result<&[IpumsVariable], MdError> {
 }
 
 // ---------------------------------------------------------------------------
+// Dataset selection (when the caller didn't name a dataset)
+// ---------------------------------------------------------------------------
+
+/// A dataset choice made by the model.
+struct ChosenDatasets {
+    datasets: Vec<String>,
+    reason: String,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct LlmDatasetChoice {
+    #[serde(default)]
+    datasets: Vec<String>,
+    /// Accept a singular "dataset" too, in case the model uses it.
+    #[serde(default)]
+    dataset: Option<String>,
+    #[serde(default)]
+    reason: String,
+}
+
+const DATASET_SELECT_SYSTEM_PROMPT: &str = r#"You pick which IPUMS dataset(s) best answer a user's request from a provided list. Each dataset name encodes its sample, and a year is shown next to it (e.g. "us1900m — 1900" is an 1900 sample).
+
+Respond with ONLY a single JSON object (no markdown fences): {"datasets": ["<name>", ...], "reason": "<one short sentence>"}.
+- Choose the SINGLE most appropriate dataset unless the user clearly wants several (e.g. a comparison across years).
+- Use ONLY names from the provided list, exactly as written.
+- If several datasets share the requested year, pick one (prefer the most complete/standard sample) and say which in the reason."#;
+
+/// List datasets available under the data root: each `parquet/<name>` that also has a
+/// `layouts/<name>.layout.txt` (so it is executable). Sorted, de-duplicated.
+fn list_available_datasets(cfg: &NlConfig) -> Result<Vec<String>, MdError> {
+    let data_root = cfg.data_root.as_deref().ok_or_else(|| {
+        MdError::Msg(
+            "no dataset was given and no data root is configured, so datasets cannot be \
+             discovered; specify a dataset"
+                .to_string(),
+        )
+    })?;
+    let parquet_dir = Path::new(data_root).join("parquet");
+    let layouts_dir = Path::new(data_root).join("layouts");
+
+    let entries = std::fs::read_dir(&parquet_dir).map_err(|e| {
+        MdError::Msg(format!(
+            "could not list datasets in {}: {e}",
+            parquet_dir.display()
+        ))
+    })?;
+
+    let mut names = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(n) => n.trim_end_matches(".parquet").to_string(),
+            None => continue,
+        };
+        if layouts_dir.join(format!("{name}.layout.txt")).is_file() {
+            names.push(name);
+        }
+    }
+    names.sort();
+    names.dedup();
+
+    if names.is_empty() {
+        return Err(MdError::Msg(format!(
+            "no usable datasets found under {data_root} (need parquet/<dataset> with a matching \
+             layouts/<dataset>.layout.txt)"
+        )));
+    }
+    Ok(names)
+}
+
+/// Ask the model to choose dataset(s) from `available` for `prompt`, validating its answer.
+fn choose_datasets(
+    provider: &dyn LlmProvider,
+    prompt: &str,
+    available: &[String],
+) -> Result<ChosenDatasets, MdError> {
+    let listing = build_dataset_listing(available);
+    let user = format!(
+        "User request: {prompt}\n\nAvailable datasets (name — year):\n{listing}\n"
+    );
+    let choice: LlmDatasetChoice = complete_json_with_retry(
+        provider,
+        DATASET_SELECT_SYSTEM_PROMPT,
+        &user,
+        "dataset-selection response",
+    )?;
+
+    // Validate the chosen names against the available list (case-insensitive).
+    let available_by_lower: HashMap<String, &String> =
+        available.iter().map(|a| (a.to_lowercase(), a)).collect();
+    let mut resolved: Vec<String> = Vec::new();
+    let mut invalid: Vec<String> = Vec::new();
+    for name in choice.datasets.iter().chain(choice.dataset.iter()) {
+        let key = name.trim().to_lowercase();
+        if key.is_empty() {
+            continue;
+        }
+        match available_by_lower.get(&key) {
+            Some(real) if !resolved.contains(*real) => resolved.push((*real).clone()),
+            Some(_) => {}
+            None => invalid.push(name.clone()),
+        }
+    }
+
+    if resolved.is_empty() {
+        return Err(MdError::LlmError(format!(
+            "the model did not choose a valid dataset (got {invalid:?}); specify one explicitly"
+        )));
+    }
+
+    let reason = if choice.reason.trim().is_empty() {
+        format!("selected {} for the request", resolved.join(", "))
+    } else {
+        choice.reason
+    };
+    Ok(ChosenDatasets {
+        datasets: resolved,
+        reason,
+    })
+}
+
+fn build_dataset_listing(available: &[String]) -> String {
+    available
+        .iter()
+        .map(|name| match parse_year(name) {
+            Some(year) => format!("{name} — {year}"),
+            None => name.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Extract a 4-digit year from a dataset name (e.g. "us1900m" -> 1900), if present.
+fn parse_year(name: &str) -> Option<u32> {
+    let bytes = name.as_bytes();
+    let mut i = 0;
+    while i + 4 <= bytes.len() {
+        let window = &bytes[i..i + 4];
+        let is_four_digits = window.iter().all(u8::is_ascii_digit);
+        let bounded_left = i == 0 || !bytes[i - 1].is_ascii_digit();
+        let bounded_right = i + 4 == bytes.len() || !bytes[i + 4].is_ascii_digit();
+        if is_four_digits && bounded_left && bounded_right {
+            return std::str::from_utf8(window).ok().and_then(|s| s.parse().ok());
+        }
+        i += 1;
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // Prompt building
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT: &str = r#"You convert an English description of a tabulation of IPUMS census/survey microdata into a JSON request for the "Abacus" tabulation engine.
 
-Respond with ONLY a single JSON object (no markdown fences, no prose outside the JSON) with exactly these top-level keys:
+Respond with ONLY a single JSON object (no markdown fences, no prose outside the JSON) with exactly these top-level keys. The output MUST be strictly valid JSON: write each key exactly once per object, separate every element with a comma, use no trailing commas, and close every object and array.
 - "request_kind": "tabulation" for a cross-tabulation or counts table (the usual case), or "microdata_extract" when the user needs row-level microdata records for further processing on their own machine (e.g. attaching characteristics, or constructing time-use variables). Only "tabulation" can be executed right now.
 - "abacus_request": the tabulation request object described below. Required when request_kind is "tabulation"; may be null otherwise.
 - "explanation": a short plain-English description of what the tabulation does and how you interpreted the request.
@@ -347,7 +526,7 @@ The "abacus_request" object has these fields:
 - "uoa": unit of analysis: "P" to count persons, "H" to count households.
 - "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "G" or ""}. "G" requests the general (simplified) categories; "" requests detailed. ONLY variables marked "general" in the catalog (shown as "(P; general)" or "(H; general)") have a general form. For those, DEFAULT TO "G" — it is what users expect and keeps results compact. For every variable NOT marked "general", you MUST use "" (it has only detailed categories). Even for a variable that has a general form, use "" when the user explicitly asks for detail ("detailed", "specific", "single year of age", "by country", "by state") or needs a breakdown finer than the general categories can express (individual countries of birth, individual states, single years of age, a particular detailed category).
 - "subpopulation": OPTIONAL array of filters restricting which records are counted. Each filter is {"variable_mnemonic": "<NAME>", "case_selection": true, "request_case_selections": [{"low_code": "<code>" or null, "high_code": "<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; set one bound to null for an open-ended range.
-- "category_bins": OPTIONAL object mapping a variable name to bins that group a continuous variable. Each bin is {"code": <int>, "value_label": "<text>", "low": <int> or null, "high": <int> or null}.
+- "category_bins": OPTIONAL array; each entry groups one continuous variable into bins: {"variable": "<NAME>", "bins": [{"code": <int>, "value_label": "<text>", "low": <int>, "high": <int>}]}. For a CLOSED range set BOTH low and high (e.g. the group "10-19" is low 10, high 19). OMIT a bound only for an open-ended end (e.g. "65+" is low 65 with no high; "under 5" is high 4 with no low). Give each bin a distinct integer "code". A binned variable MUST also appear in "request_variables" (the bins regroup that variable's tabulation).
 
 Rules:
 - Use ONLY variable mnemonics from the provided catalog. Never invent variable names.
@@ -355,10 +534,26 @@ Rules:
 - For subpopulation filters and category bins, use the integer value codes shown in the catalog.
 - Do NOT include byte offsets, widths, "mnemonic", or "attached_variable_pointer"; those are filled in from metadata.
 - Keep the request minimal: only include "subpopulation" or "category_bins" when the user asks for a filter or a grouping.
+- COUNTS vs BREAKDOWNS: when the user asks "how many" of a group — possibly with several conditions ("how many Hispanic men graduated from college") — put EVERY condition in "subpopulation". Multiple subpopulation variables are AND-ed together, and a filter may be on a variable you are not otherwise breaking down. Then tabulate exactly ONE variable, chosen so those conditions pin it to a single value (e.g. tabulate SEX when the group is "men"); the result is then one row, reported as a single number. Break a variable into all its categories only when the user wants the full distribution ("by marital status", "for each", "broken down by").
+
+IPUMS conventions (domain knowledge about how these variables encode concepts — follow them when mapping the request to variables):
+- Hispanic/Latino origin is an ETHNICITY, captured by the separate variable HISPAN — it is NOT a RACE category. Race and Hispanic ethnicity are independent dimensions (a person of any race may or may not be Hispanic). For "Hispanic"/"Latino", use HISPAN and select its Hispanic categories (i.e. exclude the "Not Hispanic" code), not a race variable. Use RACE (or a race-detail variable) only for racial categories such as White, Black, or Asian. If the user asks for both race and Hispanic origin, use both variables.
 
 Example user request: "Count people by education, but only women, in the 2019 ACS." (Here EDUC is marked "general" in the catalog so it uses "G"; SEX is not, and the filter uses a detailed code.)
 Example response:
-{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"EDUC","general_detailed_selection":"G"}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":{}},"explanation":"Tabulates persons by educational attainment (EDUC) using general categories, restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}"#;
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"EDUC","general_detailed_selection":"G"}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]}],"category_bins":[]},"explanation":"Tabulates persons by educational attainment (EDUC) using general categories, restricted to females (SEX=2).","assumptions":"Interpreted 'women' as SEX=2."}
+
+Example user request: "How many people were divorced?" (A count of one category — filter to it so the result is a single number.)
+Example response:
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"MARST","general_detailed_selection":""}],"subpopulation":[{"variable_mnemonic":"MARST","case_selection":true,"request_case_selections":[{"low_code":"4","high_code":"4"}]}],"category_bins":[]},"explanation":"Counts divorced persons (MARST=4).","assumptions":"Interpreted 'divorced' as MARST=4."}
+
+Example user request: "How many divorced women were there?" (Two conditions; tabulate SEX pinned to women, and AND the other condition.)
+Example response:
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"SEX","general_detailed_selection":""}],"subpopulation":[{"variable_mnemonic":"SEX","case_selection":true,"request_case_selections":[{"low_code":"2","high_code":"2"}]},{"variable_mnemonic":"MARST","case_selection":true,"request_case_selections":[{"low_code":"4","high_code":"4"}]}],"category_bins":[]},"explanation":"Counts divorced women (SEX=2 and MARST=4).","assumptions":"Interpreted 'women' as SEX=2 and 'divorced' as MARST=4."}
+
+Example user request: "People by age in 10-year groups." (A binned variable must ALSO be in request_variables; closed ranges set both low and high.)
+Example response:
+{"request_kind":"tabulation","abacus_request":{"uoa":"P","request_variables":[{"variable_mnemonic":"AGE","general_detailed_selection":""}],"subpopulation":[],"category_bins":[{"variable":"AGE","bins":[{"code":1,"value_label":"0-9","low":0,"high":9},{"code":2,"value_label":"10-19","low":10,"high":19},{"code":3,"value_label":"20-29","low":20,"high":29}]}]},"explanation":"Tabulates persons by age grouped into 10-year bins.","assumptions":"Used 10-year age groups."}"#;
 
 fn build_user_content(
     product: &str,
@@ -415,6 +610,7 @@ fn render_categories_inline(categories: &[IpumsCategory]) -> String {
 fn build_strict_request(
     llm: &LlmAbacusRequest,
     cfg: &NlConfig,
+    datasets: &[String],
     by_name: &HashMap<String, &IpumsVariable>,
     warnings: &mut Vec<String>,
 ) -> Result<ist::AbacusRequest, MdError> {
@@ -436,7 +632,7 @@ fn build_strict_request(
         unknown.dedup();
         return Err(MdError::MetadataError(format!(
             "the model referenced variable(s) not present in dataset(s) {}: {}",
-            cfg.datasets.join(", "),
+            datasets.join(", "),
             unknown.join(", ")
         )));
     }
@@ -454,9 +650,13 @@ fn build_strict_request(
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut category_bins = BTreeMap::new();
-    for (var, bins) in &llm.category_bins {
-        let key = var.to_uppercase();
-        let converted = bins
+    for group in &llm.category_bins {
+        let key = group.variable.trim().to_uppercase();
+        if key.is_empty() {
+            continue;
+        }
+        let converted = group
+            .bins
             .iter()
             .filter_map(|b| convert_category_bin(b, &key, warnings))
             .collect();
@@ -469,8 +669,7 @@ fn build_strict_request(
         llm.uoa.trim().to_uppercase()
     };
 
-    let request_samples = cfg
-        .datasets
+    let request_samples = datasets
         .iter()
         .map(|name| ist::RequestSample {
             name: name.clone(),
@@ -644,7 +843,7 @@ struct RefineResponse {
     #[serde(default)]
     subpopulation: Vec<LlmRequestVariable>,
     #[serde(default)]
-    category_bins: BTreeMap<String, Vec<LlmCategoryBin>>,
+    category_bins: Vec<LlmCategoryBinGroup>,
 }
 
 /// How many value labels the variable carries in metadata (0 if it has none).
@@ -677,9 +876,10 @@ fn refine_targets(
     }
 
     let mut bins = Vec::new();
-    for key in llm.category_bins.keys() {
-        if category_count(by_name, &key.to_uppercase()) > cat_max && !bins.contains(key) {
-            bins.push(key.clone());
+    for group in &llm.category_bins {
+        let key = group.variable.clone();
+        if category_count(by_name, &key.to_uppercase()) > cat_max && !bins.contains(&key) {
+            bins.push(key);
         }
     }
 
@@ -690,7 +890,7 @@ const REFINE_SYSTEM_PROMPT: &str = r#"You are refining the exact value codes for
 
 Using the original user request and these full code lists, respond with ONLY a single JSON object (no markdown fences) with these keys:
 - "subpopulation": array of filters, each {"variable_mnemonic":"<NAME>","case_selection":true,"request_case_selections":[{"low_code":"<code>" or null,"high_code":"<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; use several selections to cover a non-contiguous set of codes; set a bound to null for an open-ended range.
-- "category_bins": object mapping a variable name to bins, each {"code":<int>,"value_label":"<text>","low":<int> or null,"high":<int> or null}.
+- "category_bins": array; each entry is {"variable":"<NAME>","bins":[{"code":<int>,"value_label":"<text>","low":<int> or null,"high":<int> or null}]}.
 
 Use ONLY the integer codes shown in the lists. Include ONLY the variables you are given, each in the section matching its stated role."#;
 
@@ -735,13 +935,7 @@ fn refine_codes(
     by_name: &HashMap<String, &IpumsVariable>,
 ) -> Result<RefineResponse, MdError> {
     let user = build_refine_content(prompt, targets, by_name);
-    let raw = provider.complete_json(REFINE_SYSTEM_PROMPT, &user)?;
-    let cleaned = strip_json_fences(&raw);
-    serde_json::from_str(&cleaned).map_err(|err| {
-        MdError::LlmError(format!(
-            "could not parse the refinement response as JSON ({err}); response was: {cleaned}"
-        ))
-    })
+    complete_json_with_retry(provider, REFINE_SYSTEM_PROMPT, &user, "refinement response")
 }
 
 /// Replace the first-pass selections/bins for the target variables with the refined ones, leaving
@@ -757,15 +951,16 @@ fn merge_refinements(llm: &mut LlmAbacusRequest, refined: RefineResponse, target
         }
     }
 
-    // Bins: overwrite the target variables' bins (matching key case-insensitively).
+    // Bins: overwrite the target variables' bins (matching the variable case-insensitively).
     for key in &targets.bins {
         let upper = key.to_uppercase();
-        if let Some((_, bins)) = refined
+        if let Some(group) = refined
             .category_bins
             .iter()
-            .find(|(k, _)| k.to_uppercase() == upper)
+            .find(|g| g.variable.to_uppercase() == upper)
         {
-            llm.category_bins.insert(key.clone(), bins.clone());
+            llm.category_bins.retain(|g| g.variable.to_uppercase() != upper);
+            llm.category_bins.push(group.clone());
         }
     }
 }
@@ -773,6 +968,26 @@ fn merge_refinements(llm: &mut LlmAbacusRequest, refined: RefineResponse, target
 // ---------------------------------------------------------------------------
 // Documentation
 // ---------------------------------------------------------------------------
+
+/// Replace a binned variable's documented categories with its bin labels (code -> "0-9", "10-19",
+/// ...), so the result table and legend describe the bins rather than the raw value codes.
+fn apply_bin_labels(docs: &mut [VariableDoc], llm: &LlmAbacusRequest) {
+    for group in &llm.category_bins {
+        let var = group.variable.trim().to_uppercase();
+        let bins: Vec<(String, String)> = group
+            .bins
+            .iter()
+            .map(|b| (b.code.to_string(), b.value_label.clone()))
+            .collect();
+        if bins.is_empty() {
+            continue;
+        }
+        if let Some(doc) = docs.iter_mut().find(|d| d.name.to_uppercase() == var) {
+            doc.categories = bins;
+            doc.general = false; // bins are explicit groupings, not general categories
+        }
+    }
+}
 
 fn build_variable_docs(
     names: &[String],
@@ -874,6 +1089,71 @@ fn ipums_value_code(value: &IpumsValue) -> String {
 // Helpers + rendering
 // ---------------------------------------------------------------------------
 
+/// Group an integer string with thousands separators ("1234567" -> "1,234,567"). Non-integer input
+/// is returned unchanged.
+fn group_thousands(s: &str) -> String {
+    let trimmed = s.trim();
+    let (sign, digits) = match trimmed.strip_prefix('-') {
+        Some(rest) => ("-", rest),
+        None => ("", trimmed),
+    };
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return s.to_string();
+    }
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
+    let n = digits.len();
+    for (i, ch) in digits.chars().enumerate() {
+        if i > 0 && (n - i) % 3 == 0 {
+            grouped.push(',');
+        }
+        grouped.push(ch);
+    }
+    format!("{sign}{grouped}")
+}
+
+/// How many times to ask the model for a JSON reply before giving up.
+const MAX_JSON_ATTEMPTS: usize = 3;
+
+/// Call the model and parse its JSON reply into `T`, re-asking a few times on a recoverable failure.
+/// Low-temperature sampling occasionally emits malformed JSON (a stray duplicate key or missing
+/// delimiter), and Gemini sometimes returns an empty/filtered candidate (e.g. a `RECITATION`
+/// finish); fresh sampling on a re-ask almost always clears both. Fatal provider errors (bad
+/// request, auth) are not retried — they propagate immediately.
+fn complete_json_with_retry<T: DeserializeOwned>(
+    provider: &dyn LlmProvider,
+    system: &str,
+    user: &str,
+    what: &str,
+) -> Result<T, MdError> {
+    let mut last_error: Option<String> = None;
+    for _ in 0..MAX_JSON_ATTEMPTS {
+        match provider.complete_json(system, user) {
+            Ok(raw) => {
+                let cleaned = strip_json_fences(&raw);
+                match serde_json::from_str::<T>(&cleaned) {
+                    Ok(value) => return Ok(value),
+                    Err(err) => last_error = Some(format!("invalid JSON ({err}); reply was: {cleaned}")),
+                }
+            }
+            Err(err) if is_retryable_llm_error(&err) => last_error = Some(err.to_string()),
+            Err(err) => return Err(err),
+        }
+    }
+    Err(MdError::LlmError(format!(
+        "could not get a valid {what} after {MAX_JSON_ATTEMPTS} attempts: {}",
+        last_error.unwrap_or_default()
+    )))
+}
+
+/// Whether an LLM error looks transient enough to be worth re-asking (an empty/filtered candidate or
+/// a rate-limit/server hiccup), as opposed to a fatal error (bad request, auth) that a retry can't fix.
+fn is_retryable_llm_error(err: &MdError) -> bool {
+    let message = err.to_string();
+    ["RECITATION", "did not contain any candidates", "contained no text", "HTTP 429", "HTTP 500", "HTTP 503"]
+        .iter()
+        .any(|marker| message.contains(marker))
+}
+
 /// Strip a leading ```/```json fence and trailing ``` from a model response, if present.
 pub fn strip_json_fences(s: &str) -> String {
     let t = s.trim();
@@ -905,6 +1185,8 @@ impl NlResult {
     fn render_text(&self, format: TableFormat) -> Result<String, MdError> {
         let mut out = String::new();
         out.push_str(&format!("## What this does\n{}\n", self.explanation.trim()));
+
+        out.push_str(&self.data_source_text());
 
         if !self.assumptions.trim().is_empty() {
             out.push_str(&format!("\n## Assumptions\n{}\n", self.assumptions.trim()));
@@ -940,23 +1222,85 @@ impl NlResult {
 
         if let Some(tab) = &self.tabulation {
             out.push_str("\n## Result\n");
-            match format {
-                // For the text table, inline value labels next to the raw codes.
-                TableFormat::TextTable => out.push_str(&self.render_tables_with_labels(tab)?),
-                _ => out.push_str(&tab.output(format)?),
+            if let Some(single) = self.render_single_number(tab) {
+                // A one-row result is really a single value; present it as a number, not a table.
+                out.push_str(&single);
+            } else {
+                match format {
+                    // For the text table, inline value labels next to the raw codes.
+                    TableFormat::TextTable => out.push_str(&self.render_tables_with_labels(tab)?),
+                    _ => out.push_str(&tab.output(format)?),
+                }
             }
         }
 
         Ok(out)
     }
 
-    /// Render every table as text, inserting a `<VAR>_label` column after each detailed coded
-    /// variable column. General columns are left as raw codes (the metadata has no general value
-    /// labels). Raw codes are always kept; the labels are an additional column.
-    fn render_tables_with_labels(&self, tab: &Tabulation) -> Result<String, MdError> {
-        // Build code -> label maps from each documented variable's categories (detailed labels, or
-        // derived general labels for general selections — both are keyed by the codes that appear
-        // in the result table).
+    /// A short "Data source" section naming the dataset(s) used (with year), the model's reason if it
+    /// chose them, and an IPUMS attribution.
+    fn data_source_text(&self) -> String {
+        if self.datasets.is_empty() {
+            return String::new();
+        }
+        let listed: Vec<String> = self
+            .datasets
+            .iter()
+            .map(|d| match parse_year(d) {
+                Some(year) => format!("{d} ({year})"),
+                None => d.clone(),
+            })
+            .collect();
+        let mut out = format!("\n## Data source\nDataset(s): {}\n", listed.join(", "));
+        if let Some(reason) = &self.dataset_reason {
+            out.push_str(&format!("Chosen for this request: {}\n", reason.trim()));
+        }
+        out.push_str("Source: IPUMS, University of Minnesota (www.ipums.org).\n");
+        out
+    }
+
+    /// If the result is a single value (one table, one row), render it as a number rather than a
+    /// table. Returns `None` otherwise, so the caller renders the full table.
+    fn render_single_number(&self, tab: &Tabulation) -> Option<String> {
+        if tab.0.len() != 1 || tab.0[0].rows.len() != 1 {
+            return None;
+        }
+        let table = &tab.0[0];
+        let row = &table.rows[0];
+        if row.len() < 2 {
+            return None;
+        }
+        let unweighted = group_thousands(&row[0]);
+        let weighted = group_thousands(&row[1]);
+
+        // Describe the single cell using the request-variable columns (with labels where available).
+        let label_maps = self.build_label_maps();
+        let mut parts = Vec::new();
+        for (i, col) in table.heading.iter().enumerate() {
+            if i < 2 {
+                continue; // columns 0,1 are ct and weighted_ct
+            }
+            if let OutputColumn::RequestVar(v) = col {
+                let code = row.get(i).map(String::as_str).unwrap_or("");
+                match label_maps.get(v.name.as_str()).and_then(|m| m.get(code)) {
+                    Some(label) => parts.push(format!("{} = {} ({})", v.name, code, label)),
+                    None => parts.push(format!("{} = {}", v.name, code)),
+                }
+            }
+        }
+        let head = if parts.is_empty() {
+            String::new()
+        } else {
+            format!("{}: ", parts.join(", "))
+        };
+        Some(format!(
+            "{head}weighted estimate **{weighted}** (unweighted sample: {unweighted}).\n"
+        ))
+    }
+
+    /// Build code -> label maps from the documented variables' categories (detailed, or derived
+    /// general labels for general selections — keyed by the codes that appear in the result).
+    fn build_label_maps(&self) -> HashMap<&str, HashMap<&str, &str>> {
         let mut label_maps: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
         for doc in &self.variable_docs {
             if doc.categories.is_empty() {
@@ -969,7 +1313,14 @@ impl NlResult {
                 .collect();
             label_maps.insert(doc.name.as_str(), map);
         }
+        label_maps
+    }
 
+    /// Render every table as text, inserting a `<VAR>_label` column after each detailed coded
+    /// variable column. General columns are left as raw codes (the metadata has no general value
+    /// labels). Raw codes are always kept; the labels are an additional column.
+    fn render_tables_with_labels(&self, tab: &Tabulation) -> Result<String, MdError> {
+        let label_maps = self.build_label_maps();
         let mut out = String::new();
         for table in &tab.0 {
             out.push_str(&format_table_with_labels(table, &label_maps)?);
@@ -1017,6 +1368,8 @@ impl NlResult {
             "explanation": self.explanation,
             "assumptions": self.assumptions,
             "warnings": self.warnings,
+            "datasets": self.datasets,
+            "dataset_reason": self.dataset_reason,
             "variables": variables,
             "generated_request": generated,
             "tables": tables,
@@ -1229,6 +1582,40 @@ mod tests {
     }
 
     #[test]
+    fn test_is_retryable_llm_error() {
+        // Transient/filtered responses are worth a re-ask.
+        assert!(is_retryable_llm_error(&MdError::LlmError(
+            "Gemini response did not contain any candidates: {\"finishReason\":\"RECITATION\"}".into()
+        )));
+        assert!(is_retryable_llm_error(&MdError::LlmError(
+            "the LLM API returned HTTP 429 (rate limit): ...".into()
+        )));
+        // A bad-request / auth failure is fatal — do not retry.
+        assert!(!is_retryable_llm_error(&MdError::LlmError(
+            "the LLM API returned HTTP 400: invalid argument".into()
+        )));
+    }
+
+    #[test]
+    fn test_parse_year() {
+        assert_eq!(parse_year("us1900m"), Some(1900));
+        assert_eq!(parse_year("us2019b"), Some(2019));
+        assert_eq!(parse_year("original_us2015a"), Some(2015));
+        assert_eq!(parse_year("cps2020"), Some(2020));
+        assert_eq!(parse_year("nodigits"), None);
+    }
+
+    #[test]
+    fn test_group_thousands() {
+        assert_eq!(group_thousands("1234567"), "1,234,567");
+        assert_eq!(group_thousands("100"), "100");
+        assert_eq!(group_thousands("1000"), "1,000");
+        assert_eq!(group_thousands("0"), "0");
+        assert_eq!(group_thousands("-12345"), "-12,345");
+        assert_eq!(group_thousands("not-a-number"), "not-a-number");
+    }
+
+    #[test]
     fn test_catalog_marks_only_general_variables() {
         let mut edu = var_with_n_categories("EDUC", 5);
         edu.formatting = Some((1, 3));
@@ -1242,6 +1629,17 @@ mod tests {
         let sex_line = catalog.lines().find(|l| l.starts_with("SEX")).unwrap();
         assert!(edu_line.contains("; general"), "EDUC should be marked general: {edu_line}");
         assert!(!sex_line.contains("; general"), "SEX should not be marked general: {sex_line}");
+    }
+
+    #[test]
+    fn test_catalog_compact_omits_value_labels() {
+        // With the default cap (0) the catalog lists a count, not the actual codes/labels — this is
+        // the trim: the refine pass resolves codes for the chosen variables instead.
+        let marst = var_with_n_categories("MARST", 6);
+        let catalog = build_catalog(std::slice::from_ref(&marst), 0);
+        let line = catalog.lines().find(|l| l.starts_with("MARST")).unwrap();
+        assert!(line.contains("value labels"), "should show a count hint: {line}");
+        assert!(!line.contains("label 0"), "should NOT inline the actual labels: {line}");
     }
 
     #[test]
@@ -1299,7 +1697,7 @@ mod tests {
             uoa: "P".to_string(),
             request_variables: vec![],
             subpopulation: vec![filter_var("BPL", "1", "1"), filter_var("SEX", "2", "2")],
-            category_bins: BTreeMap::new(),
+            category_bins: Vec::new(),
         };
 
         let targets = refine_targets(&llm, &by_name, 25);
@@ -1315,7 +1713,7 @@ mod tests {
             request_variables: vec![],
             // First-pass (blind) guess for BPL, plus an untouched filter on another variable.
             subpopulation: vec![filter_var("BPL", "999", "999"), filter_var("SEX", "2", "2")],
-            category_bins: BTreeMap::new(),
+            category_bins: Vec::new(),
         };
         let targets = RefineTargets {
             filters: vec!["BPL".to_string()],
@@ -1323,7 +1721,7 @@ mod tests {
         };
         let refined = RefineResponse {
             subpopulation: vec![filter_var("BPL", "200", "210")],
-            category_bins: BTreeMap::new(),
+            category_bins: Vec::new(),
         };
 
         merge_refinements(&mut llm, refined, &targets);

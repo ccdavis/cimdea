@@ -53,6 +53,22 @@ pub trait LlmProvider {
     /// [strip_json_fences](crate::nl_tabulation::strip_json_fences)).
     fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError>;
 
+    /// Like [complete_json](Self::complete_json) but constrains the reply to `schema` (a JSON Schema)
+    /// when the provider supports constrained decoding, guaranteeing well-formed, schema-conforming
+    /// JSON. The default ignores the schema and falls back to [complete_json](Self::complete_json).
+    ///
+    /// Kept as a capability but NOT currently used by [crate::nl_tabulation]: on `gemini-3.5-flash`
+    /// constrained decoding over our nested schema runs ~3 minutes per call (≈60x slower), so we rely
+    /// on a strict-JSON prompt plus a re-ask loop instead. Revisit if a faster model handles it well.
+    fn complete_json_schema(
+        &self,
+        system: &str,
+        user: &str,
+        _schema: &serde_json::Value,
+    ) -> Result<String, MdError> {
+        self.complete_json(system, user)
+    }
+
     /// A human-readable identifier for the model, used in explanations and logs.
     fn model_name(&self) -> &str;
 }
@@ -95,20 +111,32 @@ impl GeminiProvider {
     }
 }
 
-impl LlmProvider for GeminiProvider {
-    fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError> {
+impl GeminiProvider {
+    /// Issue a `generateContent` request, optionally constraining the output to `schema`
+    /// (constrained decoding via `generationConfig.responseSchema`).
+    fn generate(
+        &self,
+        system: &str,
+        user: &str,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, MdError> {
         let url = format!(
             "{}/models/{}:generateContent?key={}",
             self.base_url, self.model, self.api_key
         );
 
+        let mut generation_config = serde_json::json!({
+            "responseMimeType": "application/json",
+            "temperature": 0.2
+        });
+        if let Some(schema) = schema {
+            generation_config["responseSchema"] = schema.clone();
+        }
+
         let request_body = serde_json::json!({
             "systemInstruction": { "parts": [ { "text": system } ] },
             "contents": [ { "role": "user", "parts": [ { "text": user } ] } ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "temperature": 0.2
-            }
+            "generationConfig": generation_config
         });
 
         let body = post_json_for_text(&url, request_body)?;
@@ -120,6 +148,21 @@ impl LlmProvider for GeminiProvider {
         })?;
 
         extract_gemini_text(&parsed)
+    }
+}
+
+impl LlmProvider for GeminiProvider {
+    fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError> {
+        self.generate(system, user, None)
+    }
+
+    fn complete_json_schema(
+        &self,
+        system: &str,
+        user: &str,
+        schema: &serde_json::Value,
+    ) -> Result<String, MdError> {
+        self.generate(system, user, Some(schema))
     }
 
     fn model_name(&self) -> &str {
@@ -213,17 +256,27 @@ impl InteractionsProvider {
     }
 }
 
-impl LlmProvider for InteractionsProvider {
-    fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError> {
+impl InteractionsProvider {
+    /// Issue an `interactions.create` request, optionally constraining the output via
+    /// `response_format` (the Interactions API's structured-output field is itself a JSON schema).
+    fn create(
+        &self,
+        system: &str,
+        user: &str,
+        schema: Option<&serde_json::Value>,
+    ) -> Result<String, MdError> {
         let url = format!("{}/interactions?key={}", self.base_url, self.api_key);
 
-        let request_body = serde_json::json!({
+        let mut request_body = serde_json::json!({
             "model": self.model,
             "system_instruction": system,
             "input": user,
             // One-shot translation: no need to persist conversation state on the server.
             "store": false,
         });
+        if let Some(schema) = schema {
+            request_body["response_format"] = schema.clone();
+        }
 
         let body = post_json_for_text(&url, request_body)?;
 
@@ -234,6 +287,21 @@ impl LlmProvider for InteractionsProvider {
         })?;
 
         extract_interaction_text(&parsed)
+    }
+}
+
+impl LlmProvider for InteractionsProvider {
+    fn complete_json(&self, system: &str, user: &str) -> Result<String, MdError> {
+        self.create(system, user, None)
+    }
+
+    fn complete_json_schema(
+        &self,
+        system: &str,
+        user: &str,
+        schema: &serde_json::Value,
+    ) -> Result<String, MdError> {
+        self.create(system, user, Some(schema))
     }
 
     fn model_name(&self) -> &str {

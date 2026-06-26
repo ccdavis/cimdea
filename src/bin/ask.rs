@@ -52,8 +52,8 @@ struct Cli {
     #[arg(long)]
     data_root: Option<String>,
 
-    /// Dataset(s) to tabulate; repeat the flag for more than one
-    #[arg(long = "dataset", required = true)]
+    /// Dataset(s) to tabulate; repeat the flag for more than one [default: chosen from the prompt]
+    #[arg(long = "dataset")]
     datasets: Vec<String>,
 
     /// Which LLM provider to use
