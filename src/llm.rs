@@ -28,8 +28,14 @@ fn post_json_for_text(url: &str, body: serde_json::Value) -> Result<String, MdEr
         }),
         Err(ureq::Error::Status(code, resp)) => {
             let detail = resp.into_string().unwrap_or_default();
+            let hint = if code == 429 {
+                " (rate limit / quota exceeded — free-tier limits are low and a filter/bin query \
+                 uses an extra request; wait and retry, or enable billing on the project)"
+            } else {
+                ""
+            };
             Err(MdError::LlmError(format!(
-                "the LLM API returned HTTP {code}: {detail}"
+                "the LLM API returned HTTP {code}{hint}: {detail}"
             )))
         }
         Err(ureq::Error::Transport(transport)) => Err(MdError::LlmError(format!(

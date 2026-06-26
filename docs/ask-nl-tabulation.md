@@ -127,6 +127,16 @@ works. Note: the "Gemini Analytics API for structured data" (Conversational Anal
 `geminidataanalytics.googleapis.com`) is a *different* API — it rejects API keys (needs OAuth2) and
 is the wrong shape for our generic JSON generation, so we did not use it.
 
+### Rate limits / quota (observed 2026-06-26)
+
+The project is on the Gemini **free tier**, which is low: we hit `429 RESOURCE_EXHAUSTED` with
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit: 20, model: gemini-2.5-flash` after a
+batch of live tests. Two things matter: (1) the **two-pass** refinement makes a *second* request on
+any filter/bin query, so it consumes quota faster; (2) the per-day cap resets daily, and **enabling
+billing** on the project raises the limits substantially. The `429` error message now includes a
+hint. A future robustness add: a single bounded retry honoring the response `RetryInfo.retryDelay`
+(helps per-minute RPM bursts from the two rapid two-pass calls; won't help a daily cap).
+
 ### Interactions API shape (empirically verified 2026-06-26)
 
 `POST https://generativelanguage.googleapis.com/v1beta/interactions?key=KEY`, body:
@@ -169,9 +179,19 @@ the `strip_json_fences` safety net (clean JSON confirmed without it).
    future improvement would be to source general category labels (if/when present in metadata) so
    general columns can be labeled too.
 
-3. **Two-pass prompting for better filters/bins** (accuracy). Pass 1: pick variables. Pass 2: fetch
-   just those variables' full value labels (uncapped) and build subpopulation selections / category
-   bins. Removes the 25-code catalog cap as a correctness limit on the variables that actually matter.
+3. ~~**Two-pass prompting for better filters/bins.**~~ **DONE** (generate → conditional refine).
+   Pass 1 is unchanged (full request with best-guess codes). `refine_targets` then flags any
+   subpopulation-filter or `category_bins` variable whose category count exceeds the catalog cap
+   (so the model picked codes blind). For exactly those variables a second pass (`refine_codes` +
+   `REFINE_SYSTEM_PROMPT`) sends their **full uncapped** value labels and the original request; the
+   reply is merged with `merge_refinements` (surgical replace, everything else untouched). No
+   filters/bins (or only small/labelless vars) → no second call, so the common case and the offline
+   mock tests stay single-pass. A successful refine appends a note to `assumptions` (the first-pass
+   assumptions can otherwise go stale). Verified live: "born in Mexico" flipped BPL from a blind
+   `210` to the correct `20000` (confirmed `20000=Mexico` among BPL's 545 codes, not `3500=New
+   Mexico`). Unit-tested offline (`test_refine_targets_*`, `test_merge_refinements_*`).
+   **Caveat:** this doubles the request count on filter/bin queries — relevant under the low
+   free-tier quota (see below).
 
 4. **Validate case-selection / bin codes against metadata.** Right now codes are parsed but not
    checked against the variable's `categories`. Warn (or error) on codes that don't exist.

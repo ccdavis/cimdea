@@ -142,7 +142,7 @@ struct LlmCaseSelection {
     high_code: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct LlmCategoryBin {
     #[serde(default)]
     code: i64,
@@ -216,15 +216,35 @@ pub fn run(
         });
     }
 
-    let llm_request = envelope.abacus_request.ok_or_else(|| {
+    let mut llm_request = envelope.abacus_request.ok_or_else(|| {
         MdError::LlmError(
             "the model classified this as a tabulation but did not provide an abacus_request"
                 .to_string(),
         )
     })?;
 
-    // 3. Validate + repair into a strict request, filling mechanical fields from metadata.
     let mut warnings = Vec::new();
+
+    // 2b. Second pass: a filter or grouping may reference a variable whose value codes were too
+    // numerous to fit in the catalog (so the model picked codes blind). For exactly those
+    // variables, send their full value labels and let the model choose the exact codes.
+    let targets = refine_targets(&llm_request, &by_name, cat_max);
+    let mut refined_vars: Option<String> = None;
+    if !targets.is_empty() {
+        match refine_codes(provider, prompt, &targets, &by_name) {
+            Ok(refined) => {
+                merge_refinements(&mut llm_request, refined, &targets);
+                refined_vars = Some(targets.all().join(", "));
+            }
+            Err(err) => warnings.push(format!(
+                "could not refine value codes for {} via a second pass ({err}); \
+                 used the first-pass codes.",
+                targets.all().join(", ")
+            )),
+        }
+    }
+
+    // 3. Validate + repair into a strict request, filling mechanical fields from metadata.
     let strict = build_strict_request(&llm_request, cfg, &by_name, &mut warnings)?;
 
     // Collect the variables to document (in tabulation order, then subpopulation).
@@ -256,11 +276,23 @@ pub fn run(
     let (exec_ctx, exec_request) = AbacusRequest::try_from_json(&request_json)?;
     let tabulation = tabulate::tabulate(&exec_ctx, exec_request)?;
 
+    // If a second pass resolved codes, the first-pass assumptions may no longer reflect the codes
+    // actually used; note the refinement so the narrative stays honest.
+    let mut assumptions = envelope.assumptions;
+    if let Some(vars) = refined_vars {
+        if !assumptions.trim().is_empty() {
+            assumptions.push(' ');
+        }
+        assumptions.push_str(&format!(
+            "Exact value codes for {vars} were resolved from the full code list in a second pass."
+        ));
+    }
+
     Ok(NlResult {
         request_kind,
         model: provider.model_name().to_string(),
         explanation: envelope.explanation,
-        assumptions: envelope.assumptions,
+        assumptions,
         warnings,
         variable_docs,
         generated_request_json: pretty,
@@ -568,6 +600,170 @@ fn value_to_code(value: Option<&serde_json::Value>) -> Result<Option<u64>, MdErr
 }
 
 // ---------------------------------------------------------------------------
+// Second pass: refine value codes for filters / bins
+// ---------------------------------------------------------------------------
+
+/// The variables whose subpopulation/bin codes are worth a second, focused pass because their
+/// value labels were capped out of the first-pass catalog.
+struct RefineTargets {
+    /// Variable names (uppercased) used as a subpopulation filter.
+    filters: Vec<String>,
+    /// `category_bins` keys (as the model wrote them) used for grouping.
+    bins: Vec<String>,
+}
+
+impl RefineTargets {
+    fn is_empty(&self) -> bool {
+        self.filters.is_empty() && self.bins.is_empty()
+    }
+
+    /// All target names, de-duplicated, for warning messages.
+    fn all(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .filters
+            .iter()
+            .cloned()
+            .chain(self.bins.iter().map(|b| b.to_uppercase()))
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+}
+
+/// The shape parsed out of the model's second (refinement) pass.
+#[derive(Debug, Default, Deserialize)]
+struct RefineResponse {
+    #[serde(default)]
+    subpopulation: Vec<LlmRequestVariable>,
+    #[serde(default)]
+    category_bins: BTreeMap<String, Vec<LlmCategoryBin>>,
+}
+
+/// How many value labels the variable carries in metadata (0 if it has none).
+fn category_count(by_name: &HashMap<String, &IpumsVariable>, name: &str) -> usize {
+    by_name
+        .get(name)
+        .and_then(|v| v.categories.as_ref())
+        .map(|c| c.len())
+        .unwrap_or(0)
+}
+
+/// Pick the filter/grouping variables whose codes the catalog hid from the model (more categories
+/// than the catalog cap), so a second pass with their full labels can improve the codes.
+fn refine_targets(
+    llm: &LlmAbacusRequest,
+    by_name: &HashMap<String, &IpumsVariable>,
+    cat_max: usize,
+) -> RefineTargets {
+    let mut filters = Vec::new();
+    for v in &llm.subpopulation {
+        let name = v.name();
+        let has_selection = v.case_selection || !v.request_case_selections.is_empty();
+        if !name.is_empty()
+            && has_selection
+            && category_count(by_name, &name) > cat_max
+            && !filters.contains(&name)
+        {
+            filters.push(name);
+        }
+    }
+
+    let mut bins = Vec::new();
+    for key in llm.category_bins.keys() {
+        if category_count(by_name, &key.to_uppercase()) > cat_max && !bins.contains(key) {
+            bins.push(key.clone());
+        }
+    }
+
+    RefineTargets { filters, bins }
+}
+
+const REFINE_SYSTEM_PROMPT: &str = r#"You are refining the exact value codes for specific IPUMS variables in a tabulation request. For each variable you are given its label, whether it is used as a filter (subpopulation) or a grouping (category bins), and its FULL list of integer value codes with labels.
+
+Using the original user request and these full code lists, respond with ONLY a single JSON object (no markdown fences) with these keys:
+- "subpopulation": array of filters, each {"variable_mnemonic":"<NAME>","case_selection":true,"request_case_selections":[{"low_code":"<code>" or null,"high_code":"<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; use several selections to cover a non-contiguous set of codes; set a bound to null for an open-ended range.
+- "category_bins": object mapping a variable name to bins, each {"code":<int>,"value_label":"<text>","low":<int> or null,"high":<int> or null}.
+
+Use ONLY the integer codes shown in the lists. Include ONLY the variables you are given, each in the section matching its stated role."#;
+
+fn build_refine_content(
+    prompt: &str,
+    targets: &RefineTargets,
+    by_name: &HashMap<String, &IpumsVariable>,
+) -> String {
+    let mut out = format!("Original user request: {prompt}\n\nVariables to resolve:\n");
+    for name in &targets.filters {
+        append_var_codes(&mut out, name, "filter (subpopulation)", by_name);
+    }
+    for key in &targets.bins {
+        append_var_codes(&mut out, &key.to_uppercase(), "grouping (category bins)", by_name);
+    }
+    out
+}
+
+fn append_var_codes(
+    out: &mut String,
+    name: &str,
+    role: &str,
+    by_name: &HashMap<String, &IpumsVariable>,
+) {
+    if let Some(var) = by_name.get(name) {
+        let label = var.label.as_deref().unwrap_or("(no label)");
+        out.push_str(&format!("- {name} — {label} — used as a {role}\n"));
+        if let Some(cats) = &var.categories {
+            out.push_str("    codes: ");
+            out.push_str(&render_categories_inline(cats));
+            out.push('\n');
+        }
+    }
+}
+
+/// Run the second pass: ask the model to pick exact codes for the target variables given their full
+/// value labels.
+fn refine_codes(
+    provider: &dyn LlmProvider,
+    prompt: &str,
+    targets: &RefineTargets,
+    by_name: &HashMap<String, &IpumsVariable>,
+) -> Result<RefineResponse, MdError> {
+    let user = build_refine_content(prompt, targets, by_name);
+    let raw = provider.complete_json(REFINE_SYSTEM_PROMPT, &user)?;
+    let cleaned = strip_json_fences(&raw);
+    serde_json::from_str(&cleaned).map_err(|err| {
+        MdError::LlmError(format!(
+            "could not parse the refinement response as JSON ({err}); response was: {cleaned}"
+        ))
+    })
+}
+
+/// Replace the first-pass selections/bins for the target variables with the refined ones, leaving
+/// every other part of the request untouched.
+fn merge_refinements(llm: &mut LlmAbacusRequest, refined: RefineResponse, targets: &RefineTargets) {
+    // Filters: drop the old entries for each target, then add the refined ones back.
+    for fname in &targets.filters {
+        llm.subpopulation.retain(|v| &v.name() != fname);
+    }
+    for v in refined.subpopulation {
+        if targets.filters.contains(&v.name()) {
+            llm.subpopulation.push(v);
+        }
+    }
+
+    // Bins: overwrite the target variables' bins (matching key case-insensitively).
+    for key in &targets.bins {
+        let upper = key.to_uppercase();
+        if let Some((_, bins)) = refined
+            .category_bins
+            .iter()
+            .find(|(k, _)| k.to_uppercase() == upper)
+        {
+            llm.category_bins.insert(key.clone(), bins.clone());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Documentation
 // ---------------------------------------------------------------------------
 
@@ -865,6 +1061,103 @@ mod tests {
         );
         assert_eq!(value_to_code(Some(&serde_json::Value::Null)).unwrap(), None);
         assert_eq!(value_to_code(None).unwrap(), None);
+    }
+
+    use crate::ipums_metadata_model::{IpumsDataType, UniversalCategoryType};
+
+    fn var_with_n_categories(name: &str, n: usize) -> IpumsVariable {
+        let cats = (0..n)
+            .map(|i| {
+                IpumsCategory::new(
+                    &format!("label {i}"),
+                    UniversalCategoryType::Value,
+                    IpumsValue::Integer(i as i64),
+                )
+            })
+            .collect();
+        IpumsVariable {
+            name: name.to_string(),
+            data_type: Some(IpumsDataType::Integer),
+            label: Some(format!("{name} label")),
+            record_type: "P".to_string(),
+            categories: Some(cats),
+            formatting: Some((1, 3)),
+            general_width: None,
+            description: None,
+            category_bins: None,
+            id: 0,
+        }
+    }
+
+    fn filter_var(name: &str, low: &str, high: &str) -> LlmRequestVariable {
+        LlmRequestVariable {
+            variable_mnemonic: name.to_string(),
+            mnemonic: String::new(),
+            general_detailed_selection: String::new(),
+            case_selection: true,
+            request_case_selections: vec![LlmCaseSelection {
+                low_code: Some(serde_json::json!(low)),
+                high_code: Some(serde_json::json!(high)),
+            }],
+        }
+    }
+
+    #[test]
+    fn test_refine_targets_flags_only_capped_filter_vars() {
+        // BPL has many codes (capped out of the catalog); SEX has few (the model saw them all).
+        let bpl = var_with_n_categories("BPL", 60);
+        let sex = var_with_n_categories("SEX", 2);
+        let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
+        by_name.insert("BPL".to_string(), &bpl);
+        by_name.insert("SEX".to_string(), &sex);
+
+        let llm = LlmAbacusRequest {
+            uoa: "P".to_string(),
+            request_variables: vec![],
+            subpopulation: vec![filter_var("BPL", "1", "1"), filter_var("SEX", "2", "2")],
+            category_bins: BTreeMap::new(),
+        };
+
+        let targets = refine_targets(&llm, &by_name, 25);
+        assert_eq!(targets.filters, vec!["BPL".to_string()]);
+        assert!(targets.bins.is_empty());
+        assert!(!targets.is_empty());
+    }
+
+    #[test]
+    fn test_merge_refinements_replaces_filter_codes() {
+        let mut llm = LlmAbacusRequest {
+            uoa: "P".to_string(),
+            request_variables: vec![],
+            // First-pass (blind) guess for BPL, plus an untouched filter on another variable.
+            subpopulation: vec![filter_var("BPL", "999", "999"), filter_var("SEX", "2", "2")],
+            category_bins: BTreeMap::new(),
+        };
+        let targets = RefineTargets {
+            filters: vec!["BPL".to_string()],
+            bins: vec![],
+        };
+        let refined = RefineResponse {
+            subpopulation: vec![filter_var("BPL", "200", "210")],
+            category_bins: BTreeMap::new(),
+        };
+
+        merge_refinements(&mut llm, refined, &targets);
+
+        // SEX filter is preserved; BPL is replaced with the refined codes.
+        assert_eq!(llm.subpopulation.len(), 2);
+        let bpl = llm
+            .subpopulation
+            .iter()
+            .find(|v| v.name() == "BPL")
+            .expect("BPL filter should remain");
+        let low = bpl.request_case_selections[0]
+            .low_code
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .unwrap();
+        assert_eq!(low, "200", "BPL low code should be the refined value");
+        assert!(llm.subpopulation.iter().any(|v| v.name() == "SEX"));
     }
 
     #[test]
