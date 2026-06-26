@@ -40,6 +40,7 @@
 //! variables, subpopulations, or category bins, please see
 //! [AbacusRequest](request::AbacusRequest), which also implements `DataRequest`.
 
+pub mod app_config;
 pub mod conventions;
 pub mod data_version;
 pub mod defaults;

@@ -1,0 +1,29 @@
+# Environment configuration for the `ask` natural-language tabulation tool.
+#
+# Two environments model the dev/prod split:
+#   - prod: the organization's Cloud Console Gemini project + deployed IPUMS data.
+#   - dev:  an individual developer's own Gemini account + their local IPUMS data.
+# (The split is about which account/deployment, not billing.)
+#
+# The API key FILES named below are NOT checked in (see .gitignore); each developer and each
+# deployment provides its own. Select an environment at runtime with `ask --env dev|prod`
+# (defaults to `default_environment` below). Explicit `--api-key` / `--data-root` flags override
+# whatever the chosen environment specifies.
+#
+# Path rules for api_key_file and data_root: a leading "~" expands to the home directory, "$VAR" and
+# "${VAR}" expand to environment variables, and relative paths resolve against this file's directory.
+# A data_root is the directory that contains the `parquet/` and `layouts/` subdirectories.
+
+default_environment = "dev"
+
+[environments.dev]
+# The developer's own Gemini API key (personal AI Studio account).
+api_key_file = "GEMINI_BILLED_KEY.txt"
+# Local IPUMS data root under the developer's home directory.
+data_root = "~/ipums_usa_data"
+
+[environments.prod]
+# The organization's Cloud Console Gemini API key.
+api_key_file = "GEMINI_KEY.txt"
+# Production IPUMS data root — set this to the deployment's data location.
+data_root = "~/ipums_usa_data"

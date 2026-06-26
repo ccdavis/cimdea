@@ -12,7 +12,7 @@ use crate::mderror::MdError;
 
 /// The default Gemini model. Model ids change over time; override with [GeminiProvider::new] or the
 /// `--model` CLI flag if this one is retired.
-pub const DEFAULT_GEMINI_MODEL: &str = "gemini-2.5-flash";
+pub const DEFAULT_GEMINI_MODEL: &str = "gemini-3.5-flash";
 
 const GEMINI_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 

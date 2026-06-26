@@ -99,19 +99,45 @@ scp gp1.pop.umn.edu:/pkg/ipums/usa/output_data/current/parquet/us2019b/us2019b_u
 us2019b is ~24 MB (6 MB H + 18 MB P), single file per record type. Other samples are under
 `/pkg/ipums/usa/output_data/current/parquet/`.
 
+## Environments (`cimdea.toml`)
+
+The dev/prod split lives in `cimdea.toml` (checked in). Each environment names the **file** holding
+its Gemini API key (the key files themselves are gitignored) and the IPUMS **data root** to use:
+
+```toml
+default_environment = "dev"
+[environments.dev]
+api_key_file = "GEMINI_BILLED_KEY.txt"   # the developer's own Gemini account key
+data_root    = "~/ipums_usa_data"        # ~ → $HOME; relative paths resolve against the config dir
+[environments.prod]
+api_key_file = "GEMINI_KEY.txt"          # the organization's Cloud Console project key
+data_root    = "~/ipums_usa_data"        # set to the deployment's data location
+```
+
+`ask --env dev|prod` selects one (default: `default_environment`). The chosen environment supplies
+the API key and data root. **Precedence:** an explicit `--api-key` or `--data-root` flag overrides
+the environment; for the key, the order is `--api-key` → environment's key file → `GEMINI_API_KEY`.
+With no config file present and no `--env`, the legacy path applies (`GEMINI_API_KEY` + `--data-root`).
+Path rules: leading `~`, `$VAR`/`${VAR}`, and relative-to-config-dir. Code: `src/app_config.rs`.
+
 ## How to run
 
 Always build/test with `--release` on this machine (debug builds swap and degrade the system).
 
 ```bash
-# Real run (needs a key):
+# Typical run (key + data root come from cimdea.toml):
+cargo run --release --bin ask -- --env dev --dataset us2019b \
+  "How many people are there by marital status?"
+
+# Without a config (supply key + data root directly):
 GEMINI_API_KEY=... cargo run --release --bin ask -- \
   --product usa --data-root <root> --dataset us2019b \
   "How many people are there by marital status?"
 
-# Useful flags: --show-request (print generated Abacus JSON), --detailed (force detailed categories
-#               instead of the general default), -f json, --model <id>, --api-key <key>,
-#               --provider gemini|gemini-interactions, --dataset can repeat, -o <file>.
+# Useful flags: --env dev|prod, --config <path>, --show-request (print generated Abacus JSON),
+#               --detailed (force detailed categories instead of the general default), -f json,
+#               --model <id>, --api-key <key>, --provider gemini|gemini-interactions,
+#               --dataset can repeat, -o <file>.
 
 # Offline tests:
 cargo test --release --test test_nl_tabulation
@@ -125,11 +151,17 @@ CIMDEA_NL_DATA_ROOT=<root> cargo test --release --test test_nl_tabulation -- --i
 
 - Full suite green under `--release`: 124 lib + 17 tabulate + 4 nl_tabulation + 12 abacus CLI +
   doc-tests, 0 fail.
-- **Real-LLM smoke test passed** (2026-06-26) against live Gemini `gemini-2.5-flash`: simple
-  detailed (MARST), subpopulation filter (married → SEX), general selection (EDUC `"G"` → collapsed
-  codes), and category bins (AGE → 10-year groups) all generated valid Abacus JSON and tabulated.
+- **Real-LLM smoke test passed** (2026-06-26): simple detailed (MARST), subpopulation filter
+  (married → SEX), general selection (EDUC `"G"` → collapsed codes), and category bins (AGE → 10-year
+  groups) all generated valid Abacus JSON and tabulated.
 - Value-label result column verified live (detailed MARST shows a `MARST_label` column) and asserted
   in the production-parquet integration test (`MARST_label` present in the rendered table).
+- **Default model is now `gemini-3.5-flash`** (`DEFAULT_GEMINI_MODEL`), verified live on both the
+  `generateContent` and Interactions endpoints with a **paid AI Studio key** (`GEMINI_BILLED_KEY.txt`,
+  gitignored). On 3.5 Flash with the paid key the behaviors that the free tier blocked were confirmed
+  end-to-end: general-by-default (EDUC → `"G"`, MARST → detailed, honoring the catalog `general`
+  marker), two-pass filter refinement (BPL "born in Mexico" → `20000`), and derived general labels in
+  the result table (EDUC general 0–11 with an `EDUC_label` column).
 
 ### Gemini API key setup (resolved)
 
@@ -142,15 +174,20 @@ works. Note: the "Gemini Analytics API for structured data" (Conversational Anal
 `geminidataanalytics.googleapis.com`) is a *different* API — it rejects API keys (needs OAuth2) and
 is the wrong shape for our generic JSON generation, so we did not use it.
 
-### Rate limits / quota (observed 2026-06-26)
+### API keys / quota
 
-The project is on the Gemini **free tier**, which is low: we hit `429 RESOURCE_EXHAUSTED` with
-`GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit: 20, model: gemini-2.5-flash` after a
-batch of live tests. Two things matter: (1) the **two-pass** refinement makes a *second* request on
-any filter/bin query, so it consumes quota faster; (2) the per-day cap resets daily, and **enabling
-billing** on the project raises the limits substantially. The `429` error message now includes a
-hint. A future robustness add: a single bounded retry honoring the response `RetryInfo.retryDelay`
-(helps per-minute RPM bursts from the two rapid two-pass calls; won't help a daily cap).
+There are two keys (both gitignored, read via `GEMINI_API_KEY` env or `--api-key`):
+- `GEMINI_BILLED_KEY.txt` — **paid AI Studio key (personal account), now the one to use.** No
+  free-tier daily cap, and it can reach `gemini-3.5-flash` (the default). This is what the live
+  verification above used.
+- `GEMINI_KEY.txt` — the university Cloud key (project `968779483292`), on the **free tier**: we hit
+  `429 RESOURCE_EXHAUSTED` with `...-FreeTier, limit: 20, model: gemini-2.5-flash` after a batch of
+  tests. Note the **two-pass** refinement makes a *second* request on any filter/bin query, so it
+  consumes quota faster; the per-day cap resets daily, and enabling billing raises it.
+
+The `429` error message includes a hint. A future robustness add: a single bounded retry honoring
+the response `RetryInfo.retryDelay` (helps per-minute RPM bursts from the two rapid two-pass calls;
+won't help a daily cap).
 
 ### Interactions API shape (empirically verified 2026-06-26)
 
@@ -171,16 +208,12 @@ the `strip_json_fences` safety net (clean JSON confirmed without it).
 
 ## Next steps (resume here)
 
-1. **Real-LLM smoke test (do first when the key arrives).**
-   `export GEMINI_API_KEY=...`, re-fetch us2019b (above), then run a few prompts:
-   - "How many people by marital status?"
-   - "Sex breakdown of married people."
-   - "People by educational attainment, general categories." (exercises `"G"`)
-   - "Family income in bins of $10k." (exercises `category_bins`)
-   Use `--show-request` to inspect the generated JSON. Confirm the default model id in
-   `src/llm.rs` (`DEFAULT_GEMINI_MODEL`, currently `gemini-2.5-flash`) is still current; override
-   with `--model` if Gemini returns a 404. Tune the system prompt in `nl_tabulation.rs::SYSTEM_PROMPT`
-   if requests come back malformed.
+1. ~~**Real-LLM smoke test.**~~ **DONE** (2026-06-26, paid key + `gemini-3.5-flash`). All exercised:
+   detailed, subpopulation filter, general `"G"`, category bins, two-pass filter refinement, and
+   general-by-default selection. To re-run: `export GEMINI_API_KEY=$(cat GEMINI_BILLED_KEY.txt)`,
+   re-fetch us2019b (above), then run prompts with `--show-request`. Override the model with
+   `--model` if a newer Flash ships; tune `nl_tabulation.rs::SYSTEM_PROMPT` if requests come back
+   malformed.
 
 2. ~~**Show value labels in the result table.**~~ **DONE.** The text result table now inlines a
    left-aligned `<VAR>_label` column after each *detailed* coded variable column (raw codes kept).
