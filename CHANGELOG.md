@@ -43,6 +43,19 @@ Released" heading at the top.
 
 ### Other changes
 
+* `defaults_for()` now covers every IPUMS data product, with the record types,
+  record type letters, and record hierarchy each one uses: the household -
+  person products (usa, fullusa, napp, ipumsi, cps, mock), the time use products
+  (atus, ahtus, mtus) with their activity, who and elder care records, the
+  health products (meps and nhis, which are built as one "health" product) with
+  their 21 record types, and the person-only products (dhs, pma, mics, highered,
+  brfss, yrbss, nyts, nsduh). These come from the DCP settings; eventually they
+  should come from the record types metadata instead.
+* The collection name in `MicroDataCollection` is now the lower case product
+  name for every product. It used to be "USA" for usa but lower case for the
+  other collections. Data file names are unaffected because they were already
+  built from the lower cased name. Requesting meps or nhis gives a collection
+  named "health", which matches how their data files are named.
 * Dropped the `sql-builder`, `extended`, and `encoding` dependencies, none of
   which the crate uses.
 

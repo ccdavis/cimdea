@@ -401,6 +401,16 @@ impl TabBuilder {
 
     fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
         if let Some(record_type) = ctx.settings.record_types.get(rt) {
+            if record_type.unique_id.is_empty() {
+                // Only the household and person link columns follow a convention we can count
+                // on without metadata; see the defaults module.
+                return Err(metadata_error!(
+                    "Record type '{rt}' has no unique id column in the settings for collection \
+                     '{}', so it can't be joined to another record type. This information comes \
+                     from the record types metadata, which isn't loaded.",
+                    ctx.settings.name
+                ));
+            }
             Ok(record_type.unique_id.clone())
         } else {
             Err(metadata_error!("No record type '{rt}' in current context.",))

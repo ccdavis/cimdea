@@ -784,7 +784,7 @@ mod test {
             );
         }
         assert!(usa_ctx.data_root.is_some());
-        assert_eq!("USA".to_string(), usa_ctx.settings.name);
+        assert_eq!("usa".to_string(), usa_ctx.settings.name);
         assert_eq!(2, usa_ctx.settings.record_types.len());
         assert!(usa_ctx.settings.record_types.contains_key("H"));
         assert!(usa_ctx.settings.record_types.contains_key("P"));
