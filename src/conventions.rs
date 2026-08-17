@@ -75,6 +75,39 @@ impl MicroDataCollection {
         Some(weight.divisor)
     }
 
+    /// The record type a record type belongs to, if it isn't the root of the hierarchy.
+    pub fn parent_rectype(&self, rt: &str) -> Option<&RecordType> {
+        let parent = self.record_hierarchy.levels.get(rt)?.parent.as_ref()?;
+        self.record_types.get(parent)
+    }
+
+    /// The names of the counting variables on a record type.
+    ///
+    /// DCP generates one of these per child record type, each giving the number of child records
+    /// of that type which follow this record. See
+    /// [generated_count_of](RecordType::generated_count_of); older data doesn't have them.
+    pub fn counting_variables_for_rectype(&self, rt: &str) -> Vec<String> {
+        let Some(record_type) = self.record_types.get(rt) else {
+            return Vec::new();
+        };
+        let Some(children) = self
+            .record_hierarchy
+            .levels
+            .get(rt)
+            .and_then(|level| level.children.as_ref())
+        else {
+            return Vec::new();
+        };
+
+        let mut counting_variables: Vec<String> = children
+            .iter()
+            .filter_map(|child| self.record_types.get(child))
+            .map(|child| record_type.generated_count_of(child))
+            .collect();
+        counting_variables.sort();
+        counting_variables
+    }
+
     pub fn base_filename_for_dataset(&self, dataset_name: &str) -> String {
         format!("{}_{}", dataset_name, &self.name.to_ascii_lowercase())
     }

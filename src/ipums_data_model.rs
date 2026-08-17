@@ -27,6 +27,68 @@ pub struct RecordType {
     pub sample_weight: Option<RecordWeight>,
 }
 
+impl RecordType {
+    /// The name of the key column DCP generates for this record type, like `PERSON_KEY`.
+    ///
+    /// DCP's metadata cache adds one of these to every record type of a product, along with the
+    /// foreign keys and counting variables below (`ProductConfig::name_primary_key` and
+    /// `Cache::create_key_and_counting_variables` in the DCP source). The names are mechanically
+    /// produced from the record type names, so we can produce them here too instead of storing
+    /// them.
+    ///
+    /// Data built before DCP started generating these columns doesn't have them, so treat this as
+    /// the name to look for rather than a promise the column is there.
+    ///
+    /// ```
+    /// use cimdea::defaults::defaults_for;
+    ///
+    /// let settings = defaults_for("atus").unwrap();
+    /// assert_eq!(settings.record_types["A"].generated_key(), "ACTIVITY_KEY");
+    /// ```
+    pub fn generated_key(&self) -> String {
+        format!("{}_KEY", self.name.to_ascii_uppercase())
+    }
+
+    /// The name of the column on this record type pointing at its parent, like
+    /// `HOUSEHOLD_KEY_ON_PERSON`.
+    ///
+    /// The column lives on the child record and names the parent first, so a person record
+    /// carries `HOUSEHOLD_KEY_ON_PERSON` and an activity record carries `PERSON_KEY_ON_ACTIVITY`.
+    ///
+    /// ```
+    /// use cimdea::defaults::defaults_for;
+    ///
+    /// let settings = defaults_for("atus").unwrap();
+    /// let person = &settings.record_types["P"];
+    /// let activity = &settings.record_types["A"];
+    /// assert_eq!(activity.generated_foreign_key(person), "PERSON_KEY_ON_ACTIVITY");
+    /// ```
+    pub fn generated_foreign_key(&self, parent: &RecordType) -> String {
+        format!(
+            "{}_KEY_ON_{}",
+            parent.name.to_ascii_uppercase(),
+            self.name.to_ascii_uppercase()
+        )
+    }
+
+    /// The name of the column on this record type counting the child records of one type that
+    /// follow it, like `COUNT_OF_P`.
+    ///
+    /// Note DCP names these with the child record type's letter, not its name.
+    ///
+    /// ```
+    /// use cimdea::defaults::defaults_for;
+    ///
+    /// let settings = defaults_for("atus").unwrap();
+    /// let household = &settings.record_types["H"];
+    /// let person = &settings.record_types["P"];
+    /// assert_eq!(household.generated_count_of(person), "COUNT_OF_P");
+    /// ```
+    pub fn generated_count_of(&self, child: &RecordType) -> String {
+        format!("COUNT_OF_{}", child.value.to_ascii_uppercase())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RecordWeight {
     pub name: String,

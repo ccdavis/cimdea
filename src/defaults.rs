@@ -137,9 +137,11 @@ fn collection_name(product: &str) -> String {
 
 /// Build one record type of a collection.
 ///
-/// Only the household and person id, link and weight columns follow naming conventions we can
-/// count on without metadata. The others are left empty rather than invented, and query
-/// generation reports the missing id column instead of building a join it can't name.
+/// The census style collections have always had conventionally named SERIAL, PSERIAL and SERIALP
+/// columns, so those are used where they apply. Every other record type gets an empty id and no
+/// foreign key, which leaves query generation to fall back on the key columns DCP generates from
+/// the record type names: see [generated_key](RecordType::generated_key) and
+/// [generated_foreign_key](RecordType::generated_foreign_key).
 // TODO: DCP's ProductConfig::weights has per-product weights but only fills in usa, ipumsi and
 // mics, whose person weight is WEIGHTWM rather than PERWT. Weights belong in metadata; take them
 // from there rather than growing another hard coded table here.
@@ -148,15 +150,22 @@ fn record_type(
     spec: &RecordTypeSpec,
     parent: Option<&RecordTypeSpec>,
 ) -> RecordType {
+    let census_style = matches!(collection, "usa" | "fullusa" | "ipumsi" | "cps");
+
     let (unique_id, weight) = match spec.name {
-        "household" => ("SERIAL", Some(RecordWeight::new("HHWT", 100))),
-        "person" => ("PSERIAL", Some(RecordWeight::new("PERWT", 100))),
+        "household" if census_style => ("SERIAL", Some(RecordWeight::new("HHWT", 100))),
+        "person" if census_style => ("PSERIAL", Some(RecordWeight::new("PERWT", 100))),
+        "household" => ("", Some(RecordWeight::new("HHWT", 100))),
+        "person" => ("", Some(RecordWeight::new("PERWT", 100))),
         _ => ("", None),
     };
 
-    // A person record points at the household it belongs to with SERIALP.
+    // A person record in the census style collections points at the household it belongs to with
+    // SERIALP.
     let foreign_keys = match (spec.name, parent) {
-        ("person", Some(household)) => vec![(household.value.to_string(), "SERIALP".to_string())],
+        ("person", Some(household)) if census_style => {
+            vec![(household.value.to_string(), "SERIALP".to_string())]
+        }
         _ => Vec::new(),
     };
 
@@ -394,7 +403,8 @@ mod tests {
     }
 
     /// ATUS activity records belong to a person and who records belong to an activity. Record
-    /// types we have no link columns for get an empty unique id rather than an invented one.
+    /// types with no conventionally named id column fall back to the keys DCP generates from the
+    /// record type names.
     #[test]
     fn test_atus_hierarchy() {
         let settings = defaults_for("atus").expect("should have defaults for ATUS");
@@ -404,13 +414,29 @@ mod tests {
         assert_eq!(levels["W"].parent.as_deref(), Some("A"));
         assert_eq!(levels["R"].parent.as_deref(), Some("P"));
 
+        let person = &settings.record_types["P"];
         let activity = &settings.record_types["A"];
         assert_eq!(activity.name, "activity");
         assert!(
             activity.unique_id.is_empty(),
-            "we don't know an activity record's id column without metadata"
+            "an activity record has no conventionally named id column"
         );
         assert!(activity.foreign_keys.is_empty());
+        assert_eq!(activity.generated_key(), "ACTIVITY_KEY");
+        assert_eq!(
+            activity.generated_foreign_key(person),
+            "PERSON_KEY_ON_ACTIVITY"
+        );
+        assert_eq!(
+            settings.counting_variables_for_rectype("P"),
+            ["COUNT_OF_A", "COUNT_OF_R"],
+            "a person record counts the activity and elder care records that follow it"
+        );
+        assert_eq!(settings.counting_variables_for_rectype("H"), ["COUNT_OF_P"]);
+        assert!(
+            settings.counting_variables_for_rectype("W").is_empty(),
+            "no record type belongs to a who record"
+        );
     }
 
     /// The health record types hang off of a person, except the refill records, which hang off the

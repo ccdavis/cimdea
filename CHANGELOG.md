@@ -51,6 +51,17 @@ Released" heading at the top.
   21 record types, and the person-only products (dhs, pma, mics, highered,
   brfss, yrbss, nyts, nsduh). These come from the DCP settings; eventually they
   should come from the record types metadata instead.
+* `RecordType` can produce the key and counting column names DCP generates from
+  the record type names: `generated_key()` (`PERSON_KEY`),
+  `generated_foreign_key()` (`HOUSEHOLD_KEY_ON_PERSON`, which lives on the child
+  record) and `generated_count_of()` (`COUNT_OF_P`, the number of child records
+  that follow). `MicroDataCollection::counting_variables_for_rectype()` lists
+  the counting columns of a record type, and `parent_rectype()` gives the record
+  type a record type belongs to.
+* Query generation uses those names to join record types that have no
+  conventionally named id and link columns, so tabulations across the time use
+  and health record types can be generated. The census style collections keep
+  their SERIAL, PSERIAL and SERIALP columns.
 * The collection name in `MicroDataCollection` is now the lower case product
   name for every product. It used to be "USA" for usa but lower case for the
   other collections. Data file names are unaffected because they were already

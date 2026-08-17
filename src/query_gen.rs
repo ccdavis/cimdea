@@ -378,40 +378,49 @@ impl TabBuilder {
         from_rt: &str,
         to_parent: &str,
     ) -> Result<String, MdError> {
-        if let Some(child_rt) = ctx.settings.record_types.get(from_rt) {
-            let fkey_name = child_rt
-                .foreign_keys
-                .iter()
-                .find(|(to_rt, _f)| to_rt == to_parent);
-            if let Some(key_name) = fkey_name {
-                Ok(key_name.1.clone())
-            } else {
-                Err(MdError::Msg(format!(
-                    "Cannot find a connection between '{}' and a parent record type of '{}'",
-                    from_rt, to_parent
-                )))
-            }
-        } else {
-            Err(MdError::Msg(format!(
+        let no_connection = || {
+            MdError::Msg(format!(
                 "Cannot find a connection between '{}' and a parent record type of '{}'",
                 from_rt, to_parent
-            )))
+            ))
+        };
+
+        let child_rt = ctx
+            .settings
+            .record_types
+            .get(from_rt)
+            .ok_or_else(no_connection)?;
+
+        // A conventionally named foreign key, like SERIALP on a USA person record
+        if let Some((_, key_name)) = child_rt
+            .foreign_keys
+            .iter()
+            .find(|(to_rt, _f)| to_rt == to_parent)
+        {
+            return Ok(key_name.clone());
         }
+
+        // Otherwise use the foreign key DCP generates from the record type names, which newer
+        // data has on every record type below the root of the hierarchy.
+        let parent_rt = ctx
+            .settings
+            .parent_rectype(from_rt)
+            .ok_or_else(no_connection)?;
+        if parent_rt.value != to_parent {
+            return Err(no_connection());
+        }
+        Ok(child_rt.generated_foreign_key(parent_rt))
     }
 
     fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
         if let Some(record_type) = ctx.settings.record_types.get(rt) {
             if record_type.unique_id.is_empty() {
-                // Only the household and person link columns follow a convention we can count
-                // on without metadata; see the defaults module.
-                return Err(metadata_error!(
-                    "Record type '{rt}' has no unique id column in the settings for collection \
-                     '{}', so it can't be joined to another record type. This information comes \
-                     from the record types metadata, which isn't loaded.",
-                    ctx.settings.name
-                ));
+                // No conventionally named id column, so use the key DCP generates from the
+                // record type name.
+                Ok(record_type.generated_key())
+            } else {
+                Ok(record_type.unique_id.clone())
             }
-            Ok(record_type.unique_id.clone())
         } else {
             Err(metadata_error!("No record type '{rt}' in current context.",))
         }
@@ -763,6 +772,50 @@ else '999' end as UHRSWORK_bucketed";
 
             assert_eq!(correct, &sql);
         }
+    }
+
+    /// Record types with no conventionally named id and link columns join on the keys DCP
+    /// generates from the record type names.
+    #[test]
+    fn test_generated_keys_join_record_types() {
+        let data_root = Some(String::from("tests/data_root"));
+        let usa = Context::from_ipums_collection_name("usa", None, data_root.clone())
+            .expect("should build a USA context");
+        let atus = Context::from_ipums_collection_name("atus", None, data_root)
+            .expect("should build an ATUS context");
+
+        // The census style collections keep the columns their data has always had
+        assert_eq!(
+            TabBuilder::help_get_id_for_record_type(&usa, "H")
+                .expect("household should have an id column"),
+            "SERIAL"
+        );
+        assert_eq!(
+            TabBuilder::help_get_connecting_foreign_key(&usa, "P", "H")
+                .expect("a person record should connect to its household"),
+            "SERIALP"
+        );
+
+        // Everything else falls back to the generated keys
+        assert_eq!(
+            TabBuilder::help_get_id_for_record_type(&atus, "A")
+                .expect("an activity record should have an id column"),
+            "ACTIVITY_KEY"
+        );
+        assert_eq!(
+            TabBuilder::help_get_connecting_foreign_key(&atus, "A", "P")
+                .expect("an activity record should connect to its person"),
+            "PERSON_KEY_ON_ACTIVITY"
+        );
+        assert_eq!(
+            TabBuilder::help_get_connecting_foreign_key(&atus, "W", "A")
+                .expect("a who record should connect to its activity"),
+            "ACTIVITY_KEY_ON_WHO"
+        );
+
+        // A who record belongs to an activity, not directly to a household
+        let result = TabBuilder::help_get_connecting_foreign_key(&atus, "W", "H");
+        assert!(result.is_err(), "expected an error but got {result:?}");
     }
 
     #[test]
