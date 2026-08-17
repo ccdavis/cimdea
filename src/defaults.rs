@@ -138,10 +138,13 @@ fn collection_name(product: &str) -> String {
 /// Build one record type of a collection.
 ///
 /// The census style collections have always had conventionally named SERIAL, PSERIAL and SERIALP
-/// columns, so those are used where they apply. Every other record type gets an empty id and no
-/// foreign key, which leaves query generation to fall back on the key columns DCP generates from
-/// the record type names: see [generated_key](RecordType::generated_key) and
-/// [generated_foreign_key](RecordType::generated_foreign_key).
+/// columns, so those are recorded where they apply. Every other record type gets an empty id and
+/// no foreign key.
+///
+/// These are the fall back, not the first choice: query generation looks for the key columns DCP
+/// generates from the record type names -- see [generated_key](RecordType::generated_key) and
+/// [generated_foreign_key](RecordType::generated_foreign_key) -- and only uses the columns here
+/// when the data being queried doesn't have the generated ones.
 // TODO: DCP's ProductConfig::weights has per-product weights but only fills in usa, ipumsi and
 // mics, whose person weight is WEIGHTWM rather than PERWT. Weights belong in metadata; take them
 // from there rather than growing another hard coded table here.

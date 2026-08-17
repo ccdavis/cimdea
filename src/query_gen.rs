@@ -391,7 +391,23 @@ impl TabBuilder {
             .get(from_rt)
             .ok_or_else(no_connection)?;
 
-        // A conventionally named foreign key, like SERIALP on a USA person record
+        // The foreign key DCP generates from the record type names, if these two really are the
+        // child and parent of each other in the hierarchy.
+        let generated_key = ctx
+            .settings
+            .parent_rectype(from_rt)
+            .filter(|parent_rt| parent_rt.value == to_parent)
+            .map(|parent_rt| child_rt.generated_foreign_key(parent_rt));
+
+        // Newer data has the generated keys on every record type below the root of the
+        // hierarchy, so prefer them whenever the data we're querying has them.
+        if let Some(ref generated_key) = generated_key {
+            if ctx.has_md_variable(generated_key) {
+                return Ok(generated_key.clone());
+            }
+        }
+
+        // Otherwise the conventionally named column, like SERIALP on a USA person record
         if let Some((_, key_name)) = child_rt
             .foreign_keys
             .iter()
@@ -400,24 +416,18 @@ impl TabBuilder {
             return Ok(key_name.clone());
         }
 
-        // Otherwise use the foreign key DCP generates from the record type names, which newer
-        // data has on every record type below the root of the hierarchy.
-        let parent_rt = ctx
-            .settings
-            .parent_rectype(from_rt)
-            .ok_or_else(no_connection)?;
-        if parent_rt.value != to_parent {
-            return Err(no_connection());
-        }
-        Ok(child_rt.generated_foreign_key(parent_rt))
+        // With no conventional column either, the generated name is the best we can do
+        generated_key.ok_or_else(no_connection)
     }
 
     fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
         if let Some(record_type) = ctx.settings.record_types.get(rt) {
-            if record_type.unique_id.is_empty() {
-                // No conventionally named id column, so use the key DCP generates from the
-                // record type name.
-                Ok(record_type.generated_key())
+            // Prefer the key DCP generates from the record type name, falling back to the
+            // conventionally named column (SERIAL, PSERIAL) when the data doesn't have the
+            // generated one.
+            let generated_key = record_type.generated_key();
+            if record_type.unique_id.is_empty() || ctx.has_md_variable(&generated_key) {
+                Ok(generated_key)
             } else {
                 Ok(record_type.unique_id.clone())
             }
@@ -774,6 +784,67 @@ else '999' end as UHRSWORK_bucketed";
         }
     }
 
+    /// Data with the keys DCP generates from the record type names joins on those, in preference
+    /// to the conventionally named columns.
+    #[test]
+    fn test_generated_keys_preferred_when_the_data_has_them() {
+        use crate::ipums_metadata_model::{IpumsDataset, IpumsVariable};
+
+        let data_root = String::from("tests/data_root");
+        let mut ctx = Context::from_ipums_collection_name("usa", None, Some(data_root))
+            .expect("should build a USA context");
+        ctx.load_metadata_for_datasets(&["us2015b"])
+            .expect("should load metadata from the layout");
+
+        // This data predates the generated keys, so the conventional columns win
+        assert_eq!(
+            TabBuilder::help_get_id_for_record_type(&ctx, "H")
+                .expect("household should have an id column"),
+            "SERIAL"
+        );
+        assert_eq!(
+            TabBuilder::help_get_connecting_foreign_key(&ctx, "P", "H")
+                .expect("a person record should connect to its household"),
+            "SERIALP"
+        );
+
+        // Add the generated keys to the metadata, the way data built by a newer DCP has them
+        let dataset = IpumsDataset::from(("us2015b".to_string(), 0));
+        let md = ctx
+            .settings
+            .metadata
+            .as_mut()
+            .expect("metadata should be loaded");
+        for (name, record_type) in [("HOUSEHOLD_KEY", "H"), ("HOUSEHOLD_KEY_ON_PERSON", "P")] {
+            md.add_dataset_variable(
+                dataset.clone(),
+                IpumsVariable {
+                    name: name.to_string(),
+                    record_type: record_type.to_string(),
+                    data_type: None,
+                    label: None,
+                    categories: None,
+                    formatting: None,
+                    general_width: None,
+                    description: None,
+                    category_bins: None,
+                    id: 0,
+                },
+            );
+        }
+
+        assert_eq!(
+            TabBuilder::help_get_id_for_record_type(&ctx, "H")
+                .expect("household should have an id column"),
+            "HOUSEHOLD_KEY"
+        );
+        assert_eq!(
+            TabBuilder::help_get_connecting_foreign_key(&ctx, "P", "H")
+                .expect("a person record should connect to its household"),
+            "HOUSEHOLD_KEY_ON_PERSON"
+        );
+    }
+
     /// Record types with no conventionally named id and link columns join on the keys DCP
     /// generates from the record type names.
     #[test]
@@ -784,7 +855,8 @@ else '999' end as UHRSWORK_bucketed";
         let atus = Context::from_ipums_collection_name("atus", None, data_root)
             .expect("should build an ATUS context");
 
-        // The census style collections keep the columns their data has always had
+        // With no metadata to check for the generated keys, the census style collections fall
+        // back to the columns their data has always had
         assert_eq!(
             TabBuilder::help_get_id_for_record_type(&usa, "H")
                 .expect("household should have an id column"),

@@ -382,6 +382,11 @@ impl MetadataEntities {
         self.variables_index[var_id].clone()
     }
 
+    /// Is there a variable with this name in the loaded metadata?
+    pub fn has_variable(&self, name: &str) -> bool {
+        self.variables_by_name.contains_key(name)
+    }
+
     pub fn cloned_variable_from_name(&self, name: &str) -> Option<IpumsVariable> {
         self.variables_by_name
             .get(name)
@@ -609,6 +614,17 @@ impl Context {
                 "No metadata loaded. Can't get variable '{name}'."
             ))
         }
+    }
+
+    /// Is a variable with this name in the metadata loaded for this context?
+    ///
+    /// False when no metadata is loaded at all, so this answers "do we know this variable is
+    /// there", not "is it absent from the data".
+    pub fn has_md_variable(&self, name: &str) -> bool {
+        self.settings
+            .metadata
+            .as_ref()
+            .is_some_and(|md| md.has_variable(name))
     }
 
     /// Formats the exact paths needed to get data for this dataset, by record type.

@@ -58,10 +58,14 @@ Released" heading at the top.
   that follow). `MicroDataCollection::counting_variables_for_rectype()` lists
   the counting columns of a record type, and `parent_rectype()` gives the record
   type a record type belongs to.
-* Query generation uses those names to join record types that have no
-  conventionally named id and link columns, so tabulations across the time use
-  and health record types can be generated. The census style collections keep
-  their SERIAL, PSERIAL and SERIALP columns.
+* Query generation joins record types on those generated keys whenever the data
+  has them, which it checks against the loaded metadata. The conventional SERIAL,
+  PSERIAL and SERIALP columns are the fall back for data built before DCP
+  started generating keys. This also means tabulations across the time use and
+  health record types, which have no conventionally named keys at all, can now
+  be generated.
+* `Context::has_md_variable()` and `MetadataEntities::has_variable()` report
+  whether a variable is in the loaded metadata.
 * The collection name in `MicroDataCollection` is now the lower case product
   name for every product. It used to be "USA" for usa but lower case for the
   other collections. Data file names are unaffected because they were already
