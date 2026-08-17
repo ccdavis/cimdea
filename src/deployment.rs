@@ -196,7 +196,7 @@ impl DeploymentConfig {
     pub fn load_from_file(path: &Path) -> Result<Self, MdError> {
         let content = std::fs::read_to_string(path).map_err(MdError::IoError)?;
 
-        if path.extension().map_or(false, |ext| ext == "json") {
+        if path.extension().is_some_and(|ext| ext == "json") {
             serde_json::from_str(&content)
                 .map_err(|e| MdError::ParsingError(format!("Invalid JSON config: {}", e)))
         } else {

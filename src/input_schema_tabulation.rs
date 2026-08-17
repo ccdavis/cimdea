@@ -74,11 +74,25 @@ impl TryFrom<CategoryBinRaw> for CategoryBin {
 }
 
 impl CategoryBin {
+    /// Is `test_value` in this bin?
+    ///
+    /// All of the bounds are inclusive, which matches the SQL that
+    /// [query_gen][crate::query_gen] generates for category bins. A `LessThan`
+    /// bin comes from a request with only a `high` bound, and a `MoreThan` bin
+    /// from a request with only a `low` bound.
+    ///
+    /// ```
+    /// use cimdea::input_schema_tabulation::CategoryBin;
+    ///
+    /// let bin = CategoryBin::LessThan { value: 0, code: 0, label: "N/A".to_string() };
+    /// assert!(bin.within(0));
+    /// assert!(!bin.within(1));
+    /// ```
     pub fn within(&self, test_value: i64) -> bool {
         match self {
-            Self::LessThan { value, .. } => test_value < *value,
+            Self::LessThan { value, .. } => test_value <= *value,
             Self::Range { low, high, .. } => test_value >= *low && test_value <= *high,
-            Self::MoreThan { value, .. } => test_value > *value,
+            Self::MoreThan { value, .. } => test_value >= *value,
         }
     }
 }
@@ -417,6 +431,40 @@ mod tests {
             result.is_err(),
             "expected an error because both low_code and high_code are null, got {result:?}"
         );
+    }
+
+    /// The bounds of every kind of bin are inclusive, the same way the generated
+    /// bucketing SQL treats them.
+    #[test]
+    fn test_category_bin_within_is_inclusive() {
+        let less_than = CategoryBin::LessThan {
+            value: 0,
+            code: 0,
+            label: "no income".to_string(),
+        };
+        assert!(less_than.within(-100));
+        assert!(less_than.within(0), "the high bound is inclusive");
+        assert!(!less_than.within(1));
+
+        let range = CategoryBin::Range {
+            low: 1,
+            high: 14,
+            code: 1,
+            label: "1 to 14".to_string(),
+        };
+        assert!(range.within(1), "the low bound is inclusive");
+        assert!(range.within(14), "the high bound is inclusive");
+        assert!(!range.within(0));
+        assert!(!range.within(15));
+
+        let more_than = CategoryBin::MoreThan {
+            value: 100,
+            code: 2,
+            label: "100 or more".to_string(),
+        };
+        assert!(more_than.within(100), "the low bound is inclusive");
+        assert!(more_than.within(1000));
+        assert!(!more_than.within(99));
     }
 
     #[test]

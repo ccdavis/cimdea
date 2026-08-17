@@ -10,7 +10,7 @@ use crate::ipums_metadata_model::{
 use crate::mderror::{metadata_error, MdError};
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::path::Path;
 
@@ -348,8 +348,11 @@ impl ParquetMetadataReader {
     }
 
     /// Extract schema information from a parquet file.
+    ///
     /// Returns a map of field name to (IPUMS-compatible type string, nullable).
-    pub fn get_schema_info(file_path: &Path) -> Result<HashMap<String, (String, bool)>, MdError> {
+    /// The map is ordered by field name so that metadata loaded from a schema
+    /// comes out the same way every time.
+    pub fn get_schema_info(file_path: &Path) -> Result<BTreeMap<String, (String, bool)>, MdError> {
         let file = File::open(file_path).map_err(|e| {
             metadata_error!(
                 "Failed to open parquet file at {}: {}",
@@ -367,7 +370,7 @@ impl ParquetMetadataReader {
         })?;
 
         let schema = reader.metadata().file_metadata().schema();
-        let mut schema_info = HashMap::new();
+        let mut schema_info = BTreeMap::new();
 
         for field in schema.get_fields() {
             let name = field.name().to_string();

@@ -6,6 +6,56 @@ corresponds to a git tag in the repository. Some of the most recent changes may
 not yet be released in a cimdea version, and they are listed under the "Not Yet
 Released" heading at the top.
 
+## Not Yet Released
+
+### Bug fixes
+
+* Tabulations now use the unit of analysis from the request. Previously the `uoa`
+  field of an Abacus request and the `unit_of_analysis` argument of
+  `DataRequest::from_names()` were accepted but ignored during query generation,
+  and every tabulation ran at the collection's default unit of analysis (person,
+  for the built-in collections).
+* A record type with no weight variable no longer produces a broken query. The
+  generated `group by` used to assume a `weighted_ct` column was always present,
+  which shifted the grouping columns, and the output table always got a
+  `weighted_ct` heading whether or not the query selected one.
+* `context_from_names_helper()` (and so `DataRequest::from_names()`) now uses the
+  product root it's passed instead of silently dropping it.
+* Loading metadata for datasets from layouts adds to metadata already loaded
+  rather than replacing all of it.
+* `CategoryBin::within()` now treats its bounds as inclusive, matching the
+  bucketing SQL that gets generated for the same bins.
+* `MicroDataCollection::clear_metadata()` clears the metadata; it used to do
+  nothing.
+* Tabulating a value that isn't a number, or is NULL, no longer fails the whole
+  tabulation.
+* The "more than two record types" check in query generation now counts the
+  record types the request needs, instead of every record type the collection
+  has.
+* Reading a layout file reports errors instead of silently dropping the records
+  it can't read.
+* Requesting a not-yet-implemented output format (CSV or HTML) returns an error
+  instead of panicking.
+* Metadata indexes grow to fit instead of panicking if dataset or variable ids
+  arrive out of order.
+* `ParquetMetadataReader::get_schema_info()` returns fields in a stable order.
+* Remote paths are quoted before they're sent to a remote shell.
+
+### Other changes
+
+* Dropped the `sql-builder`, `extended`, and `encoding` dependencies, none of
+  which the crate uses.
+
+### Breaking changes
+
+* `DataRequest::get_request_variables()` returns `Result<Vec<RequestVariable>, MdError>`.
+  It used to panic on inconsistent metadata.
+* `DataRequest` has a new required method, `unit_of_analysis()`.
+* `query_gen::tab_queries()` returns `Vec<TabQuery>` rather than `Vec<String>`.
+  A `TabQuery` has the query's `sql` plus whether it selects a weighted count.
+* `ParquetMetadataReader::get_schema_info()` returns a `BTreeMap` instead of a
+  `HashMap`, and `RecordLayout::vars()` returns a slice instead of a `&Vec`.
+
 ## v0.3.2 (2025-02-19)
 
 * Include lockfile for reproducible builds. when using `cargo install`.

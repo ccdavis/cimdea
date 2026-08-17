@@ -27,11 +27,14 @@ pub fn context_from_names_helper(
     product: &str,
     requested_datasets: &[&str],
     requested_variables: &[&str],
-    _optional_product_root: Option<String>,
+    optional_product_root: Option<String>,
     optional_data_root: Option<String>,
 ) -> Result<(conventions::Context, Vec<IpumsVariable>, Vec<IpumsDataset>), MdError> {
-    let mut ctx =
-        conventions::Context::from_ipums_collection_name(product, None, optional_data_root)?;
+    let mut ctx = conventions::Context::from_ipums_collection_name(
+        product,
+        optional_product_root,
+        optional_data_root,
+    )?;
     ctx.load_metadata_for_datasets(requested_datasets)?;
 
     // Get variables from selections
@@ -93,7 +96,7 @@ impl RequestVariable {
     // as well ...
     fn try_from_input_request_variable(
         ctx: &Context,
-        category_bins: &Option<&Vec<CategoryBin>>,
+        category_bins: Option<&[CategoryBin]>,
         input_rq: input_schema_tabulation::RequestVariable,
     ) -> Result<Self, MdError> {
         let mut var = ctx.get_md_variable_by_name(&input_rq.variable_mnemonic)?;
@@ -105,7 +108,7 @@ impl RequestVariable {
         // This is optional; the category bins could have been attached already by way of the IpumsVariable from ctx. If
         // we pass Some() then we're asking to over-ride anything coming from context.
         if let Some(bins) = category_bins {
-            rq.category_bins = Some(bins.to_vec().clone());
+            rq.category_bins = Some(bins.to_vec());
         }
 
         if input_rq.case_selection {
@@ -256,9 +259,17 @@ pub enum CaseSelectUnit {
 /// Every data request should serialize, deserialize, and produce SQL
 /// queries for what it's requesting.
 pub trait DataRequest {
-    fn get_request_variables(&self) -> Vec<RequestVariable>;
+    /// The request variables for this request.
+    ///
+    /// This can fail because building a [RequestVariable] out of metadata may
+    /// turn up inconsistent metadata, like a general width wider than the
+    /// detailed width of the same variable.
+    fn get_request_variables(&self) -> Result<Vec<RequestVariable>, MdError>;
     fn get_request_samples(&self) -> Vec<RequestSample>;
     fn get_conditions(&self) -> Option<Vec<Condition>>;
+
+    /// The record type the request tabulates or extracts, like person or household.
+    fn unit_of_analysis(&self) -> &RecordType;
 
     /// Convert to the Tractor / generic IPUMS representation
     fn serialize_to_ipums_json(&self) -> String;
@@ -384,12 +395,16 @@ impl DataRequest for AbacusRequest {
         CaseSelectUnit::Individual
     }
 
-    fn get_request_variables(&self) -> Vec<RequestVariable> {
-        self.request_variables.clone()
+    fn get_request_variables(&self) -> Result<Vec<RequestVariable>, MdError> {
+        Ok(self.request_variables.clone())
     }
 
     fn get_request_samples(&self) -> Vec<RequestSample> {
         self.request_samples.clone()
+    }
+
+    fn unit_of_analysis(&self) -> &RecordType {
+        &self.unit_rectype
     }
 
     fn get_conditions(&self) -> Option<Vec<Condition>> {
@@ -438,7 +453,7 @@ impl DataRequest for AbacusRequest {
 
         lines.push("\n\nVariables:".to_string());
 
-        for v in self.get_request_variables() {
+        for v in &self.request_variables {
             let label = &v.variable.label.clone().unwrap_or("NO LABEL".to_string());
             let general_detailed = if v.is_general() {
                 "General".to_string()
@@ -556,11 +571,7 @@ impl AbacusRequest {
         ctx.load_metadata_for_datasets(requested_dataset_names.as_slice())?;
 
         // With metadata loaded, we can fully instantiate the RequestVariables and RequestSamples
-        let uoa = if let Some(u) = ctx.settings.record_types.clone().get(&request.uoa) {
-            u.clone()
-        } else {
-            return Err(metadata_error!("No record type for uoa."));
-        };
+        let uoa = validated_unit_of_analysis(&ctx, Some(request.uoa.clone()))?;
 
         let Some(ref md) = &ctx.settings.metadata else {
             return Err(metadata_error!(
@@ -586,14 +597,16 @@ impl AbacusRequest {
             // The category_bins can also come from the IpumsVariable as it's properly part of metadata. However in the request
             // for Abacus we pass category bins on each request for all request variables that need them.
             let bins = request.category_bins.get(&v.variable_mnemonic);
-            let request_var = RequestVariable::try_from_input_request_variable(&ctx, &bins, v)?;
+            let request_var =
+                RequestVariable::try_from_input_request_variable(&ctx, bins.map(|b| &b[..]), v)?;
             rqv.push(request_var);
         }
 
         let mut subpop = Vec::new();
         for s in request.subpopulation {
             let bins = request.category_bins.get(&s.variable_mnemonic);
-            let spv = RequestVariable::try_from_input_request_variable(&ctx, &bins, s)?;
+            let spv =
+                RequestVariable::try_from_input_request_variable(&ctx, bins.map(|b| &b[..]), s)?;
             subpop.push(spv);
         }
 
@@ -606,7 +619,7 @@ impl AbacusRequest {
                 subpopulation: subpop,
                 output_format: OutputFormat::Json,
                 use_general_variables: true,
-                unit_rectype: uoa.clone(),
+                unit_rectype: uoa,
                 data_root: request.data_root,
             },
         ))
@@ -684,15 +697,13 @@ impl DataRequest for SimpleRequest {
         ))
     }
 
-    fn get_request_variables(&self) -> Vec<RequestVariable> {
-        // Note the .expect() below: If we got here from the from_names() then
-        // if the metadata is broken (general detailed probably incorrect), we
-        // simply can't proceed.
+    fn get_request_variables(&self) -> Result<Vec<RequestVariable>, MdError> {
+        // This fails if the metadata is broken, most likely because the general
+        // and detailed widths of a variable don't make sense together.
         self.variables
             .iter()
             .map(|v| {
                 RequestVariable::try_from_ipums_variable(v, self.use_general_variables.clone())
-                    .expect("Broken metadata.")
             })
             .collect()
     }
@@ -702,6 +713,10 @@ impl DataRequest for SimpleRequest {
             .iter()
             .map(RequestSample::from_ipums_dataset)
             .collect()
+    }
+
+    fn unit_of_analysis(&self) -> &RecordType {
+        &self.unit_rectype
     }
 
     fn get_conditions(&self) -> Option<Vec<Condition>> {

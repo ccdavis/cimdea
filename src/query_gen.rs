@@ -24,6 +24,16 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+/// A generated tabulation query, along with what's needed to interpret its result columns.
+#[derive(Clone, Debug)]
+pub struct TabQuery {
+    /// The SQL of the tabulation query.
+    pub sql: String,
+    /// Whether the query selects a `weighted_ct` column right after the `ct`
+    /// column. A record type with no weight variable has no weighted count.
+    pub weighted: bool,
+}
+
 /// The TabBuilder is meant to assist with one or more tabulations from the same data product.
 #[allow(dead_code)]
 struct TabBuilder {
@@ -56,11 +66,9 @@ impl TabBuilder {
         })
     }
 
-    #[allow(dead_code)]
     fn build_from_clause(
         &self,
         ctx: &Context,
-        _dataset: &str,
         uoa: &str,
         all_rectypes: &HashSet<String>,
     ) -> Result<String, MdError> {
@@ -80,8 +88,10 @@ impl TabBuilder {
 
         // TODO: Handle the remaining tables. Currently the connections between the joined tables are only
         // generated to connect any two tables where we have foreign and primary keys. Three or more
-        // correct joins aren't yet supported.
-        if self.data_sources.len() > 2 {
+        // correct joins aren't yet supported. Note this counts the record types the request actually
+        // needs, not every record type the collection has.
+        let joined_rectypes = all_rectypes.iter().filter(|rt| *rt != uoa).count();
+        if joined_rectypes > 1 {
             return Err(MdError::Msg(
                 "Tabulations across more than two record types not yet supported!".to_string(),
             ));
@@ -295,8 +305,8 @@ impl TabBuilder {
         &self,
         ctx: &Context,
         abacus_request: &impl DataRequest,
-    ) -> Result<String, MdError> {
-        let request_variables = abacus_request.get_request_variables();
+    ) -> Result<TabQuery, MdError> {
+        let request_variables = abacus_request.get_request_variables()?;
         let requested_conditions = abacus_request.get_conditions();
         let case_select_logic = abacus_request.case_select_logic();
 
@@ -318,9 +328,9 @@ impl TabBuilder {
             &conditions.clone().unwrap_or(Vec::new()),
         );
 
-        // TODO: Decide the unit of analysis based on variable selection? Or, use the
-        // UOA in the incoming Request JSON
-        let uoa = ctx.settings.default_unit_of_analysis.value.clone();
+        // TODO: Decide the unit of analysis based on variable selection when the
+        // request doesn't give one?
+        let uoa = abacus_request.unit_of_analysis().value.clone();
 
         if !self.data_sources.contains_key(&uoa) {
             let msg = format!("Can't use unit of analysis '{}' to generate 'from' clause, not in set of record types in '{}'", uoa, ctx.settings.name);
@@ -328,35 +338,39 @@ impl TabBuilder {
         }
 
         let (weight_name, weight_divisor) = self.help_get_weight(ctx, &uoa);
+        // A record type without a weight variable gets no 'weighted_ct' column,
+        // which shifts the positions of the request variable columns.
+        let weighted = weight_name.is_some();
 
         let select_clause =
-            self.build_select_clause(&request_variables, weight_name, weight_divisor);
-        let from_clause = &self.build_from_clause(ctx, &self.dataset, &uoa, &rectypes)?;
+            self.build_select_clause(&request_variables, weight_name, weight_divisor)?;
+        let from_clause = &self.build_from_clause(ctx, &uoa, &rectypes)?;
 
         let vars_in_order = self.help_final_var_aliases(&request_variables);
 
-        /// The first column in the query that is a request variable. Column 1
-        /// is ct and column 2 is weighted_ct.
-        const FIRST_RQV_COLUMN: usize = 3;
+        // The first column in the query that is a request variable. Column 1 is
+        // ct and column 2, when there is a weight, is weighted_ct.
+        let first_rqv_column: usize = if weighted { 3 } else { 2 };
         let group_by_columns: Vec<_> = (0..vars_in_order.len())
-            .map(|index| index + FIRST_RQV_COLUMN)
-            .map(|x| x.to_string())
+            .map(|index| (index + first_rqv_column).to_string())
             .collect();
         let group_by_clause = group_by_columns.join(", ");
         let order_by_clause = vars_in_order.join(", ");
 
-        if let Some(ref conds) = conditions {
+        let sql = if let Some(ref conds) = conditions {
             let where_clause = &self.build_where_clause(conds, case_select_logic)?;
-            Ok(format!(
+            format!(
                 "select \n{}\nfrom {}\nwhere {}\ngroup by {}\norder by {}",
-                &select_clause?, &from_clause, &where_clause, &group_by_clause, &order_by_clause
-            ))
+                &select_clause, &from_clause, &where_clause, &group_by_clause, &order_by_clause
+            )
         } else {
-            Ok(format!(
+            format!(
                 "select \n{}\nfrom {}\ngroup by {}\norder by {}",
-                &select_clause?, &from_clause, &group_by_clause, &order_by_clause
-            ))
-        }
+                &select_clause, &from_clause, &group_by_clause, &order_by_clause
+            )
+        };
+
+        Ok(TabQuery { sql, weighted })
     }
 
     fn help_get_connecting_foreign_key(
@@ -653,7 +667,7 @@ pub fn tab_queries<R>(
     request: R,
     input_format: &InputType,
     platform: &DataPlatform,
-) -> Result<Vec<String>, MdError>
+) -> Result<Vec<TabQuery>, MdError>
 where
     R: DataRequest,
 {
@@ -873,7 +887,11 @@ else '999' end as UHRSWORK_bucketed";
         assert!(queries.is_ok());
         if let Ok(qs) = queries {
             assert_eq!(1, qs.len());
-            assert!(qs[0].contains("from"));
+            assert!(qs[0].sql.contains("from"));
+            assert!(
+                qs[0].weighted,
+                "person records in USA have a weight, so there should be a weighted count"
+            );
         }
     }
 }

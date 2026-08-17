@@ -40,18 +40,14 @@ fn person(product: &str) -> RecordType {
     }
 }
 
+/// Every product we currently support has the same household - person record
+/// structure.
+// TODO add some other default hierarchies or load from a config file
 fn default_record_types(product: &str) -> HashMap<String, RecordType> {
-    match product.to_lowercase().as_ref() {
-        "usa" | "ipumsi" | "cps" => HashMap::from([
-            ("H".to_string(), household(product)),
-            ("P".to_string(), person(product)),
-        ]),
-        // TODO add some other default hierarchies or load from a config file
-        _ => HashMap::from([
-            ("H".to_string(), household(product)),
-            ("P".to_string(), person(product)),
-        ]),
-    }
+    HashMap::from([
+        ("H".to_string(), household(product)),
+        ("P".to_string(), person(product)),
+    ])
 }
 
 fn default_household_weight() -> RecordWeight {

@@ -35,13 +35,13 @@ impl RecordLayout {
     }
 
     // A no-cost accessor
-    pub fn vars(&self) -> &Vec<LayoutVar> {
+    pub fn vars(&self) -> &[LayoutVar] {
         &self.vars
     }
 
     pub fn sorted_vars_by_start(&self) -> Vec<LayoutVar> {
         let mut ordered_vars = self.vars.clone();
-        ordered_vars.sort_by(|a, b| a.start.cmp(&b.start));
+        ordered_vars.sort_by_key(|v| v.start);
         ordered_vars
     }
 
@@ -149,46 +149,51 @@ impl DatasetLayout {
     }
 
     fn try_from_layout_reader<R: Read>(mut reader: csv::Reader<R>) -> Result<Self, MdError> {
-        let mut all_vars = reader
-            .records()
-            .filter_map(|r| r.ok())
-            .filter(|r| r.len() > 1)
-            .map(|record| {
-                if record.len() < 5 {
-                    let fields = record.iter().collect::<Vec<_>>().join(" ");
-                    return Err(MdError::ParsingError(format!(
-                        "not enough fields in layout record '{fields}'"
-                    )));
-                }
-                let name = record[0].to_string();
-                let start_str = &record[2];
-                let start: usize = start_str.parse().map_err(|err| {
-                    let msg = format!(
-                        "could not parse layout start '{start_str}' for variable \
-                         '{name}' as a non-negative integer: {err}"
-                    );
-                    MdError::ParsingError(msg)
-                })?;
+        let mut all_vars = Vec::new();
+        for result in reader.records() {
+            let record = result.map_err(|err| {
+                MdError::ParsingError(format!("could not read a record from the layout: {err}"))
+            })?;
 
-                let width_str = &record[3];
-                let width: usize = width_str.parse().map_err(|err| {
-                    let msg = format!(
-                        "could not parse layout width '{width_str}' for variable \
-                            '{name}' as a non-negative integer: {err}"
-                    );
-                    MdError::ParsingError(msg)
-                })?;
+            // Blank lines and lines with a single field carry no layout information.
+            if record.len() <= 1 {
+                continue;
+            }
 
-                Ok(LayoutVar {
-                    name,
-                    rectype: record[1].to_string(),
-                    start,
-                    width,
-                    data_type: IpumsDataType::from(&record[4]),
-                    col: 0,
-                })
-            })
-            .collect::<Result<Vec<LayoutVar>, MdError>>()?;
+            if record.len() < 5 {
+                let fields = record.iter().collect::<Vec<_>>().join(" ");
+                return Err(MdError::ParsingError(format!(
+                    "not enough fields in layout record '{fields}'"
+                )));
+            }
+            let name = record[0].to_string();
+            let start_str = &record[2];
+            let start: usize = start_str.parse().map_err(|err| {
+                let msg = format!(
+                    "could not parse layout start '{start_str}' for variable \
+                     '{name}' as a non-negative integer: {err}"
+                );
+                MdError::ParsingError(msg)
+            })?;
+
+            let width_str = &record[3];
+            let width: usize = width_str.parse().map_err(|err| {
+                let msg = format!(
+                    "could not parse layout width '{width_str}' for variable \
+                        '{name}' as a non-negative integer: {err}"
+                );
+                MdError::ParsingError(msg)
+            })?;
+
+            all_vars.push(LayoutVar {
+                name,
+                rectype: record[1].to_string(),
+                start,
+                width,
+                data_type: IpumsDataType::from(&record[4]),
+                col: 0,
+            });
+        }
 
         // While sorting in 'start' order would yield an order that's slightly
         // faster to process, defaulting vars to alphabetical order ensures
@@ -203,6 +208,10 @@ impl DatasetLayout {
             .has_headers(false)
             .delimiter(b' ')
             .comment(Some(b'#'))
+            // Layout lines all have the same number of fields, but a ragged line
+            // shouldn't abort the whole file: try_from_layout_reader() checks the
+            // field count of each record and reports on it individually.
+            .flexible(true)
             .from_path(filename);
 
         let reader = match rdr {
@@ -250,6 +259,7 @@ mod tests {
         csv::ReaderBuilder::new()
             .has_headers(false)
             .delimiter(b' ')
+            .flexible(true)
             .from_reader(cursor)
     }
 
@@ -351,7 +361,11 @@ mod tests {
 
         let all_vars = layout.all_variables();
         let all_var_names: Vec<_> = all_vars.iter().map(|v| v.name.as_str()).collect();
-        assert_eq!(all_vars.len(), 345, "there should be 339 total variables");
+        assert_eq!(
+            all_vars.len(),
+            345,
+            "there should be 345 total variables: 339 P and H variables plus the '#' system variables"
+        );
         assert!(all_var_names.contains(&"AGE"), "should have P variable AGE");
         assert!(
             all_var_names.contains(&"METRO"),

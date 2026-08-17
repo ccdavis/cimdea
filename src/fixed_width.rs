@@ -117,6 +117,10 @@ pub fn left_pad_in_place(
 ) {
     const NEGATIVE_SIGN: u8 = b'-';
 
+    if code.is_empty() {
+        return;
+    }
+
     let mut pos = 0;
     loop {
         if code[pos] == replace {

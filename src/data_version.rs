@@ -396,35 +396,24 @@ fn read_first_line(data_path: &str) -> Result<Vec<u8>, MdError> {
     let file = File::open(path)
         .map_err(|e| metadata_error!("Cannot open data file '{}': {}", data_path, e))?;
 
-    let first_line: Vec<u8> = if data_path.ends_with(".gz") {
-        let decoder = GzDecoder::new(file);
-        let mut reader = BufReader::new(decoder);
-        let mut line = Vec::new();
-        reader
-            .read_until(b'\n', &mut line)
-            .map_err(|e| metadata_error!("Error reading gzipped file '{}': {}", data_path, e))?;
-        // Remove trailing newline if present
-        if line.last() == Some(&b'\n') {
-            line.pop();
-        }
-        if line.last() == Some(&b'\r') {
-            line.pop();
-        }
-        line
+    let mut reader: Box<dyn BufRead> = if data_path.ends_with(".gz") {
+        Box::new(BufReader::new(GzDecoder::new(file)))
     } else {
-        let mut reader = BufReader::new(file);
-        let mut line = Vec::new();
-        reader
-            .read_until(b'\n', &mut line)
-            .map_err(|e| metadata_error!("Error reading file '{}': {}", data_path, e))?;
-        if line.last() == Some(&b'\n') {
-            line.pop();
-        }
-        if line.last() == Some(&b'\r') {
-            line.pop();
-        }
-        line
+        Box::new(BufReader::new(file))
     };
+
+    let mut first_line = Vec::new();
+    reader
+        .read_until(b'\n', &mut first_line)
+        .map_err(|e| metadata_error!("Error reading data file '{}': {}", data_path, e))?;
+
+    // Remove the line ending if present
+    if first_line.last() == Some(&b'\n') {
+        first_line.pop();
+    }
+    if first_line.last() == Some(&b'\r') {
+        first_line.pop();
+    }
 
     Ok(first_line)
 }

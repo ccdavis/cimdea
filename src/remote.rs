@@ -160,16 +160,17 @@ impl SshConnectionPool {
     ) -> Result<(), RemoteError> {
         let canonical = self.resolve_canonical_host(server);
 
-        // Check if already connected or failed
-        if let Some(state) = self.connections.get(&canonical) {
-            return match state {
-                ConnectionState::Connected { .. } => Ok(()),
-                ConnectionState::Failed => Err(RemoteError::ConnectionFailed(
+        // Check if already connected or failed. A Pending entry means nothing has
+        // been tried yet, so fall through and connect.
+        match self.connections.get(&canonical) {
+            Some(ConnectionState::Connected { .. }) => return Ok(()),
+            Some(ConnectionState::Failed) => {
+                return Err(RemoteError::ConnectionFailed(
                     "Previous connection attempt failed".to_string(),
-                )),
-                ConnectionState::Skipped => Err(RemoteError::ConnectionSkipped),
-                ConnectionState::Pending => unreachable!(),
-            };
+                ))
+            }
+            Some(ConnectionState::Skipped) => return Err(RemoteError::ConnectionSkipped),
+            Some(ConnectionState::Pending) | None => {}
         }
 
         // For third-party servers, prompt user
@@ -217,19 +218,10 @@ impl SshConnectionPool {
             .status()?;
 
         if status.success() {
-            self.connections.insert(
-                canonical.clone(),
-                ConnectionState::Connected {
-                    ssh_target: ssh_target.clone(),
-                },
-            );
-            // Also store mapping for original server name if different
-            if server != canonical {
-                self.connections.insert(
-                    server.to_string(),
-                    ConnectionState::Connected { ssh_target },
-                );
-            }
+            // Connections are keyed by canonical host name; resolve_canonical_host()
+            // has already recorded how to get from `server` to `canonical`.
+            self.connections
+                .insert(canonical, ConnectionState::Connected { ssh_target });
             Ok(())
         } else {
             self.connections.insert(canonical, ConnectionState::Failed);
@@ -272,19 +264,21 @@ impl SshConnectionPool {
 
     /// Check if a path exists on the remote server (directory or file)
     pub fn path_exists(&self, server: &str, path: &str) -> Result<bool, RemoteError> {
-        let cmd = format!("test -e '{}' && echo 'yes' || echo 'no'", path);
+        let cmd = format!("test -e {} && echo 'yes' || echo 'no'", shell_quote(path));
         let output = self.exec(server, &cmd)?;
         Ok(output.trim() == "yes")
     }
 
     /// Check if a directory exists on the remote server
     pub fn dir_exists(&self, server: &str, path: &str) -> Result<bool, RemoteError> {
-        let cmd = format!("test -d '{}' && echo 'yes' || echo 'no'", path);
+        let cmd = format!("test -d {} && echo 'yes' || echo 'no'", shell_quote(path));
         let output = self.exec(server, &cmd)?;
         Ok(output.trim() == "yes")
     }
 
     /// List files matching a pattern
+    ///
+    /// The pattern goes to the remote shell unquoted so that globs in it expand.
     pub fn list_files(&self, server: &str, pattern: &str) -> Result<Vec<String>, RemoteError> {
         let cmd = format!("ls -1 {} 2>/dev/null || true", pattern);
         let output = self.exec(server, &cmd)?;
@@ -316,14 +310,14 @@ impl SshConnectionPool {
     ) -> Result<Vec<String>, RemoteError> {
         // Check each subdirectory for parquet files or any content
         let cmd = format!(
-            r#"for d in '{}'/*/ ; do
+            r#"for d in {}/*/ ; do
                 if [ -d "$d" ]; then
                     if ls "$d"*.parquet >/dev/null 2>&1 || [ -n "$(ls -A "$d" 2>/dev/null)" ]; then
                         basename "$d"
                     fi
                 fi
             done 2>/dev/null || true"#,
-            base_dir
+            shell_quote(base_dir)
         );
         let output = self.exec(server, &cmd)?;
         Ok(output
@@ -385,7 +379,7 @@ impl SshConnectionPool {
 
     /// Close all connections (called automatically on drop)
     fn close_all_connections(&mut self) {
-        for (_, state) in &self.connections {
+        for state in self.connections.values() {
             if let ConnectionState::Connected { ssh_target } = state {
                 let control_path = self.control_path(ssh_target);
                 let _ = Command::new("ssh")
@@ -400,6 +394,14 @@ impl SshConnectionPool {
             }
         }
     }
+}
+
+/// Wrap a value in single quotes so the remote shell takes it literally.
+///
+/// Single quotes inside the value are escaped, so a path with a quote in it
+/// can't end the quoting and run something else.
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', r"'\''"))
 }
 
 impl Drop for SshConnectionPool {
@@ -430,5 +432,15 @@ mod tests {
     fn test_not_connected_initially() {
         let pool = SshConnectionPool::new().unwrap();
         assert!(!pool.is_connected("example.com"));
+    }
+
+    #[test]
+    fn test_shell_quote() {
+        assert_eq!(shell_quote("/web/data/current"), "'/web/data/current'");
+        // A quote in the value can't close the quoting and start a new command.
+        assert_eq!(
+            shell_quote("/tmp/x'; rm -rf /; echo '"),
+            r"'/tmp/x'\''; rm -rf /; echo '\'''"
+        );
     }
 }

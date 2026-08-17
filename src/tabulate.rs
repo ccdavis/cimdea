@@ -15,6 +15,7 @@ use crate::request::DataRequest;
 use crate::request::InputType;
 use crate::request::RequestVariable;
 
+use duckdb::types::ValueRef;
 use duckdb::Connection;
 use serde::ser::Error;
 use serde::Serialize;
@@ -154,15 +155,14 @@ impl Table {
     pub fn format_as_text(&self) -> Result<String, MdError> {
         let mut out = String::new();
         let widths = self.column_widths()?;
-        for (column, _v) in self.heading.iter().enumerate() {
-            let name = self.heading[column].name();
-            let column_header = format!("| {n:>w$} ", n = &name, w = widths[column]);
+        for (column, heading) in self.heading.iter().enumerate() {
+            let column_header = format!("| {n:>w$} ", n = &heading.name(), w = widths[column]);
             out.push_str(&column_header);
         }
         out.push_str("|\n");
         out.push_str(&format!(
             "|{:}|",
-            str::repeat("-", self.text_table_width()? - 2)
+            str::repeat("-", Self::width_of_text_table(&widths).saturating_sub(2))
         ));
         out.push('\n');
 
@@ -178,38 +178,25 @@ impl Table {
     }
 
     pub fn text_table_width(&self) -> Result<usize, MdError> {
-        Ok(1 + 3 * self.heading.len() + self.column_widths()?.iter().sum::<usize>())
+        Ok(Self::width_of_text_table(&self.column_widths()?))
     }
 
+    /// Every column takes its own width plus a "| " on the left and a space on
+    /// the right; the final "|" adds the last character.
+    fn width_of_text_table(column_widths: &[usize]) -> usize {
+        1 + 3 * column_widths.len() + column_widths.iter().sum::<usize>()
+    }
+
+    /// The display width of each column: the wider of the column name and the
+    /// width the metadata gives for its values.
     fn column_widths(&self) -> Result<Vec<usize>, MdError> {
         let mut widths = Vec::new();
         for var in self.heading.iter() {
             let name_width = var.name().len();
             let width = var.width()?;
-            if name_width < width {
-                widths.push(width);
-            } else {
-                widths.push(name_width);
-            }
-            /*
-            else  if let Some(w) = self.width_from_data(column) {
-                    if name_width < w {
-                        widths.push(w);
-                    } else {
-                        widths.push(name_width);
-                    }
-                } else {
-                    return Err(MdError::Msg("Can't determine column width of data.".to_string()));
-                }
-            }
-            */
+            widths.push(name_width.max(width));
         }
         Ok(widths)
-    }
-
-    #[allow(unused)]
-    fn width_from_data(&self, column: usize) -> Option<usize> {
-        self.rows.iter().map(|r| r[column].len()).max()
     }
 
     pub fn empty() -> Self {
@@ -227,7 +214,9 @@ impl Tabulation {
     pub fn output(&self, format: TableFormat) -> Result<String, MdError> {
         let output = match format {
             TableFormat::Html | TableFormat::Csv => {
-                todo!("Output format {:?} not implemented yet.", format)
+                return Err(MdError::Msg(format!(
+                    "the output format {format:?} is not implemented yet"
+                )));
             }
             TableFormat::Json => match serde_json::to_string_pretty(&self.0) {
                 Ok(output) => output,
@@ -268,7 +257,7 @@ where
     R: DataRequest,
 {
     let requested_output_columns = rq
-        .get_request_variables()
+        .get_request_variables()?
         .iter()
         .map(|v| OutputColumn::RequestVar(Box::new(v.clone())))
         .collect::<Vec<OutputColumn>>();
@@ -278,9 +267,9 @@ where
     let conn = Connection::open_in_memory()?;
     for q in sql_queries {
         if DEBUG {
-            println!("{}", &q);
+            println!("{}", &q.sql);
         }
-        let mut stmt = conn.prepare(&q)?;
+        let mut stmt = conn.prepare(&q.sql)?;
         let mut rows = stmt.query([])?;
 
         let mut output = Table {
@@ -292,11 +281,15 @@ where
             width: 10,
             data_type: IpumsDataType::Integer,
         });
-        output.heading.push(OutputColumn::Constructed {
-            name: "weighted_ct".to_string(),
-            width: 10,
-            data_type: IpumsDataType::Integer,
-        });
+        // The query only has a weighted count when the unit of analysis has a
+        // weight variable.
+        if q.weighted {
+            output.heading.push(OutputColumn::Constructed {
+                name: "weighted_ct".to_string(),
+                width: 10,
+                data_type: IpumsDataType::Integer,
+            });
+        }
         output.heading.extend(requested_output_columns.clone());
 
         while let Some(row) = rows.next()? {
@@ -316,16 +309,25 @@ where
 
                 }
                 */
-                let item: isize = match row.get(column_number) {
-                    Ok(i) => i,
-                    Err(e) => {
-                        return Err(MdError::Msg(format!(
-                            "Can't extract value for '{}', error was '{}'",
-                            &column_name, e
-                        )))
-                    }
+                // Counts and IPUMS codes are numbers, including the string
+                // formatted codes that bucketing produces.
+                let numeric: Result<isize, _> = row.get(column_number);
+                let item = match numeric {
+                    Ok(number) => number.to_string(),
+                    // Anything that isn't a number keeps its text representation
+                    // instead of failing the whole tabulation.
+                    Err(err) => match row.get_ref(column_number)? {
+                        ValueRef::Null => String::new(),
+                        ValueRef::Text(bytes) => String::from_utf8_lossy(bytes).to_string(),
+                        _ => {
+                            return Err(MdError::Msg(format!(
+                                "Can't extract value for '{}', error was '{}'",
+                                &column_name, err
+                            )))
+                        }
+                    },
                 };
-                this_row.push(format!("{}", item));
+                this_row.push(item);
             }
             output.rows.push(this_row);
         }
@@ -454,7 +456,10 @@ mod test {
                     "Should be the number of person records in the data for this category."
                 );
 
-                assert_eq!("76100", t.rows[0][1], "98 should get weighted to 42300");
+                assert_eq!(
+                    "76100", t.rows[0][1],
+                    "the 1118 person records weight up to 76100 with the sample line weight SLWT"
+                );
             }
         }
     }
@@ -503,6 +508,78 @@ mod test {
                 assert_eq!("72", t.rows[0][3]);
             }
         }
+    }
+
+    /// The unit of analysis comes from the request. Tabulating a household
+    /// variable with 'H' as the unit of analysis counts households, not the
+    /// people in them.
+    #[test]
+    fn test_household_unit_of_analysis() {
+        let data_root = String::from("tests/data_root");
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["GQ"],
+            Some("H".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect("should be able to set up a household level request");
+
+        let tab = tabulate(&ctx, rq).expect("should tabulate at the household level");
+        let tables = tab.into_inner();
+        assert_eq!(1, tables.len());
+        let table = &tables[0];
+
+        // The person level tabulation of GQ = 1 in test_hh_only() counts 29846
+        // person records; there are fewer households than people.
+        assert_eq!(
+            "3328", table.rows[0][0],
+            "should be the number of household records with GQ = 1, not the number of people"
+        );
+    }
+
+    /// A record type without a weight variable gets no weighted count, and the
+    /// remaining columns still line up with the heading.
+    #[test]
+    fn test_tabulation_without_a_weight() {
+        let data_root = String::from("tests/data_root");
+        let (mut ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &["MARST"],
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect("should be able to set up this request");
+
+        // Pretend this collection has no person weight
+        ctx.settings
+            .record_types
+            .get_mut("P")
+            .expect("USA should have a P record type")
+            .weight = None;
+
+        let tab = tabulate(&ctx, rq).expect("should tabulate without a weight");
+        let tables = tab.into_inner();
+        assert_eq!(1, tables.len());
+        let table = &tables[0];
+
+        let headings: Vec<String> = table.heading.iter().map(|h| h.name()).collect();
+        assert_eq!(
+            headings,
+            ["ct", "MARST"],
+            "there should be no weighted_ct column without a weight"
+        );
+        assert_eq!(6, table.rows.len(), "MARST has 6 categories in us2015b");
+        for (index, row) in table.rows.iter().enumerate() {
+            assert_eq!(2, row.len(), "row {index} should have 2 columns");
+        }
+        assert_eq!(
+            "10050", table.rows[0][0],
+            "the unweighted counts should match the weighted tabulation's counts"
+        );
     }
 
     #[test]

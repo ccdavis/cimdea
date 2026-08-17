@@ -164,13 +164,8 @@ impl MicroDataCollection {
             })
             .collect();
 
-        // Initialize metadata if not already present
-        if self.metadata.is_none() {
-            self.metadata = Some(MetadataEntities::new());
-        }
-
-        // Now work with the metadata
-        let md = self.metadata.as_mut().unwrap();
+        // Add to the existing metadata, initializing it first if it isn't there yet
+        let md = self.metadata.get_or_insert_with(MetadataEntities::new);
 
         for (rectype_abbrev, base_filename) in record_types {
             let parquet_file = parquet_dataset_path.join(format!("{}.parquet", base_filename));
@@ -231,10 +226,12 @@ impl MicroDataCollection {
         datasets: &[&str],
         data_root: &Path,
     ) -> Result<(), MdError> {
-        let mut md = MetadataEntities::new();
+        // Add to any metadata already loaded; ids get assigned by MetadataEntities
+        // as the datasets and variables are added.
+        let md = self.metadata.get_or_insert_with(MetadataEntities::new);
+        let layouts_path = data_root.join("layouts");
         for (index_ds, ds) in datasets.iter().enumerate() {
             let ipums_dataset = IpumsDataset::from((ds.to_string(), index_ds));
-            let layouts_path = data_root.to_path_buf().join("layouts");
             let layout = layout::DatasetLayout::try_from_layout_file(
                 &layouts_path.join(format!("{}.layout.txt", ds)),
             )?;
@@ -243,7 +240,6 @@ impl MicroDataCollection {
                 md.add_dataset_variable(ipums_dataset.clone(), ipums_var);
             }
         }
-        self.metadata = Some(md);
         Ok(())
     }
 
@@ -319,7 +315,10 @@ impl MicroDataCollection {
         todo!("implement");
     }
 
-    pub fn clear_metadata(&mut self) {}
+    /// Drop any metadata loaded into this collection.
+    pub fn clear_metadata(&mut self) {
+        self.metadata = None;
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -416,8 +415,11 @@ impl VariablesForDataset {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self.ipums_variables_by_dataset_id.get(dataset_id).is_none() {
-            self.ipums_variables_by_dataset_id.push(HashSet::new());
+        // Dataset ids are normally handed out in order, but grow the index to fit
+        // rather than panicking if one skips ahead.
+        if self.ipums_variables_by_dataset_id.len() <= dataset_id {
+            self.ipums_variables_by_dataset_id
+                .resize_with(dataset_id + 1, HashSet::new);
         }
         self.ipums_variables_by_dataset_id[dataset_id].insert(variable_id);
     }
@@ -447,12 +449,11 @@ impl DatasetsForVariable {
     }
 
     pub fn add_or_update(&mut self, dataset_id: IpumsDatasetId, variable_id: IpumsVariableId) {
-        if self
-            .ipums_datasets_by_variable_id
-            .get(variable_id)
-            .is_none()
-        {
-            self.ipums_datasets_by_variable_id.push(HashSet::new());
+        // Variable ids are normally handed out in order, but grow the index to fit
+        // rather than panicking if one skips ahead.
+        if self.ipums_datasets_by_variable_id.len() <= variable_id {
+            self.ipums_datasets_by_variable_id
+                .resize_with(variable_id + 1, HashSet::new);
         }
 
         self.ipums_datasets_by_variable_id[variable_id].insert(dataset_id);
@@ -590,9 +591,7 @@ impl Context {
             InputType::NativeDb => "",
         };
 
-        let data_path = if let Some(ref data_root) = self.data_root {
-            PathBuf::from(data_root)
-        } else {
+        let Some(data_path) = self.data_root.as_ref() else {
             return Err(MdError::Msg("No data root set.".to_string()));
         };
 
