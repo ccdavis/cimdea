@@ -15,7 +15,7 @@ use crate::conventions::Context;
 
 use crate::input_schema_tabulation::{CategoryBin, RequestCaseSelection};
 use crate::ipums_metadata_model::{self, IpumsDataType, IpumsVariable};
-use crate::mderror::{metadata_error, MdError};
+use crate::mderror::MdError;
 use crate::request::CaseSelectLogic;
 use crate::request::DataRequest;
 use crate::request::InputType;
@@ -101,11 +101,10 @@ impl TabBuilder {
                 // The uoa should be the lowest record in the hierarchy of record types from requested variables by definition. The 'foreign_key' will point to the record
                 // type directly above in the hierarchy. Note this breaks down for sibling records. Variables from sibling records
                 // should not be allowed in the same tabulation.
-                let left_foreign_key = Self::help_get_connecting_foreign_key(ctx, uoa, rt)?;
+                let (left_foreign_key, table_id) = Self::help_get_join_columns(ctx, uoa, rt)?;
 
                 let platform_specific_path = ds.for_platform(&self.platform);
                 let table_alias = ds.table_name();
-                let table_id = Self::help_get_id_for_record_type(ctx, rt)?;
                 q = q + &format!(
                     "\n left join  {} {} on {}.{} = {}.{}",
                     platform_specific_path,
@@ -373,11 +372,26 @@ impl TabBuilder {
         Ok(TabQuery { sql, weighted })
     }
 
-    fn help_get_connecting_foreign_key(
+    /// The two columns that join a record type to the record type above it: the foreign key on
+    /// the child record and the id it points at on the parent record.
+    ///
+    /// Both columns are resolved together so that a query can't join a key from one naming
+    /// scheme to an id from another. There are two schemes:
+    ///
+    /// * the keys DCP generates from the record type names, like `HOUSEHOLD_KEY_ON_PERSON` and
+    ///   `HOUSEHOLD_KEY`, which newer data has for every record type
+    /// * the conventionally named columns of the census style collections, `SERIALP` and `SERIAL`
+    ///
+    /// The generated pair wins when the loaded metadata has both of its columns. Otherwise the
+    /// conventional pair, which is what data built before DCP generated keys has. If only one
+    /// side of the join has a conventional name -- which happens where DCP renamed a record type,
+    /// leaving an older spelling of the generated key on the child but not on its parent -- each
+    /// side falls back to whatever name it does have.
+    fn help_get_join_columns(
         ctx: &Context,
         from_rt: &str,
         to_parent: &str,
-    ) -> Result<String, MdError> {
+    ) -> Result<(String, String), MdError> {
         let no_connection = || {
             MdError::Msg(format!(
                 "Cannot find a connection between '{}' and a parent record type of '{}'",
@@ -390,50 +404,51 @@ impl TabBuilder {
             .record_types
             .get(from_rt)
             .ok_or_else(no_connection)?;
+        let parent_rt = ctx
+            .settings
+            .record_types
+            .get(to_parent)
+            .ok_or_else(no_connection)?;
 
-        // The foreign key DCP generates from the record type names, if these two really are the
-        // child and parent of each other in the hierarchy.
-        let generated_key = ctx
+        // The generated names, if these two really are the child and parent of each other
+        let generated = ctx
             .settings
             .parent_rectype(from_rt)
-            .filter(|parent_rt| parent_rt.value == to_parent)
-            .map(|parent_rt| child_rt.generated_foreign_key(parent_rt));
+            .filter(|hierarchy_parent| hierarchy_parent.value == to_parent)
+            .map(|parent_rt| {
+                (
+                    child_rt.generated_foreign_key(parent_rt),
+                    parent_rt.generated_key(),
+                )
+            });
 
-        // Newer data has the generated keys on every record type below the root of the
-        // hierarchy, so prefer them whenever the data we're querying has them.
-        if let Some(ref generated_key) = generated_key {
-            if ctx.has_md_variable(generated_key) {
-                return Ok(generated_key.clone());
+        if let Some((ref foreign_key, ref unique_id)) = generated {
+            if ctx.has_md_variable(foreign_key) && ctx.has_md_variable(unique_id) {
+                return Ok((foreign_key.clone(), unique_id.clone()));
             }
         }
 
-        // Otherwise the conventionally named column, like SERIALP on a USA person record
-        if let Some((_, key_name)) = child_rt
+        let conventional_foreign_key = child_rt
             .foreign_keys
             .iter()
             .find(|(to_rt, _f)| to_rt == to_parent)
+            .map(|(_, foreign_key)| foreign_key.clone());
+        let conventional_unique_id =
+            (!parent_rt.unique_id.is_empty()).then(|| parent_rt.unique_id.clone());
+
+        // Both sides named conventionally: use them as a pair, never half of one and half of the
+        // other.
+        if let (Some(foreign_key), Some(unique_id)) =
+            (&conventional_foreign_key, &conventional_unique_id)
         {
-            return Ok(key_name.clone());
+            return Ok((foreign_key.clone(), unique_id.clone()));
         }
 
-        // With no conventional column either, the generated name is the best we can do
-        generated_key.ok_or_else(no_connection)
-    }
-
-    fn help_get_id_for_record_type(ctx: &Context, rt: &str) -> Result<String, MdError> {
-        if let Some(record_type) = ctx.settings.record_types.get(rt) {
-            // Prefer the key DCP generates from the record type name, falling back to the
-            // conventionally named column (SERIAL, PSERIAL) when the data doesn't have the
-            // generated one.
-            let generated_key = record_type.generated_key();
-            if record_type.unique_id.is_empty() || ctx.has_md_variable(&generated_key) {
-                Ok(generated_key)
-            } else {
-                Ok(record_type.unique_id.clone())
-            }
-        } else {
-            Err(metadata_error!("No record type '{rt}' in current context.",))
-        }
+        let (generated_foreign_key, generated_unique_id) = generated.ok_or_else(no_connection)?;
+        Ok((
+            conventional_foreign_key.unwrap_or(generated_foreign_key),
+            conventional_unique_id.unwrap_or(generated_unique_id),
+        ))
     }
 }
 
@@ -798,14 +813,9 @@ else '999' end as UHRSWORK_bucketed";
 
         // This data predates the generated keys, so the conventional columns win
         assert_eq!(
-            TabBuilder::help_get_id_for_record_type(&ctx, "H")
-                .expect("household should have an id column"),
-            "SERIAL"
-        );
-        assert_eq!(
-            TabBuilder::help_get_connecting_foreign_key(&ctx, "P", "H")
+            TabBuilder::help_get_join_columns(&ctx, "P", "H")
                 .expect("a person record should connect to its household"),
-            "SERIALP"
+            ("SERIALP".to_string(), "SERIAL".to_string())
         );
 
         // Add the generated keys to the metadata, the way data built by a newer DCP has them
@@ -834,14 +844,203 @@ else '999' end as UHRSWORK_bucketed";
         }
 
         assert_eq!(
-            TabBuilder::help_get_id_for_record_type(&ctx, "H")
-                .expect("household should have an id column"),
-            "HOUSEHOLD_KEY"
-        );
-        assert_eq!(
-            TabBuilder::help_get_connecting_foreign_key(&ctx, "P", "H")
+            TabBuilder::help_get_join_columns(&ctx, "P", "H")
                 .expect("a person record should connect to its household"),
-            "HOUSEHOLD_KEY_ON_PERSON"
+            (
+                "HOUSEHOLD_KEY_ON_PERSON".to_string(),
+                "HOUSEHOLD_KEY".to_string()
+            )
+        );
+    }
+
+    /// Both columns of a join come from the same naming scheme. Metadata that only knows about
+    /// the generated key on one side of the join can't produce a query joining that key to a
+    /// conventionally named column on the other side.
+    #[test]
+    fn test_join_columns_do_not_mix_naming_schemes() {
+        use crate::ipums_metadata_model::{IpumsDataset, IpumsVariable};
+
+        let data_root = String::from("tests/data_root");
+        let mut ctx = Context::from_ipums_collection_name("usa", None, Some(data_root))
+            .expect("should build a USA context");
+        ctx.load_metadata_for_datasets(&["us2015b"])
+            .expect("should load metadata from the layout");
+
+        // Only the household half of the generated pair is in the metadata
+        let md = ctx
+            .settings
+            .metadata
+            .as_mut()
+            .expect("metadata should be loaded");
+        md.add_dataset_variable(
+            IpumsDataset::from(("us2015b".to_string(), 0)),
+            IpumsVariable {
+                name: "HOUSEHOLD_KEY".to_string(),
+                record_type: "H".to_string(),
+                data_type: None,
+                label: None,
+                categories: None,
+                formatting: None,
+                general_width: None,
+                description: None,
+                category_bins: None,
+                id: 0,
+            },
+        );
+
+        assert_eq!(
+            TabBuilder::help_get_join_columns(&ctx, "P", "H")
+                .expect("a person record should connect to its household"),
+            ("SERIALP".to_string(), "SERIAL".to_string()),
+            "without HOUSEHOLD_KEY_ON_PERSON the join has to stay on the conventional columns"
+        );
+    }
+
+    /// Every key column this derives is one a real IPUMS layout has. The at2025 layout in the
+    /// test data is a slice of a real ATUS layout, covering all five of its record types.
+    #[test]
+    fn test_generated_keys_match_a_real_layout() {
+        let data_root = String::from("tests/data_root");
+        let mut ctx = Context::from_ipums_collection_name("atus", None, Some(data_root))
+            .expect("should build an ATUS context");
+        ctx.load_metadata_for_datasets(&["at2025"])
+            .expect("should load metadata from the ATUS layout");
+
+        // The keys and links the layout has are the ones query generation asks for
+        for (child, parent, foreign_key, unique_id) in [
+            ("P", "H", "HOUSEHOLD_KEY_ON_PERSON", "HOUSEHOLD_KEY"),
+            ("A", "P", "PERSON_KEY_ON_ACTIVITY", "PERSON_KEY"),
+            ("W", "A", "ACTIVITY_KEY_ON_WHO", "ACTIVITY_KEY"),
+            ("R", "P", "PERSON_KEY_ON_ELDER_CARE", "PERSON_KEY"),
+        ] {
+            assert!(
+                ctx.has_md_variable(foreign_key) && ctx.has_md_variable(unique_id),
+                "the ATUS layout should have {foreign_key} and {unique_id}"
+            );
+            assert_eq!(
+                TabBuilder::help_get_join_columns(&ctx, child, parent)
+                    .unwrap_or_else(|err| panic!("'{child}' to '{parent}': {err}")),
+                (foreign_key.to_string(), unique_id.to_string())
+            );
+        }
+
+        // Same for the counting variables
+        for rectype in ["H", "P", "A"] {
+            for counting_variable in ctx.settings.counting_variables_for_rectype(rectype) {
+                assert!(
+                    ctx.has_md_variable(&counting_variable),
+                    "the ATUS layout should have {counting_variable}"
+                );
+            }
+        }
+        assert_eq!(
+            ctx.settings.counting_variables_for_rectype("P"),
+            ["COUNT_OF_A", "COUNT_OF_R"]
+        );
+    }
+
+    /// The health record types, which have the most complicated hierarchy of any product. The
+    /// mp2023 layout in the test data is a slice of a real MEPS layout.
+    #[test]
+    fn test_health_keys_match_a_real_layout() {
+        let data_root = String::from("tests/data_root");
+        let mut ctx = Context::from_ipums_collection_name("meps", None, Some(data_root))
+            .expect("should build a MEPS context");
+        ctx.load_metadata_for_datasets(&["mp2023"])
+            .expect("should load metadata from the MEPS layout");
+
+        for (child, parent, foreign_key, unique_id) in [
+            ("P", "H", "HOUSEHOLD_KEY_ON_PERSON", "HOUSEHOLD_KEY"),
+            ("X", "P", "PERSON_KEY_ON_CONDITION", "PERSON_KEY"),
+            ("S", "P", "PERSON_KEY_ON_XRAY", "PERSON_KEY"),
+            ("A", "P", "PERSON_KEY_ON_HOSPITALIZATION", "PERSON_KEY"),
+            ("4", "P", "PERSON_KEY_ON_DEVICE_IMPLANT_LENS", "PERSON_KEY"),
+            (
+                "F",
+                "M",
+                "PRESCRIPTION_MEDICATION_KEY_ON_MEDICATION_REFILL",
+                "PRESCRIPTION_MEDICATION_KEY",
+            ),
+            (
+                "J",
+                "X",
+                "CONDITION_KEY_ON_CONDITION_EVENT_REFILL",
+                "CONDITION_KEY",
+            ),
+            // DCP renamed this record type in July 2025, so this data has the older name
+            (
+                "K",
+                "E",
+                "EVENT_KEY_ON_EVENT_MEDICATION_EVENT_REFILL",
+                "EVENT_KEY",
+            ),
+        ] {
+            assert!(
+                ctx.has_md_variable(foreign_key) && ctx.has_md_variable(unique_id),
+                "the MEPS layout should have {foreign_key} and {unique_id}"
+            );
+            assert_eq!(
+                TabBuilder::help_get_join_columns(&ctx, child, parent)
+                    .unwrap_or_else(|err| panic!("'{child}' to '{parent}': {err}")),
+                (foreign_key.to_string(), unique_id.to_string())
+            );
+        }
+
+        // Every counting variable this collection expects is in the layout
+        for rectype in ctx.settings.record_types.keys() {
+            for counting_variable in ctx.settings.counting_variables_for_rectype(rectype) {
+                assert!(
+                    ctx.has_md_variable(&counting_variable),
+                    "the MEPS layout should have {counting_variable}"
+                );
+            }
+        }
+        assert_eq!(
+            ctx.settings.counting_variables_for_rectype("P").len(),
+            16,
+            "16 kinds of record hang off of a person in the health products"
+        );
+    }
+
+    /// Data that has the generated keys joins on them, and older data joins on the conventional
+    /// columns. The us1900m fixture has both; us2015b predates the generated keys.
+    #[test]
+    fn test_join_columns_in_generated_sql() {
+        let data_root = String::from("tests/data_root");
+        let variables = ["RACE", "STATEFIP"];
+
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us1900m"],
+            &variables,
+            Some("P".to_string()),
+            None,
+            Some(data_root.clone()),
+        )
+        .expect("should set up a us1900m request");
+        let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)
+            .expect("should generate a query");
+        let sql = &queries[0].sql;
+        assert!(
+            sql.contains("HOUSEHOLD_KEY_ON_PERSON = ") && sql.contains(".HOUSEHOLD_KEY"),
+            "us1900m has the generated keys, so it should join on them: {sql}"
+        );
+
+        let (ctx, rq) = SimpleRequest::from_names(
+            "usa",
+            &["us2015b"],
+            &variables,
+            Some("P".to_string()),
+            None,
+            Some(data_root),
+        )
+        .expect("should set up a us2015b request");
+        let queries = tab_queries(&ctx, rq, &InputType::Parquet, &DataPlatform::Duckdb)
+            .expect("should generate a query");
+        let sql = &queries[0].sql;
+        assert!(
+            sql.contains(".SERIALP = ") && sql.contains(".SERIAL"),
+            "us2015b has no generated keys, so it should join on SERIALP: {sql}"
         );
     }
 
@@ -858,35 +1057,31 @@ else '999' end as UHRSWORK_bucketed";
         // With no metadata to check for the generated keys, the census style collections fall
         // back to the columns their data has always had
         assert_eq!(
-            TabBuilder::help_get_id_for_record_type(&usa, "H")
-                .expect("household should have an id column"),
-            "SERIAL"
-        );
-        assert_eq!(
-            TabBuilder::help_get_connecting_foreign_key(&usa, "P", "H")
+            TabBuilder::help_get_join_columns(&usa, "P", "H")
                 .expect("a person record should connect to its household"),
-            "SERIALP"
+            ("SERIALP".to_string(), "SERIAL".to_string())
         );
 
-        // Everything else falls back to the generated keys
+        // Everything else uses the generated keys
         assert_eq!(
-            TabBuilder::help_get_id_for_record_type(&atus, "A")
-                .expect("an activity record should have an id column"),
-            "ACTIVITY_KEY"
-        );
-        assert_eq!(
-            TabBuilder::help_get_connecting_foreign_key(&atus, "A", "P")
+            TabBuilder::help_get_join_columns(&atus, "A", "P")
                 .expect("an activity record should connect to its person"),
-            "PERSON_KEY_ON_ACTIVITY"
+            (
+                "PERSON_KEY_ON_ACTIVITY".to_string(),
+                "PERSON_KEY".to_string()
+            )
         );
         assert_eq!(
-            TabBuilder::help_get_connecting_foreign_key(&atus, "W", "A")
+            TabBuilder::help_get_join_columns(&atus, "W", "A")
                 .expect("a who record should connect to its activity"),
-            "ACTIVITY_KEY_ON_WHO"
+            (
+                "ACTIVITY_KEY_ON_WHO".to_string(),
+                "ACTIVITY_KEY".to_string()
+            )
         );
 
         // A who record belongs to an activity, not directly to a household
-        let result = TabBuilder::help_get_connecting_foreign_key(&atus, "W", "H");
+        let result = TabBuilder::help_get_join_columns(&atus, "W", "H");
         assert!(result.is_err(), "expected an error but got {result:?}");
     }
 

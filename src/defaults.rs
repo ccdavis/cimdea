@@ -138,8 +138,9 @@ fn collection_name(product: &str) -> String {
 /// Build one record type of a collection.
 ///
 /// The census style collections have always had conventionally named SERIAL, PSERIAL and SERIALP
-/// columns, so those are recorded where they apply. Every other record type gets an empty id and
-/// no foreign key.
+/// columns, so those are recorded where they apply. Other record types get an empty id and no
+/// foreign key, unless DCP renamed them and their data carries an older spelling of the
+/// generated key.
 ///
 /// These are the fall back, not the first choice: query generation looks for the key columns DCP
 /// generates from the record type names -- see [generated_key](RecordType::generated_key) and
@@ -160,6 +161,9 @@ fn record_type(
         "person" if census_style => ("PSERIAL", Some(RecordWeight::new("PERWT", 100))),
         "household" => ("", Some(RecordWeight::new("HHWT", 100))),
         "person" => ("", Some(RecordWeight::new("PERWT", 100))),
+        // DCP called this record type "event_medication_event_refill" until July 2025, so the
+        // health data built before then has keys named for the longer name.
+        "event_medication_refill" => ("EVENT_MEDICATION_EVENT_REFILL_KEY", None),
         _ => ("", None),
     };
 
@@ -169,6 +173,11 @@ fn record_type(
         ("person", Some(household)) if census_style => {
             vec![(household.value.to_string(), "SERIALP".to_string())]
         }
+        // The same rename, on the key pointing back at the event record
+        ("event_medication_refill", Some(event)) => vec![(
+            event.value.to_string(),
+            "EVENT_KEY_ON_EVENT_MEDICATION_EVENT_REFILL".to_string(),
+        )],
         _ => Vec::new(),
     };
 

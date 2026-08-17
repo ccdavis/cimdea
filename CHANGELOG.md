@@ -63,9 +63,14 @@ Released" heading at the top.
   PSERIAL and SERIALP columns are the fall back for data built before DCP
   started generating keys. This also means tabulations across the time use and
   health record types, which have no conventionally named keys at all, can now
-  be generated.
+  be generated. Both columns of a join are resolved together, so a query can't
+  join a generated key on one side to a conventionally named id on the other.
 * `Context::has_md_variable()` and `MetadataEntities::has_variable()` report
   whether a variable is in the loaded metadata.
+* DCP renamed the health products' event medication refill record type in July
+  2025, so data built before then names its keys
+  `EVENT_MEDICATION_EVENT_REFILL_KEY` and
+  `EVENT_KEY_ON_EVENT_MEDICATION_EVENT_REFILL`. Both spellings resolve.
 * The collection name in `MicroDataCollection` is now the lower case product
   name for every product. It used to be "USA" for usa but lower case for the
   other collections. Data file names are unaffected because they were already
