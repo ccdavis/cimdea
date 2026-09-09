@@ -12,7 +12,7 @@ use parquet::file::reader::{FileReader, SerializedFileReader};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Variable metadata as stored in Parquet key-value metadata
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -429,6 +429,42 @@ impl ParquetMetadataReader {
         }
         false
     }
+
+    /// Resolve a parquet dataset path to a concrete parquet file to read metadata from.
+    ///
+    /// A dataset is either a single `.parquet` file or a partitioned dataset: a `.parquet`
+    /// directory whose members are the actual parquet files. Every member carries the same schema
+    /// and key-value metadata, so the lexically first member stands in for the whole dataset.
+    pub fn resolve_metadata_file(path: &Path) -> Result<PathBuf, MdError> {
+        if path.is_file() {
+            return Ok(path.to_path_buf());
+        }
+        if path.is_dir() {
+            let mut members: Vec<PathBuf> = std::fs::read_dir(path)
+                .map_err(|e| {
+                    metadata_error!(
+                        "Cannot read partitioned parquet dataset '{}': {}",
+                        path.display(),
+                        e
+                    )
+                })?
+                .filter_map(|entry| entry.ok())
+                .map(|entry| entry.path())
+                .filter(|p| p.is_file() && p.extension().is_some_and(|ext| ext == "parquet"))
+                .collect();
+            members.sort();
+            return members.into_iter().next().ok_or_else(|| {
+                metadata_error!(
+                    "Partitioned parquet dataset '{}' contains no parquet files",
+                    path.display()
+                )
+            });
+        }
+        Err(metadata_error!(
+            "Parquet dataset path '{}' is neither a file nor a directory",
+            path.display()
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -803,5 +839,36 @@ mod tests {
             ParquetMetadataReader::parquet_type_to_ipums_type("UNKNOWN"),
             "integer"
         );
+    }
+
+    #[test]
+    fn test_resolve_metadata_file() {
+        // A plain parquet file resolves to itself.
+        let file = Path::new("tests/data_root/parquet/us1900m/us1900m_usa.P.parquet");
+        assert_eq!(
+            ParquetMetadataReader::resolve_metadata_file(file).unwrap(),
+            file
+        );
+
+        // A partitioned dataset (a .parquet directory of member files) resolves to its lexically
+        // first member; non-parquet entries are ignored.
+        let dir = std::env::temp_dir().join(format!(
+            "cimdea_test_resolve_metadata_file_{}",
+            std::process::id()
+        ));
+        let dataset = dir.join("us1900m_usa.P.parquet");
+        std::fs::create_dir_all(&dataset).unwrap();
+        std::fs::write(dataset.join("part-00001.parquet"), b"").unwrap();
+        std::fs::write(dataset.join("part-00000.parquet"), b"").unwrap();
+        std::fs::write(dataset.join("_metadata"), b"").unwrap();
+        let resolved = ParquetMetadataReader::resolve_metadata_file(&dataset).unwrap();
+        assert_eq!(resolved, dataset.join("part-00000.parquet"));
+
+        // A partitioned dataset with no parquet members is an error.
+        let empty = dir.join("empty.parquet");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(ParquetMetadataReader::resolve_metadata_file(&empty).is_err());
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

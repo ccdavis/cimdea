@@ -176,6 +176,9 @@ impl MicroDataCollection {
             let parquet_file = parquet_dataset_path.join(format!("{}.parquet", base_filename));
 
             if parquet_file.exists() {
+                // A `.parquet` path may be a partitioned dataset (a directory of parquet files
+                // sharing one schema and key-value metadata); read metadata from a member file.
+                let parquet_file = ParquetMetadataReader::resolve_metadata_file(&parquet_file)?;
                 // Check if the file has IPUMS metadata
                 if ParquetMetadataReader::has_ipums_metadata(&parquet_file) {
                     // Load metadata from the parquet file
@@ -845,6 +848,48 @@ mod test {
                 assert!(usa_ctx.settings.metadata.is_some());
             }
         }
+    }
+
+    #[test]
+    fn test_load_metadata_from_partitioned_parquet() {
+        // Production datasets may be partitioned: each `.parquet` entry is a directory whose
+        // members are the actual parquet files. Metadata loading must read a member file rather
+        // than failing on the directory (which silently downgraded `ask`/MCP catalogs to
+        // layout-only metadata with no labels or value codes).
+        let src = PathBuf::from("tests/data_root/parquet/us1900m");
+        let tmp = std::env::temp_dir().join(format!(
+            "cimdea_test_partitioned_metadata_{}",
+            std::process::id()
+        ));
+        let dataset_path = tmp.join("us1900m");
+        for rt in ["H", "P"] {
+            let member_dir = dataset_path.join(format!("us1900m_usa.{rt}.parquet"));
+            std::fs::create_dir_all(&member_dir).unwrap();
+            std::fs::copy(
+                src.join(format!("us1900m_usa.{rt}.parquet")),
+                member_dir.join("part-00000.parquet"),
+            )
+            .unwrap();
+        }
+
+        let data_root = Some(String::from("tests/data_root"));
+        let mut usa_ctx = Context::from_ipums_collection_name("usa", None, data_root)
+            .expect("should be able to create USA context");
+        usa_ctx
+            .settings
+            .load_metadata_from_parquet(&dataset_path)
+            .expect("should load metadata from a partitioned parquet dataset");
+        let md = usa_ctx
+            .settings
+            .metadata
+            .as_ref()
+            .expect("metadata should be present");
+        assert!(
+            !md.variables_index.is_empty(),
+            "variables should be loaded from the partitioned dataset"
+        );
+
+        std::fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]

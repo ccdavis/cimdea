@@ -13,29 +13,30 @@
 //! 6. Assemble an explanation that pairs the model's prose with variable/value-label documentation
 //!    pulled straight from the metadata (so the facts come from the data, not the model).
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
+use std::collections::{HashMap, HashSet};
 
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
-use crate::conventions::Context;
+use crate::abacus_service::{
+    self, apply_bin_labels, build_catalog, build_strict_request, build_variable_docs,
+    list_available_datasets, load_catalog_context, loaded_variables, parse_year,
+    render_categories_inline, CategoryBinGroup as LlmCategoryBinGroup,
+    RequestVar as LlmRequestVariable, TabRequest as LlmAbacusRequest, DEFAULT_CATEGORY_CATALOG_MAX,
+};
 use crate::input_schema_tabulation as ist;
-use crate::ipums_metadata_model::{IpumsCategory, IpumsValue, IpumsVariable};
+use crate::ipums_metadata_model::IpumsVariable;
 use crate::llm::LlmProvider;
 use crate::mderror::MdError;
 use crate::request::AbacusRequest;
-use crate::tabulate::{self, OutputColumn, Table, TableFormat, Tabulation};
+use crate::tabulate::{self, TableFormat, Tabulation};
 
-/// How many value labels a variable may have before they are omitted from the prompt catalog.
-///
-/// The catalog inlines value labels only for variables with at most this many categories; larger
-/// variables show just a count, and the second (refinement) pass resolves their codes on demand.
-/// This trims the bulk of the catalog tokens (high-cardinality variables) while keeping common
-/// demographic variables (SEX, MARST, RACE, ...) inline so the first pass resolves their codes
-/// accurately without a second round-trip. Tune via `NlConfig.category_catalog_max`; set 0 to omit
-/// all inline labels (maximum trim, but more refinement and lower first-pass accuracy).
-const DEFAULT_CATEGORY_CATALOG_MAX: usize = 12;
+// The metadata/repair/catalog/doc/rendering primitives this module relies on live in
+// [crate::abacus_service] so the MCP and HTTP servers can reuse them. The intent-envelope types are
+// imported above under their original `Llm*` names so the LLM-specific orchestration below reads the
+// same as before. Documentation for variables and the JSON-fence stripper keep their public paths
+// here for backward compatibility.
+pub use crate::abacus_service::{strip_json_fences, VariableDoc};
 
 /// Inputs needed to translate and run a natural-language tabulation request.
 pub struct NlConfig {
@@ -82,22 +83,10 @@ pub struct NlResult {
     pub tabulation: Option<Tabulation>,
 }
 
-/// Documentation for a single variable, drawn from metadata rather than the model.
-pub struct VariableDoc {
-    pub name: String,
-    pub label: Option<String>,
-    pub record_type: String,
-    /// Whether this variable was tabulated with its "general" (collapsed) categories. When true,
-    /// the result codes are general groupings and the detailed `categories` below do not describe
-    /// them (the metadata carries only detailed value labels).
-    pub general: bool,
-    /// (code, label) pairs for the variable's detailed value labels.
-    pub categories: Vec<(String, String)>,
-}
-
 // ---------------------------------------------------------------------------
-// The lenient shape we parse out of the model. The model only fills the fields
-// that carry intent; mechanical fields are filled later from metadata.
+// The lenient shape we parse out of the model. The inner request types
+// ([LlmAbacusRequest] etc.) live in [crate::abacus_service]; only the outer
+// envelope (with the model's prose) is LLM-specific and stays here.
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize)]
@@ -112,78 +101,6 @@ struct LlmTabulationResponse {
     assumptions: String,
 }
 
-#[derive(Debug, Default, Deserialize)]
-struct LlmAbacusRequest {
-    #[serde(default)]
-    uoa: String,
-    #[serde(default)]
-    request_variables: Vec<LlmRequestVariable>,
-    #[serde(default)]
-    subpopulation: Vec<LlmRequestVariable>,
-    /// Category bins as an array (one entry per variable) so the whole envelope is expressible as a
-    /// JSON Schema for constrained decoding. Converted to the Abacus map form in `build_strict_request`.
-    #[serde(default)]
-    category_bins: Vec<LlmCategoryBinGroup>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct LlmCategoryBinGroup {
-    #[serde(default)]
-    variable: String,
-    #[serde(default)]
-    bins: Vec<LlmCategoryBin>,
-}
-
-#[derive(Debug, Deserialize)]
-struct LlmRequestVariable {
-    #[serde(default)]
-    variable_mnemonic: String,
-    #[serde(default)]
-    mnemonic: String,
-    #[serde(default)]
-    general_detailed_selection: String,
-    #[serde(default)]
-    case_selection: bool,
-    #[serde(default)]
-    request_case_selections: Vec<LlmCaseSelection>,
-}
-
-impl LlmRequestVariable {
-    /// The variable name, accepting either `variable_mnemonic` or `mnemonic`, uppercased.
-    fn name(&self) -> String {
-        let raw = if !self.variable_mnemonic.is_empty() {
-            &self.variable_mnemonic
-        } else {
-            &self.mnemonic
-        };
-        raw.trim().to_uppercase()
-    }
-
-    fn is_general(&self) -> bool {
-        self.general_detailed_selection.eq_ignore_ascii_case("G")
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct LlmCaseSelection {
-    #[serde(default)]
-    low_code: Option<serde_json::Value>,
-    #[serde(default)]
-    high_code: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct LlmCategoryBin {
-    #[serde(default)]
-    code: i64,
-    #[serde(default)]
-    value_label: String,
-    #[serde(default)]
-    low: Option<i64>,
-    #[serde(default)]
-    high: Option<i64>,
-}
-
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
@@ -193,7 +110,7 @@ pub fn run(provider: &dyn LlmProvider, prompt: &str, cfg: &NlConfig) -> Result<N
     // 0. Decide which dataset(s) to use: the caller's, or let the model pick one from those
     // available under the data root (e.g. "in 1900" -> an 1900 sample).
     let (datasets, dataset_reason) = if cfg.datasets.is_empty() {
-        let available = list_available_datasets(cfg)?;
+        let available = list_available_datasets(cfg.data_root.as_deref())?;
         let chosen = choose_datasets(provider, prompt, &available)?;
         (chosen.datasets, Some(chosen.reason))
     } else {
@@ -201,7 +118,7 @@ pub fn run(provider: &dyn LlmProvider, prompt: &str, cfg: &NlConfig) -> Result<N
     };
 
     // 1. Load metadata for the catalog and for value-label documentation.
-    let ctx = load_catalog_context(cfg, &datasets)?;
+    let ctx = load_catalog_context(&cfg.product, cfg.data_root.clone(), &datasets)?;
     let variables = loaded_variables(&ctx)?;
     let by_name: HashMap<String, &IpumsVariable> = variables
         .iter()
@@ -282,7 +199,15 @@ pub fn run(provider: &dyn LlmProvider, prompt: &str, cfg: &NlConfig) -> Result<N
     }
 
     // 3. Validate + repair into a strict request, filling mechanical fields from metadata.
-    let strict = build_strict_request(&llm_request, cfg, &datasets, &by_name, &mut warnings)?;
+    let strict = build_strict_request(
+        &llm_request,
+        &cfg.product,
+        &cfg.data_root,
+        cfg.detailed,
+        &datasets,
+        &by_name,
+        &mut warnings,
+    )?;
 
     // Collect the variables to document (in tabulation order, then subpopulation).
     let mut doc_names: Vec<String> = strict
@@ -351,37 +276,6 @@ pub fn run(provider: &dyn LlmProvider, prompt: &str, cfg: &NlConfig) -> Result<N
 }
 
 // ---------------------------------------------------------------------------
-// Metadata loading
-// ---------------------------------------------------------------------------
-
-fn load_catalog_context(cfg: &NlConfig, datasets: &[String]) -> Result<Context, MdError> {
-    let mut ctx = Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
-    let ds_refs: Vec<&str> = datasets.iter().map(|s| s.as_str()).collect();
-
-    // Prefer parquet embedded metadata (gives labels, value labels, general widths). Fall back to
-    // layout files (names + widths only) if parquet metadata isn't available. On the fallback we
-    // start from a fresh Context: a failed parquet load may have already added some variables, and
-    // layering the layout load on top of that partial state would double up the catalog.
-    match ctx.load_metadata_for_datasets_from_parquet(&ds_refs) {
-        Ok(()) => Ok(ctx),
-        Err(_) => {
-            let mut ctx =
-                Context::from_ipums_collection_name(&cfg.product, None, cfg.data_root.clone())?;
-            ctx.load_metadata_for_datasets(&ds_refs)?;
-            Ok(ctx)
-        }
-    }
-}
-
-fn loaded_variables(ctx: &Context) -> Result<&[IpumsVariable], MdError> {
-    ctx.settings
-        .metadata
-        .as_ref()
-        .map(|md| md.variables_index.as_slice())
-        .ok_or_else(|| MdError::MetadataError("no variable metadata loaded".to_string()))
-}
-
-// ---------------------------------------------------------------------------
 // Dataset selection (when the caller didn't name a dataset)
 // ---------------------------------------------------------------------------
 
@@ -408,49 +302,6 @@ Respond with ONLY a single JSON object (no markdown fences): {"datasets": ["<nam
 - Choose the SINGLE most appropriate dataset unless the user clearly wants several (e.g. a comparison across years).
 - Use ONLY names from the provided list, exactly as written.
 - If several datasets share the requested year, pick one (prefer the most complete/standard sample) and say which in the reason."#;
-
-/// List datasets available under the data root: each `parquet/<name>` that also has a
-/// `layouts/<name>.layout.txt` (so it is executable). Sorted, de-duplicated.
-fn list_available_datasets(cfg: &NlConfig) -> Result<Vec<String>, MdError> {
-    let data_root = cfg.data_root.as_deref().ok_or_else(|| {
-        MdError::Msg(
-            "no dataset was given and no data root is configured, so datasets cannot be \
-             discovered; specify a dataset"
-                .to_string(),
-        )
-    })?;
-    let parquet_dir = Path::new(data_root).join("parquet");
-    let layouts_dir = Path::new(data_root).join("layouts");
-
-    let entries = std::fs::read_dir(&parquet_dir).map_err(|e| {
-        MdError::Msg(format!(
-            "could not list datasets in {}: {e}",
-            parquet_dir.display()
-        ))
-    })?;
-
-    let mut names = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n.trim_end_matches(".parquet").to_string(),
-            None => continue,
-        };
-        if layouts_dir.join(format!("{name}.layout.txt")).is_file() {
-            names.push(name);
-        }
-    }
-    names.sort();
-    names.dedup();
-
-    if names.is_empty() {
-        return Err(MdError::Msg(format!(
-            "no usable datasets found under {data_root} (need parquet/<dataset> with a matching \
-             layouts/<dataset>.layout.txt)"
-        )));
-    }
-    Ok(names)
-}
 
 /// Ask the model to choose dataset(s) from `available` for `prompt`, validating its answer.
 fn choose_datasets(
@@ -509,25 +360,6 @@ fn build_dataset_listing(available: &[String]) -> String {
         .join("\n")
 }
 
-/// Extract a 4-digit year from a dataset name (e.g. "us1900m" -> 1900), if present.
-fn parse_year(name: &str) -> Option<u32> {
-    let bytes = name.as_bytes();
-    let mut i = 0;
-    while i + 4 <= bytes.len() {
-        let window = &bytes[i..i + 4];
-        let is_four_digits = window.iter().all(u8::is_ascii_digit);
-        let bounded_left = i == 0 || !bytes[i - 1].is_ascii_digit();
-        let bounded_right = i + 4 == bytes.len() || !bytes[i + 4].is_ascii_digit();
-        if is_four_digits && bounded_left && bounded_right {
-            return std::str::from_utf8(window)
-                .ok()
-                .and_then(|s| s.parse().ok());
-        }
-        i += 1;
-    }
-    None
-}
-
 // ---------------------------------------------------------------------------
 // Prompt building
 // ---------------------------------------------------------------------------
@@ -543,12 +375,12 @@ Respond with ONLY a single JSON object (no markdown fences, no prose outside the
 The "abacus_request" object has these fields:
 - "uoa": unit of analysis: "P" to count persons, "H" to count households.
 - "request_variables": the variables to tabulate. Each is {"variable_mnemonic": "<NAME>", "general_detailed_selection": "G" or ""}. "G" requests the general (simplified) categories; "" requests detailed. ONLY variables marked "general" in the catalog (shown as "(P; general)" or "(H; general)") have a general form. For those, DEFAULT TO "G" — it is what users expect and keeps results compact. For every variable NOT marked "general", you MUST use "" (it has only detailed categories). Even for a variable that has a general form, use "" when the user explicitly asks for detail ("detailed", "specific", "single year of age", "by country", "by state") or needs a breakdown finer than the general categories can express (individual countries of birth, individual states, single years of age, a particular detailed category).
-- "subpopulation": OPTIONAL array of filters restricting which records are counted. Each filter is {"variable_mnemonic": "<NAME>", "case_selection": true, "request_case_selections": [{"low_code": "<code>" or null, "high_code": "<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; set one bound to null for an open-ended range.
+- "subpopulation": OPTIONAL array of filters restricting which records are counted. Each filter is {"variable_mnemonic": "<NAME>", "case_selection": true, "request_case_selections": [{"low_code": "<code>" or null, "high_code": "<code>" or null}]}. A selection keeps records whose value is between low_code and high_code inclusive; set one bound to null for an open-ended range. Filter codes are DETAILED codes. If you only know the general category code for a variable marked "general" in the catalog, add "general_detailed_selection": "G" to that filter and give general codes; each general code is expanded to the detailed range it covers automatically.
 - "category_bins": OPTIONAL array; each entry groups one continuous variable into bins: {"variable": "<NAME>", "bins": [{"code": <int>, "value_label": "<text>", "low": <int>, "high": <int>}]}. For a CLOSED range set BOTH low and high (e.g. the group "10-19" is low 10, high 19). OMIT a bound only for an open-ended end (e.g. "65+" is low 65 with no high; "under 5" is high 4 with no low). Give each bin a distinct integer "code". A binned variable MUST also appear in "request_variables" (the bins regroup that variable's tabulation).
 
 Rules:
 - Use ONLY variable mnemonics from the provided catalog. Never invent variable names.
-- Request "G" ONLY for tabulation variables marked "general" in the catalog, and prefer "G" for those; use "" for all other tabulation variables and whenever detail is requested or required. Subpopulation FILTERS use detailed value codes (the exact integer codes shown), since that is where precise category selection matters.
+- Request "G" ONLY for tabulation variables marked "general" in the catalog, and prefer "G" for those; use "" for all other tabulation variables and whenever detail is requested or required. Subpopulation FILTERS use detailed value codes (the exact integer codes shown) unless the filter itself is marked "G" with general codes.
 - For subpopulation filters and category bins, use the integer value codes shown in the catalog.
 - Do NOT include byte offsets, widths, "mnemonic", or "attached_variable_pointer"; those are filled in from metadata.
 - Keep the request minimal: only include "subpopulation" or "category_bins" when the user asks for a filter or a grouping.
@@ -585,264 +417,6 @@ fn build_static_context(product: &str, datasets: &[String], catalog: &str) -> St
     )
 }
 
-fn build_catalog(variables: &[IpumsVariable], category_max: usize) -> String {
-    let mut lines = Vec::with_capacity(variables.len());
-    for var in variables {
-        let label = var.label.as_deref().unwrap_or("(no label)");
-        // Mark variables that actually have a general form so the model only requests "G" for them.
-        let record_type = if general_divisor(var) > 1 {
-            format!("{}; general", var.record_type)
-        } else {
-            var.record_type.clone()
-        };
-        let mut line = format!("{} — {} ({})", var.name, label, record_type);
-        if let Some(cats) = &var.categories {
-            if !cats.is_empty() && cats.len() <= category_max {
-                let rendered = render_categories_inline(cats);
-                line.push_str(&format!(" [{rendered}]"));
-            } else if cats.len() > category_max {
-                line.push_str(&format!(" [{} value labels]", cats.len()));
-            }
-        }
-        lines.push(line);
-    }
-    // Sort for a stable, deterministic catalog: metadata load order is not deterministic (it comes
-    // from a HashMap), and a stable catalog is required for the server-side cache key to match
-    // across runs (and is easier to read).
-    lines.sort();
-    lines.join("\n")
-}
-
-fn render_categories_inline(categories: &[IpumsCategory]) -> String {
-    categories
-        .iter()
-        .map(|c| format!("{}={}", ipums_value_code(&c.value), c.label()))
-        .collect::<Vec<_>>()
-        .join("; ")
-}
-
-// ---------------------------------------------------------------------------
-// Validation + repair
-// ---------------------------------------------------------------------------
-
-fn build_strict_request(
-    llm: &LlmAbacusRequest,
-    cfg: &NlConfig,
-    datasets: &[String],
-    by_name: &HashMap<String, &IpumsVariable>,
-    warnings: &mut Vec<String>,
-) -> Result<ist::AbacusRequest, MdError> {
-    // Confirm every requested variable actually exists in the loaded metadata.
-    let mut unknown = Vec::new();
-    for v in llm.request_variables.iter().chain(llm.subpopulation.iter()) {
-        let name = v.name();
-        if name.is_empty() {
-            return Err(MdError::LlmError(
-                "the model produced a request variable with no mnemonic".to_string(),
-            ));
-        }
-        if !by_name.contains_key(&name) {
-            unknown.push(name);
-        }
-    }
-    if !unknown.is_empty() {
-        unknown.sort();
-        unknown.dedup();
-        return Err(MdError::MetadataError(format!(
-            "the model referenced variable(s) not present in dataset(s) {}: {}",
-            datasets.join(", "),
-            unknown.join(", ")
-        )));
-    }
-
-    // Tabulation variables honor the --detailed override; subpopulation filters are ALWAYS detailed
-    // (force_detailed = true). Their case-selection codes are detailed value codes, so a stray "G"
-    // from the model must not turn a filter general — that would divide the column by the general
-    // divisor and match the detailed codes against the wrong (collapsed) values.
-    let request_variables = llm
-        .request_variables
-        .iter()
-        .map(|v| build_request_variable(v, by_name, cfg.detailed))
-        .collect::<Result<Vec<_>, _>>()?;
-    let subpopulation = llm
-        .subpopulation
-        .iter()
-        .map(|v| build_request_variable(v, by_name, true))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let mut category_bins = BTreeMap::new();
-    for group in &llm.category_bins {
-        let key = group.variable.trim().to_uppercase();
-        if key.is_empty() {
-            continue;
-        }
-        let mut seen_codes: HashSet<i64> = HashSet::new();
-        let mut converted = Vec::new();
-        for b in &group.bins {
-            // A bin code must be a distinct non-negative integer (it becomes the result code, an
-            // unsigned value). Drop duplicates and negatives rather than letting them collide or wrap.
-            if b.code < 0 {
-                warnings.push(format!(
-                    "{key}: dropped a category bin with a negative code ({}).",
-                    b.code
-                ));
-                continue;
-            }
-            if !seen_codes.insert(b.code) {
-                warnings.push(format!(
-                    "{key}: dropped a category bin with a duplicate code ({}).",
-                    b.code
-                ));
-                continue;
-            }
-            if let Some(bin) = convert_category_bin(b, &key, warnings) {
-                converted.push(bin);
-            }
-        }
-        category_bins.insert(key, converted);
-    }
-
-    let uoa = if llm.uoa.trim().is_empty() {
-        "P".to_string()
-    } else {
-        llm.uoa.trim().to_uppercase()
-    };
-
-    let request_samples = datasets
-        .iter()
-        .map(|name| ist::RequestSample {
-            name: name.clone(),
-            custom_sampling_ratio: None,
-            first_household_sampled: None,
-        })
-        .collect();
-
-    Ok(ist::AbacusRequest {
-        product: cfg.product.clone(),
-        data_root: cfg.data_root.clone(),
-        uoa,
-        output_format: "json".to_string(),
-        subpopulation,
-        category_bins,
-        request_samples,
-        request_variables,
-    })
-}
-
-fn build_request_variable(
-    v: &LlmRequestVariable,
-    by_name: &HashMap<String, &IpumsVariable>,
-    force_detailed: bool,
-) -> Result<ist::RequestVariable, MdError> {
-    let name = v.name();
-    let md = by_name.get(&name).copied();
-
-    // Honor a general selection only for variables that actually have a general form (a general
-    // width narrower than the detailed width). Variables without one carry only detailed
-    // categories, so a "G" request on them quietly becomes detailed. extract_width is unused for a
-    // detailed selection; for a general selection it carries the general width that drives the code
-    // collapsing, so it must be correct.
-    let (selection, extract_width) = if v.is_general() && !force_detailed && has_general_form(md) {
-        let general_width = md
-            .and_then(|m| m.general_width)
-            .expect("has_general_form guarantees a general width");
-        (ist::GeneralDetailedSelection::General, general_width)
-    } else {
-        (ist::GeneralDetailedSelection::Detailed, detailed_width(md))
-    };
-
-    let request_case_selections = v
-        .request_case_selections
-        .iter()
-        .map(convert_case_selection)
-        .collect::<Result<Vec<_>, _>>()?;
-
-    // A subpopulation entry filters when it has selections, even if the model forgot the flag.
-    let case_selection = v.case_selection || !request_case_selections.is_empty();
-
-    Ok(ist::RequestVariable {
-        variable_mnemonic: name.clone(),
-        mnemonic: name,
-        general_detailed_selection: selection,
-        attached_variable_pointer: (),
-        case_selection,
-        request_case_selections,
-        extract_start: 1,
-        extract_width,
-    })
-}
-
-/// The detailed width from metadata, or 1 when unavailable (the value is unused for detailed
-/// selections, so any placeholder is safe).
-fn detailed_width(md: Option<&IpumsVariable>) -> usize {
-    md.and_then(|m| m.formatting).map(|(_, w)| w).unwrap_or(1)
-}
-
-fn convert_case_selection(sel: &LlmCaseSelection) -> Result<ist::RequestCaseSelection, MdError> {
-    let low = value_to_code(sel.low_code.as_ref())?;
-    let high = value_to_code(sel.high_code.as_ref())?;
-    ist::RequestCaseSelection::try_new(low, high)
-}
-
-fn convert_category_bin(
-    bin: &LlmCategoryBin,
-    var: &str,
-    warnings: &mut Vec<String>,
-) -> Option<ist::CategoryBin> {
-    let code = bin.code as u64;
-    let label = bin.value_label.clone();
-    match (bin.low, bin.high) {
-        (Some(low), Some(high)) if high < low => {
-            warnings.push(format!(
-                "{var}: dropped a category bin with low {low} greater than high {high}."
-            ));
-            None
-        }
-        (Some(low), Some(high)) => Some(ist::CategoryBin::Range {
-            low,
-            high,
-            code,
-            label,
-        }),
-        (None, Some(high)) => Some(ist::CategoryBin::LessThan {
-            value: high,
-            code,
-            label,
-        }),
-        (Some(low), None) => Some(ist::CategoryBin::MoreThan {
-            value: low,
-            code,
-            label,
-        }),
-        (None, None) => {
-            warnings.push(format!(
-                "{var}: dropped a category bin with neither a low nor a high bound."
-            ));
-            None
-        }
-    }
-}
-
-/// Convert a JSON value (number, string, or null) into an optional `u64` code.
-fn value_to_code(value: Option<&serde_json::Value>) -> Result<Option<u64>, MdError> {
-    match value {
-        None | Some(serde_json::Value::Null) => Ok(None),
-        Some(serde_json::Value::Number(n)) => n.as_u64().map(Some).ok_or_else(|| {
-            MdError::LlmError(format!(
-                "case selection code {n} is not a non-negative integer"
-            ))
-        }),
-        Some(serde_json::Value::String(s)) if s.trim().is_empty() => Ok(None),
-        Some(serde_json::Value::String(s)) => s.trim().parse::<u64>().map(Some).map_err(|err| {
-            MdError::LlmError(format!(
-                "could not parse case selection code '{s}' as a non-negative integer: {err}"
-            ))
-        }),
-        Some(other) => Err(MdError::LlmError(format!(
-            "unexpected case selection code value: {other}"
-        ))),
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Second pass: refine value codes for filters / bins
@@ -1013,154 +587,8 @@ fn merge_refinements(llm: &mut LlmAbacusRequest, refined: RefineResponse, target
 }
 
 // ---------------------------------------------------------------------------
-// Documentation
-// ---------------------------------------------------------------------------
-
-/// Replace a binned variable's documented categories with its bin labels (code -> "0-9", "10-19",
-/// ...), so the result table and legend describe the bins rather than the raw value codes.
-fn apply_bin_labels(docs: &mut [VariableDoc], llm: &LlmAbacusRequest) {
-    for group in &llm.category_bins {
-        let var = group.variable.trim().to_uppercase();
-        let bins: Vec<(String, String)> = group
-            .bins
-            .iter()
-            .map(|b| (b.code.to_string(), b.value_label.clone()))
-            .collect();
-        if bins.is_empty() {
-            continue;
-        }
-        if let Some(doc) = docs.iter_mut().find(|d| d.name.to_uppercase() == var) {
-            doc.categories = bins;
-            doc.general = false; // bins are explicit groupings, not general categories
-        }
-    }
-}
-
-fn build_variable_docs(
-    names: &[String],
-    by_name: &HashMap<String, &IpumsVariable>,
-    general_names: &HashSet<String>,
-) -> Vec<VariableDoc> {
-    names
-        .iter()
-        .filter_map(|name| by_name.get(name).copied().map(|var| (name, var)))
-        .map(|(name, var)| {
-            let general = general_names.contains(name);
-            // For a general selection the result codes are collapsed groupings, so document the
-            // derived general labels; otherwise document the detailed value labels.
-            let categories = if general {
-                general_categories(var)
-            } else {
-                detailed_categories(var)
-            };
-            VariableDoc {
-                name: var.name.clone(),
-                label: var.label.clone(),
-                record_type: var.record_type.clone(),
-                general,
-                categories,
-            }
-        })
-        .collect()
-}
-
-/// The detailed value labels as (code, label) pairs.
-fn detailed_categories(var: &IpumsVariable) -> Vec<(String, String)> {
-    var.categories
-        .as_ref()
-        .map(|cats| {
-            cats.iter()
-                .map(|c| (ipums_value_code(&c.value), c.label().to_string()))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// The integer divisor that collapses detailed codes into general codes, mirroring
-/// `RequestVariable::try_from` (request.rs): `10^(detailed_width - general_width)`, or 1 when there
-/// is no distinct general width. The tabulation engine emits `detailed_code / divisor`, so the
-/// general result codes are grouped the same way here.
-fn general_divisor(var: &IpumsVariable) -> usize {
-    match (var.formatting, var.general_width) {
-        (Some((_, w)), Some(gw)) if gw < w => 10usize.pow((w - gw) as u32),
-        _ => 1,
-    }
-}
-
-/// Whether a variable actually has a distinct general form. The parquet loader falls back
-/// `general_width = column_width` when the source has no general width, so the presence of a
-/// general width alone is not enough — the general width must be strictly narrower than the
-/// detailed width (equivalently, the divisor collapses codes, `> 1`).
-fn has_general_form(md: Option<&IpumsVariable>) -> bool {
-    md.map(|v| general_divisor(v) > 1).unwrap_or(false)
-}
-
-/// Derive general (collapsed) category labels from the detailed value labels using the "first label
-/// rule": group detailed codes by their general code (`code / divisor`) and take the label of the
-/// smallest detailed code in each group. The parquet metadata lacks the explicit general-category
-/// markers (indentation / grouping) of the source metadata, but the first detailed label in a
-/// grouping is conventionally the general label (e.g. RELATE 301 "Child" labels general code 3).
-/// Returns (general_code, label) pairs sorted by code.
-fn general_categories(var: &IpumsVariable) -> Vec<(String, String)> {
-    let divisor = general_divisor(var) as i64;
-    let cats = match &var.categories {
-        Some(c) => c,
-        None => return Vec::new(),
-    };
-    // general_code -> (smallest detailed code seen so far, its label)
-    // Only integer-coded categories can be collapsed arithmetically; a variable whose categories are
-    // Fixed/String-typed yields no derived general labels (it falls back to bare codes in the output).
-    let mut groups: BTreeMap<i64, (i64, String)> = BTreeMap::new();
-    for c in cats {
-        if let IpumsValue::Integer(v) = c.value {
-            let entry = groups
-                .entry(v / divisor)
-                .or_insert((i64::MAX, String::new()));
-            if v < entry.0 {
-                *entry = (v, c.label().to_string());
-            }
-        }
-    }
-    groups
-        .into_iter()
-        .map(|(general, (_, label))| (general.to_string(), label))
-        .collect()
-}
-
-fn ipums_value_code(value: &IpumsValue) -> String {
-    match value {
-        IpumsValue::Integer(i) => i.to_string(),
-        IpumsValue::Float(s) => s.clone(),
-        IpumsValue::String { value, .. } => String::from_utf8_lossy(value).to_string(),
-        IpumsValue::Fixed { base, .. } => base.to_string(),
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers + rendering
 // ---------------------------------------------------------------------------
-
-/// Group an integer string with thousands separators ("1234567" -> "1,234,567"). Non-integer input
-/// is returned unchanged.
-fn group_thousands(s: &str) -> String {
-    let trimmed = s.trim();
-    let (sign, digits) = match trimmed.strip_prefix('-') {
-        Some(rest) => ("-", rest),
-        None => ("", trimmed),
-    };
-    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
-        return s.to_string();
-    }
-    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
-    let n = digits.len();
-    for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (n - i) % 3 == 0 {
-            grouped.push(',');
-        }
-        grouped.push(ch);
-    }
-    format!("{sign}{grouped}")
-}
 
 /// How many times to ask the model for a JSON reply before giving up.
 const MAX_JSON_ATTEMPTS: usize = 3;
@@ -1225,24 +653,6 @@ fn is_retryable_llm_error(err: &MdError) -> bool {
     .any(|marker| message.contains(marker))
 }
 
-/// Strip a leading ```/```json fence and trailing ``` from a model response, if present.
-pub fn strip_json_fences(s: &str) -> String {
-    let t = s.trim();
-    if let Some(after_open) = t.strip_prefix("```") {
-        let body = match after_open.find('\n') {
-            Some(i) => &after_open[i + 1..],
-            None => "",
-        };
-        let body = match body.rfind("```") {
-            Some(i) => &body[..i],
-            None => body,
-        };
-        body.trim().to_string()
-    } else {
-        t.to_string()
-    }
-}
-
 impl NlResult {
     /// Render the result for display. `format` controls the table; the surrounding explanation is
     /// rendered as Markdown-ish text for `TextTable` and embedded in a JSON object otherwise.
@@ -1293,13 +703,15 @@ impl NlResult {
 
         if let Some(tab) = &self.tabulation {
             out.push_str("\n## Result\n");
-            if let Some(single) = self.render_single_number(tab) {
+            if let Some(single) = abacus_service::render_single_number(tab, &self.variable_docs) {
                 // A one-row result is really a single value; present it as a number, not a table.
                 out.push_str(&single);
             } else {
                 match format {
                     // For the text table, inline value labels next to the raw codes.
-                    TableFormat::TextTable => out.push_str(&self.render_tables_with_labels(tab)?),
+                    TableFormat::TextTable => out.push_str(
+                        &abacus_service::render_tables_with_labels(tab, &self.variable_docs)?,
+                    ),
                     _ => out.push_str(&tab.output(format)?),
                 }
             }
@@ -1328,76 +740,6 @@ impl NlResult {
         }
         out.push_str("Source: IPUMS, University of Minnesota (www.ipums.org).\n");
         out
-    }
-
-    /// If the result is a single value (one table, one row), render it as a number rather than a
-    /// table. Returns `None` otherwise, so the caller renders the full table.
-    fn render_single_number(&self, tab: &Tabulation) -> Option<String> {
-        if tab.0.len() != 1 || tab.0[0].rows.len() != 1 {
-            return None;
-        }
-        let table = &tab.0[0];
-        let row = &table.rows[0];
-        if row.len() < 2 {
-            return None;
-        }
-        let unweighted = group_thousands(&row[0]);
-        let weighted = group_thousands(&row[1]);
-
-        // Describe the single cell using the request-variable columns (with labels where available).
-        let label_maps = self.build_label_maps();
-        let mut parts = Vec::new();
-        for (i, col) in table.heading.iter().enumerate() {
-            if i < 2 {
-                continue; // columns 0,1 are ct and weighted_ct
-            }
-            if let OutputColumn::RequestVar(v) = col {
-                let code = row.get(i).map(String::as_str).unwrap_or("");
-                match label_maps.get(v.name.as_str()).and_then(|m| m.get(code)) {
-                    Some(label) => parts.push(format!("{} = {} ({})", v.name, code, label)),
-                    None => parts.push(format!("{} = {}", v.name, code)),
-                }
-            }
-        }
-        let head = if parts.is_empty() {
-            String::new()
-        } else {
-            format!("{}: ", parts.join(", "))
-        };
-        Some(format!(
-            "{head}weighted estimate **{weighted}** (unweighted sample: {unweighted}).\n"
-        ))
-    }
-
-    /// Build code -> label maps from the documented variables' categories (detailed, or derived
-    /// general labels for general selections — keyed by the codes that appear in the result).
-    fn build_label_maps(&self) -> HashMap<&str, HashMap<&str, &str>> {
-        let mut label_maps: HashMap<&str, HashMap<&str, &str>> = HashMap::new();
-        for doc in &self.variable_docs {
-            if doc.categories.is_empty() {
-                continue;
-            }
-            let map = doc
-                .categories
-                .iter()
-                .map(|(code, label)| (code.as_str(), label.as_str()))
-                .collect();
-            label_maps.insert(doc.name.as_str(), map);
-        }
-        label_maps
-    }
-
-    /// Render every table as text, inserting a `<VAR>_label` column after each detailed coded
-    /// variable column. General columns are left as raw codes (the metadata has no general value
-    /// labels). Raw codes are always kept; the labels are an additional column.
-    fn render_tables_with_labels(&self, tab: &Tabulation) -> Result<String, MdError> {
-        let label_maps = self.build_label_maps();
-        let mut out = String::new();
-        for table in &tab.0 {
-            out.push_str(&format_table_with_labels(table, &label_maps)?);
-            out.push('\n');
-        }
-        Ok(out)
     }
 
     fn render_json(&self) -> Result<String, MdError> {
@@ -1451,113 +793,11 @@ impl NlResult {
     }
 }
 
-/// Render a single result table as text, inserting a left-aligned `<VAR>_label` column after each
-/// coded variable column that has an entry in `label_maps`. Column widths are derived from the
-/// data; numeric/code columns are right-aligned, label columns left-aligned.
-fn format_table_with_labels(
-    table: &Table,
-    label_maps: &HashMap<&str, HashMap<&str, &str>>,
-) -> Result<String, MdError> {
-    // Plan the display columns: for each original column, decide whether a label column follows it.
-    let mut headers: Vec<String> = Vec::new();
-    let mut align_left: Vec<bool> = Vec::new();
-    // For each ORIGINAL column index, the label map to expand it with (if any).
-    let mut label_after: Vec<Option<&HashMap<&str, &str>>> = Vec::new();
-
-    for col in &table.heading {
-        headers.push(col.name());
-        align_left.push(false);
-        let mut lm = None;
-        if let OutputColumn::RequestVar(v) = col {
-            // Both detailed and general columns can be labeled — the map is keyed by whichever
-            // codes (detailed or general) actually appear in this column.
-            if let Some(map) = label_maps.get(v.name.as_str()) {
-                lm = Some(map);
-                headers.push(format!("{}_label", v.name));
-                align_left.push(true);
-            }
-        }
-        label_after.push(lm);
-    }
-
-    // Expand each data row to match, looking up labels for the coded cells.
-    let mut display_rows: Vec<Vec<String>> = Vec::with_capacity(table.rows.len());
-    for row in &table.rows {
-        let mut new_row: Vec<String> = Vec::with_capacity(headers.len());
-        for (i, cell) in row.iter().enumerate() {
-            new_row.push(cell.clone());
-            if let Some(Some(map)) = label_after.get(i) {
-                let label = map.get(cell.as_str()).copied().unwrap_or("");
-                new_row.push(label.to_string());
-            }
-        }
-        display_rows.push(new_row);
-    }
-
-    let ncol = headers.len();
-    let mut widths: Vec<usize> = headers.iter().map(|h| h.len()).collect();
-    for r in &display_rows {
-        for (i, c) in r.iter().enumerate() {
-            if i < ncol && c.len() > widths[i] {
-                widths[i] = c.len();
-            }
-        }
-    }
-
-    let render_cell = |buf: &mut String, value: &str, width: usize, left: bool| {
-        if left {
-            buf.push_str(&format!("| {value:<width$} "));
-        } else {
-            buf.push_str(&format!("| {value:>width$} "));
-        }
-    };
-
-    let mut out = String::new();
-    for (i, h) in headers.iter().enumerate() {
-        render_cell(&mut out, h, widths[i], align_left[i]);
-    }
-    out.push_str("|\n");
-    let total: usize = 1 + 3 * ncol + widths.iter().sum::<usize>();
-    out.push_str(&format!("|{}|\n", "-".repeat(total.saturating_sub(2))));
-    for r in &display_rows {
-        for (i, c) in r.iter().enumerate() {
-            render_cell(&mut out, c, widths[i], align_left[i]);
-        }
-        out.push_str("|\n");
-    }
-    Ok(out)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_strip_json_fences_plain() {
-        assert_eq!(strip_json_fences("{\"a\":1}"), "{\"a\":1}");
-    }
-
-    #[test]
-    fn test_strip_json_fences_with_language_tag() {
-        let fenced = "```json\n{\"a\":1}\n```";
-        assert_eq!(strip_json_fences(fenced), "{\"a\":1}");
-    }
-
-    #[test]
-    fn test_value_to_code_accepts_number_and_string() {
-        assert_eq!(
-            value_to_code(Some(&serde_json::json!(2))).unwrap(),
-            Some(2u64)
-        );
-        assert_eq!(
-            value_to_code(Some(&serde_json::json!("060"))).unwrap(),
-            Some(60u64)
-        );
-        assert_eq!(value_to_code(Some(&serde_json::Value::Null)).unwrap(), None);
-        assert_eq!(value_to_code(None).unwrap(), None);
-    }
-
-    use crate::ipums_metadata_model::{IpumsDataType, UniversalCategoryType};
+    use crate::abacus_service::CaseSelection as LlmCaseSelection;
+    use crate::ipums_metadata_model::{IpumsCategory, IpumsDataType, IpumsValue, UniversalCategoryType};
 
     fn var_with_n_categories(name: &str, n: usize) -> IpumsVariable {
         let cats = (0..n)
@@ -1583,16 +823,6 @@ mod tests {
         }
     }
 
-    fn general_request(name: &str) -> LlmRequestVariable {
-        LlmRequestVariable {
-            variable_mnemonic: name.to_string(),
-            mnemonic: String::new(),
-            general_detailed_selection: "G".to_string(),
-            case_selection: false,
-            request_case_selections: vec![],
-        }
-    }
-
     fn filter_var(name: &str, low: &str, high: &str) -> LlmRequestVariable {
         LlmRequestVariable {
             variable_mnemonic: name.to_string(),
@@ -1604,72 +834,6 @@ mod tests {
                 high_code: Some(serde_json::json!(high)),
             }],
         }
-    }
-
-    #[test]
-    fn test_general_categories_first_label_rule() {
-        // RELATE-like: detailed width 4, general width 2 -> divisor 100. General code = code/100,
-        // labeled by the smallest detailed code in each group.
-        let cats = vec![
-            IpumsCategory::new(
-                "Head/householder",
-                UniversalCategoryType::Value,
-                IpumsValue::Integer(101),
-            ),
-            IpumsCategory::new(
-                "Spouse",
-                UniversalCategoryType::Value,
-                IpumsValue::Integer(201),
-            ),
-            IpumsCategory::new(
-                "2nd/3rd wife",
-                UniversalCategoryType::Value,
-                IpumsValue::Integer(202),
-            ),
-            IpumsCategory::new(
-                "Child",
-                UniversalCategoryType::Value,
-                IpumsValue::Integer(301),
-            ),
-            IpumsCategory::new(
-                "Adopted child",
-                UniversalCategoryType::Value,
-                IpumsValue::Integer(302),
-            ),
-        ];
-        let var = IpumsVariable {
-            name: "RELATE".to_string(),
-            data_type: Some(IpumsDataType::Integer),
-            label: Some("Relationship to household head".to_string()),
-            record_type: "P".to_string(),
-            categories: Some(cats),
-            formatting: Some((1, 4)),
-            general_width: Some(2),
-            description: None,
-            category_bins: None,
-            id: 0,
-        };
-
-        assert_eq!(general_divisor(&var), 100);
-        let general = general_categories(&var);
-        assert_eq!(
-            general,
-            vec![
-                ("1".to_string(), "Head/householder".to_string()),
-                ("2".to_string(), "Spouse".to_string()),
-                ("3".to_string(), "Child".to_string()),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_general_divisor_no_distinct_general_width() {
-        let mut var = var_with_n_categories("X", 3);
-        var.formatting = Some((1, 3));
-        var.general_width = Some(3); // same as detailed -> divisor 1
-        assert_eq!(general_divisor(&var), 1);
-        var.general_width = None;
-        assert_eq!(general_divisor(&var), 1);
     }
 
     #[test]
@@ -1692,122 +856,10 @@ mod tests {
     fn test_cache_display_name_is_stable_and_distinct() {
         let a = cache_display_name("gemini-3.5-flash", "sys", "catalog");
         let b = cache_display_name("gemini-3.5-flash", "sys", "catalog");
-        assert_eq!(
-            a, b,
-            "same inputs must give the same cache key (across runs)"
-        );
+        assert_eq!(a, b, "same inputs must give the same cache key (across runs)");
         assert_ne!(a, cache_display_name("gemini-3.5-flash", "sys", "catalog2"));
         assert_ne!(a, cache_display_name("other-model", "sys", "catalog"));
         assert!(a.starts_with("cimdea-"));
-    }
-
-    #[test]
-    fn test_parse_year() {
-        assert_eq!(parse_year("us1900m"), Some(1900));
-        assert_eq!(parse_year("us2019b"), Some(2019));
-        assert_eq!(parse_year("original_us2015a"), Some(2015));
-        assert_eq!(parse_year("cps2020"), Some(2020));
-        assert_eq!(parse_year("nodigits"), None);
-    }
-
-    #[test]
-    fn test_group_thousands() {
-        assert_eq!(group_thousands("1234567"), "1,234,567");
-        assert_eq!(group_thousands("100"), "100");
-        assert_eq!(group_thousands("1000"), "1,000");
-        assert_eq!(group_thousands("0"), "0");
-        assert_eq!(group_thousands("-12345"), "-12,345");
-        assert_eq!(group_thousands("not-a-number"), "not-a-number");
-    }
-
-    #[test]
-    fn test_catalog_marks_only_general_variables() {
-        let mut edu = var_with_n_categories("EDUC", 5);
-        edu.formatting = Some((1, 3));
-        edu.general_width = Some(2); // has a general form
-        let mut sex = var_with_n_categories("SEX", 2);
-        sex.formatting = Some((1, 1));
-        sex.general_width = Some(1); // no general form (width == general width)
-
-        let catalog = build_catalog(&[edu, sex], 25);
-        let edu_line = catalog.lines().find(|l| l.starts_with("EDUC")).unwrap();
-        let sex_line = catalog.lines().find(|l| l.starts_with("SEX")).unwrap();
-        assert!(
-            edu_line.contains("; general"),
-            "EDUC should be marked general: {edu_line}"
-        );
-        assert!(
-            !sex_line.contains("; general"),
-            "SEX should not be marked general: {sex_line}"
-        );
-    }
-
-    #[test]
-    fn test_catalog_compact_omits_value_labels() {
-        // With the default cap (0) the catalog lists a count, not the actual codes/labels — this is
-        // the trim: the refine pass resolves codes for the chosen variables instead.
-        let marst = var_with_n_categories("MARST", 6);
-        let catalog = build_catalog(std::slice::from_ref(&marst), 0);
-        let line = catalog.lines().find(|l| l.starts_with("MARST")).unwrap();
-        assert!(
-            line.contains("value labels"),
-            "should show a count hint: {line}"
-        );
-        assert!(
-            !line.contains("label 0"),
-            "should NOT inline the actual labels: {line}"
-        );
-    }
-
-    #[test]
-    fn test_force_detailed_overrides_general_selection() {
-        // EDUC with a distinct general width: "G" would normally collapse to general categories.
-        let mut var = var_with_n_categories("EDUC", 40);
-        var.formatting = Some((1, 3));
-        var.general_width = Some(2);
-        let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
-        by_name.insert("EDUC".to_string(), &var);
-
-        let g = general_request("EDUC");
-
-        let general = build_request_variable(&g, &by_name, false).unwrap();
-        assert!(
-            matches!(
-                general.general_detailed_selection,
-                ist::GeneralDetailedSelection::General
-            ),
-            "without the override, a 'G' request should stay general"
-        );
-
-        let detailed = build_request_variable(&g, &by_name, true).unwrap();
-        assert!(
-            matches!(
-                detailed.general_detailed_selection,
-                ist::GeneralDetailedSelection::Detailed
-            ),
-            "--detailed should force the tabulation variable to detailed"
-        );
-    }
-
-    #[test]
-    fn test_general_request_downgrades_without_general_form() {
-        // MARST-like: general_width equals the detailed width, so it has no real general form.
-        let mut var = var_with_n_categories("MARST", 6);
-        var.formatting = Some((1, 1));
-        var.general_width = Some(1);
-        assert!(!has_general_form(Some(&var)));
-        let mut by_name: HashMap<String, &IpumsVariable> = HashMap::new();
-        by_name.insert("MARST".to_string(), &var);
-
-        // Even though the model asked for "G", it must come back detailed.
-        let rv = build_request_variable(&general_request("MARST"), &by_name, false).unwrap();
-        assert!(
-            matches!(
-                rv.general_detailed_selection,
-                ist::GeneralDetailedSelection::Detailed
-            ),
-            "a 'G' request on a variable with no general form should become detailed"
-        );
     }
 
     #[test]

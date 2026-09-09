@@ -108,10 +108,15 @@ Wiring:
   marked variables (and only when detail isn't asked for / needed); (3) `build_request_variable`
   (`has_general_form`) is the safety net — a `"G"` request on a variable with no general form quietly
   becomes detailed, so the model can't produce a bogus general selection. Subpopulation **filters**
-  stay detailed (their schema has no general/detailed field and defaults to detailed codes — that's
-  where precise selection matters). The CLI `--detailed` flag forces detailed for every tabulation
-  variable deterministically (overriding the model), the equivalent of the website checkbox
-  (`NlConfig.detailed`).
+  always *execute* against detailed codes (the codes stored in the data — that's where precise
+  selection matters), but a filter may be *expressed* in general codes: a filter marked `"G"` has
+  each general code `g` expanded to the detailed range it covers (`[g*divisor, g*divisor +
+  divisor - 1]`, e.g. RACE `2` → `200–299`), and as a safety net `build_filter_variable` performs
+  the same expansion (with a warning) when a filter's codes can *only* be general codes — they
+  match none of the variable's detailed category codes but all match general ones. Without this a
+  general-code filter like RACE=2 would silently match nothing. The CLI `--detailed` flag forces
+  detailed for every tabulation variable deterministically (overriding the model), the equivalent
+  of the website checkbox (`NlConfig.detailed`).
 - **Mechanical fields are filled from metadata, not the model**: `extract_start` (irrelevant to
   tabulation — only matters for fixed-width extract output), `mnemonic`, and especially
   `extract_width`. For a `"G"` selection, `try_from_json` feeds `extract_width` into the variable's

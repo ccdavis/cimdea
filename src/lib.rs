@@ -40,17 +40,20 @@
 //! variables, subpopulations, or category bins, please see
 //! [AbacusRequest](request::AbacusRequest), which also implements `DataRequest`.
 
+pub mod abacus_service;
 pub mod app_config;
 pub mod conventions;
 pub mod data_version;
 pub mod defaults;
 pub mod deployment;
 pub mod fixed_width;
+pub mod http_api;
 pub mod input_schema_tabulation;
 pub mod ipums_data_model;
 pub mod ipums_metadata_model;
 pub mod layout;
 pub mod llm;
+pub mod mcp;
 pub mod mderror;
 pub mod nl_tabulation;
 pub mod parquet_metadata;
